@@ -77,7 +77,7 @@ func New(config Config, l *slog.Logger) *Server {
 	}
 */
 func (s Server) AuthHandler(w http.ResponseWriter, r *http.Request) {
-	s.logRequest(r)
+	s.logRequest(r, "AuthHandler")
 
 	c, err := s.GetCookie(r)
 	if err != nil {
@@ -126,7 +126,7 @@ func (s Server) authRedirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, s.oauthHandler.Config.AuthCodeURL(encodedState), http.StatusTemporaryRedirect)
 }
 func (s Server) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	s.logRequest(r)
+	s.logRequest(r, "AuthCallbackHandler")
 
 	// TODO: verify hmac to ensure it came from us
 	oauthState, err := GetOAuthState(r)
@@ -162,14 +162,14 @@ func (s Server) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Server) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	s.logRequest(r)
+	s.logRequest(r, "LogoutHandler")
 
 	s.SaveCookie(w, SessionCookie{})
 	http.Error(w, "You have been logged out", http.StatusUnauthorized)
 	s.logger.Info("user has been logged out")
 }
 
-func (s Server) logRequest(r *http.Request) {
+func (s Server) logRequest(r *http.Request, handler string) {
 	if !s.logger.Handler().Enabled(r.Context(), slog.LevelDebug) {
 		return
 	}
@@ -182,12 +182,13 @@ func (s Server) logRequest(r *http.Request) {
 		cookies = append(cookies, slog.String("oauth_state", c.Value))
 	}
 
-	attrs := make([]any, 2, 3)
+	attrs := make([]any, 3, 4)
 	attrs[0] = slog.String("path", r.URL.Path)
 	attrs[1] = slog.String("method", r.Method)
+	attrs[2] = slog.String("host", r.RemoteAddr)
 	if len(cookies) > 0 {
 		attrs = append(attrs, slog.Group("cookies", cookies...))
 	}
 
-	s.logger.Debug("request received", slog.Group("request", attrs...))
+	s.logger.Debug("request received", "handler", handler, slog.Group("request", attrs...))
 }
