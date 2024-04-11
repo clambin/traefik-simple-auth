@@ -48,12 +48,12 @@ func TestServer_AuthHandler(t *testing.T) {
 			user: "foo@example.com",
 		},
 		{
-			name: "expired cookie",
+			name: "invalid cookie",
 			args: args{
 				host:   "example.com",
 				cookie: SessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(-time.Hour)},
 			},
-			want: http.StatusUnauthorized,
+			want: http.StatusTemporaryRedirect,
 		},
 		{
 			name: "invalid user",
@@ -98,6 +98,8 @@ func TestServer_AuthHandler(t *testing.T) {
 			r := makeHTTPRequest(http.MethodGet, tt.args.host, "/foo")
 			w := httptest.NewRecorder()
 			if tt.args.cookie.Email != "" {
+				// Generate a new cookie.
+				// SaveCookie works in ResponseWriters, so save it there and then copy it to the request
 				p.SaveCookie(w, tt.args.cookie)
 				for _, c := range w.Header()["Set-Cookie"] {
 					r.Header.Add("Cookie", c)

@@ -87,7 +87,7 @@ func (s Server) AuthHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.logger.Warn("invalid cookie", "err", err)
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		s.authRedirect(w, r)
 		return
 	}
 	if !s.config.Users.Contains(c.Email) {
