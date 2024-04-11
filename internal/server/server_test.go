@@ -236,7 +236,8 @@ func TestServer_LogoutHandler(t *testing.T) {
 	if w.Body.String() != "You have been logged out\n" {
 		t.Errorf("got %q, want %q", w.Body.String(), "You have been logged out\n")
 	}
-	if w.Header().Get("Location") != "" {
+	if w.Header().Get("Location") == "" {
+		t.Errorf("Location missing")
 	}
 }
 
