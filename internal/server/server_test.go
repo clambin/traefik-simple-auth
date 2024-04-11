@@ -229,7 +229,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 	var config Config
 	s := New(config, slog.Default())
 
-	r, _ := http.NewRequest(http.MethodGet, oauthPath+"/logout", nil)
+	r, _ := http.NewRequest(http.MethodGet, oauthPath+"logout", nil)
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != http.StatusUnauthorized {

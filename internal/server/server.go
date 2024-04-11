@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const oauthPath = "/_oauth"
+const oauthPath = "/_oauth/"
 
 type Server struct {
 	http.Handler
@@ -53,7 +53,7 @@ func New(config Config, l *slog.Logger) *Server {
 	}
 	m := http.NewServeMux()
 	m.HandleFunc(oauthPath, s.AuthCallbackHandler)
-	m.HandleFunc(oauthPath+"/logout", s.LogoutHandler)
+	m.HandleFunc(oauthPath+"logout", s.LogoutHandler)
 	m.HandleFunc("/", s.AuthHandler)
 	s.Handler = m
 
@@ -83,10 +83,9 @@ func (s Server) AuthHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
 			s.logger.Warn("no cookie found, redirecting ...")
-			s.authRedirect(w, r)
-			return
+		} else {
+			s.logger.Warn("invalid cookie. redirecting ...", "err", err)
 		}
-		s.logger.Warn("invalid cookie", "err", err)
 		s.authRedirect(w, r)
 		return
 	}
@@ -111,7 +110,12 @@ func isValidSubdomain(domain, subdomain string) bool {
 }
 
 func (s Server) authRedirect(w http.ResponseWriter, r *http.Request) {
-	redirectURL := r.Header.Get("X-Forwarded-Proto") + "://" + r.Header.Get("X-Forwarded-Host") + r.Header.Get("X-Forwarded-Uri")
+	proto := r.Header.Get("X-Forwarded-Proto")
+	if proto == "" {
+		// TODO: why is this sometimes not set?
+		proto = "https"
+	}
+	redirectURL := proto + "://" + r.Header.Get("X-Forwarded-Host") + r.Header.Get("X-Forwarded-Uri")
 
 	state, err := makeOAuthState(redirectURL)
 	if err != nil {
@@ -123,7 +127,10 @@ func (s Server) authRedirect(w http.ResponseWriter, r *http.Request) {
 
 	cookie := http.Cookie{Name: oauthStateCookieName, Value: encodedState, Expires: time.Now().Add(time.Hour)}
 	http.SetCookie(w, &cookie)
-	http.Redirect(w, r, s.oauthHandler.Config.AuthCodeURL(encodedState), http.StatusTemporaryRedirect)
+	authCodeURL := s.oauthHandler.Config.AuthCodeURL(encodedState)
+
+	s.logger.Debug("Redirecting", "url", authCodeURL, "cookie", cookie)
+	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 func (s Server) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	s.logRequest(r, "AuthCallbackHandler")
