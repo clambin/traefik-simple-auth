@@ -1,9 +1,7 @@
 package server
 
 import (
-	"bytes"
 	"github.com/clambin/go-common/set"
-	"github.com/clambin/go-common/testutils"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -273,23 +271,6 @@ func TestServer_LogoutHandler(t *testing.T) {
 	}
 	if w.Body.String() != "You have been logged out\n" {
 		t.Errorf("got %q, want %q", w.Body.String(), "You have been logged out\n")
-	}
-}
-
-func TestServer_logRequest(t *testing.T) {
-	r, _ := http.NewRequest(http.MethodGet, "https://example.com/example?foo=bar", nil)
-	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "foo"})
-	r.AddCookie(&http.Cookie{Name: oauthStateCookieName, Value: "bar"})
-	r.RemoteAddr = "127.0.0.1"
-	var out bytes.Buffer
-	l := testutils.NewJSONLogger(&out, slog.LevelDebug)
-	s := Server{logger: l}
-
-	s.logRequest(r, "handler")
-	want := `{"level":"DEBUG","msg":"request received","handler":"handler","request":{"path":"/example","method":"GET","host":"127.0.0.1","cookies":{"oauth":"foo","oauth_state":"bar"}}}
-`
-	if got := out.String(); got != want {
-		t.Errorf("got %q, want %q", got, want)
 	}
 }
 
