@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -169,7 +170,6 @@ func Test_isSubdomain(t *testing.T) {
 
 func TestServer_authRedirect(t *testing.T) {
 	config := Config{
-		//Secret:       []byte("secret"),
 		AuthHost:     "auth.example.com",
 		ClientID:     "1234",
 		ClientSecret: "secret",
@@ -187,6 +187,17 @@ func TestServer_authRedirect(t *testing.T) {
 	got := w.Header().Get("Location")
 	if got == "" {
 		t.Error("Location missing")
+	}
+	{
+		u, err := url.Parse(got)
+		if err != nil {
+			t.Fatal(err)
+		}
+		uri, err := url.QueryUnescape(u.Query().Get("redirect_uri"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(uri)
 	}
 	gotURL, err := url.Parse(got)
 	if err != nil {
@@ -222,7 +233,32 @@ func TestServer_authRedirect(t *testing.T) {
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		wantCode int
+	}{
+		{
+			name:     "valid",
+			path:     "/_oauth?args=foo",
+			wantCode: http.StatusInternalServerError,
+		},
+	}
 
+	l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	s := New(Config{}, l)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			req, _ := http.NewRequest(http.MethodGet, "https://example.com"+tt.path, nil)
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, req)
+			if w.Code != tt.wantCode {
+				t.Errorf("got %d, want %d", w.Code, tt.wantCode)
+			}
+		})
+	}
 }
 
 func TestServer_LogoutHandler(t *testing.T) {

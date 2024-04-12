@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"flag"
+	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/go-common/set"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"log/slog"
@@ -36,7 +37,9 @@ func main() {
 	l := slog.New(slog.NewJSONHandler(os.Stderr, &opts))
 
 	s := server.New(getConfiguration(l), l)
-	if err := http.ListenAndServe(*addr, s); !errors.Is(err, http.ErrServerClosed) {
+	mw := middleware.RequestLogger(l, slog.LevelDebug, middleware.DefaultRequestLogFormatter)
+
+	if err := http.ListenAndServe(*addr, mw(s)); !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
 }

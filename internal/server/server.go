@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const oauthPath = "/_oauth/"
+const oauthPath = "/_oauth"
 
 type Server struct {
 	http.Handler
