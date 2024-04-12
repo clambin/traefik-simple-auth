@@ -162,24 +162,6 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-var _ slog.LogValuer = &loggedRequest{}
-
-type loggedRequest struct{ r *http.Request }
-
-func (r *loggedRequest) LogValue() slog.Value {
-	var cookies []string
-	for _, c := range r.r.Cookies() {
-		if c.Name == oauthStateCookieName || c.Name == sessionCookieName {
-			cookies = append(cookies, c.Name)
-		}
-	}
-	return slog.GroupValue(
-		slog.String("http", r.r.URL.String()),
-		slog.String("traefik", getOriginalTarget(r.r)),
-		slog.String("cookies", strings.Join(cookies, ", ")),
-	)
-}
-
 func getOriginalTarget(r *http.Request) string {
 	proto := r.Header.Get("X-Forwarded-Proto")
 	if proto == "" {
@@ -192,4 +174,22 @@ func getOriginalTarget(r *http.Request) string {
 
 func isValidSubdomain(domain, subdomain string) bool {
 	return len(subdomain) >= len(domain) && subdomain[len(subdomain)-len(domain):] == domain
+}
+
+var _ slog.LogValuer = loggedRequest{}
+
+type loggedRequest struct{ r *http.Request }
+
+func (r loggedRequest) LogValue() slog.Value {
+	var cookies []string
+	for _, c := range r.r.Cookies() {
+		if c.Name == oauthStateCookieName || c.Name == sessionCookieName {
+			cookies = append(cookies, c.Name)
+		}
+	}
+	return slog.GroupValue(
+		slog.String("http", r.r.URL.String()),
+		slog.String("traefik", getOriginalTarget(r.r)),
+		slog.String("cookies", strings.Join(cookies, ", ")),
+	)
 }
