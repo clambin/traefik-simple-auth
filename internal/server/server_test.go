@@ -15,16 +15,6 @@ import (
 )
 
 func TestServer_AuthHandler(t *testing.T) {
-	config := Config{
-		Domain:   "example.com",
-		Secret:   []byte("secret"),
-		Expiry:   time.Hour,
-		Users:    set.New("foo@example.com"),
-		AuthHost: "https://auth.example.com",
-	}
-	p := SessionCookieHandler{Secret: config.Secret}
-
-	s := New(config, slog.Default())
 	type args struct {
 		host   string
 		cookie SessionCookie
@@ -92,6 +82,16 @@ func TestServer_AuthHandler(t *testing.T) {
 			want: http.StatusUnauthorized,
 		},
 	}
+
+	config := Config{
+		Domain:   "example.com",
+		Secret:   []byte("secret"),
+		Expiry:   time.Hour,
+		Users:    set.New("foo@example.com"),
+		AuthHost: "https://auth.example.com",
+	}
+	s := New(config, slog.Default())
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
@@ -101,6 +101,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			if tt.args.cookie.Email != "" {
 				// Generate a new cookie.
 				// SaveCookie works in ResponseWriters, so save it there and then copy it to the request
+				p := SessionCookieHandler{Secret: config.Secret}
 				p.SaveCookie(w, tt.args.cookie)
 				for _, c := range w.Header()["Set-Cookie"] {
 					r.Header.Add("Cookie", c)
@@ -232,40 +233,11 @@ func TestServer_authRedirect(t *testing.T) {
 	}
 }
 
-func TestServer_AuthCallbackHandler(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		wantCode int
-	}{
-		{
-			name:     "valid",
-			path:     "/_oauth?args=foo",
-			wantCode: http.StatusInternalServerError,
-		},
-	}
-
-	l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	s := New(Config{}, l)
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			req, _ := http.NewRequest(http.MethodGet, "https://example.com"+tt.path, nil)
-			w := httptest.NewRecorder()
-			s.ServeHTTP(w, req)
-			if w.Code != tt.wantCode {
-				t.Errorf("got %d, want %d", w.Code, tt.wantCode)
-			}
-		})
-	}
-}
-
 func TestServer_LogoutHandler(t *testing.T) {
 	var config Config
-	s := New(config, slog.Default())
+	s := New(config, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
-	r, _ := http.NewRequest(http.MethodGet, oauthPath+"logout", nil)
+	r := makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != http.StatusUnauthorized {
@@ -276,6 +248,33 @@ func TestServer_LogoutHandler(t *testing.T) {
 	}
 }
 
+func TestServer_AuthCallbackHandler(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		wantCode int
+	}{
+		{
+			name:     "valid",
+			path:     oauthPath + "?args=foo",
+			wantCode: http.StatusBadRequest,
+		},
+	}
+
+	s := New(Config{}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			r := makeHTTPRequest(http.MethodGet, "example.com", tt.path)
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, r)
+			if w.Code != tt.wantCode {
+				t.Errorf("got %d, want %d", w.Code, tt.wantCode)
+			}
+		})
+	}
+}
 func Test_loggedRequest(t *testing.T) {
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo/bar")
 	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "foo"})
@@ -285,7 +284,7 @@ func Test_loggedRequest(t *testing.T) {
 	l := testutils.NewJSONLogger(&out, slog.LevelInfo)
 	l.Info("request", "r", loggedRequest{r: r})
 
-	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/auth","traefik":"https://example.com/foo/bar","cookies":"_simple_auth, oauthstate"}}
+	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth, oauthstate"}}
 `
 	if got := out.String(); got != want {
 		t.Errorf("got %q, want %q string", got, want)
@@ -293,7 +292,7 @@ func Test_loggedRequest(t *testing.T) {
 }
 
 func makeHTTPRequest(method, host, uri string) *http.Request {
-	req, _ := http.NewRequest(http.MethodPut, "https://traefik/auth", nil)
+	req, _ := http.NewRequest(http.MethodPut, "https://traefik/", nil)
 	req.Header.Set("X-Forwarded-Method", method)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.Header.Set("X-Forwarded-Host", host)

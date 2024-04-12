@@ -52,10 +52,10 @@ func New(config Config, l *slog.Logger) http.Handler {
 
 	h := http.NewServeMux()
 	h.Handle(oauthPath, s.AuthCallbackHandler(l))
-	h.HandleFunc(oauthPath+"logout", s.LogoutHandler(l))
+	h.HandleFunc(oauthPath+"/logout", s.LogoutHandler(l))
 	h.HandleFunc("/", s.AuthHandler(l))
 
-	return h
+	return traefikParser()(h)
 }
 
 func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
@@ -79,7 +79,7 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
-		if host := r.Header.Get("X-Forwarded-Host"); !isValidSubdomain(s.config.Domain, host) {
+		if host := r.Host; !isValidSubdomain(s.config.Domain, host) {
 			l.Warn("invalid host", "host", host, "domain", s.config.Domain)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
@@ -92,9 +92,7 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 }
 
 func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
-	redirectURL := getOriginalTarget(r)
-
-	state, err := makeOAuthState(redirectURL)
+	state, err := makeOAuthState(r.URL.String())
 	if err != nil {
 		l.Warn("could not generate state", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -129,16 +127,16 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// TODO: verify hmac to ensure it came from us
-		oauthState, err := getOAuthState(r)
+		state, err := getOAuthState(r)
 		if err != nil {
 			l.Warn("could not get oauth state", "err", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			http.Error(w, "Internal server error", http.StatusBadRequest)
 			return
 		}
 
-		if r.FormValue("state") != oauthState.encode() {
+		if r.FormValue("state") != state.encode() {
 			l.Error("invalid oauth google state", "state", r.FormValue("state"))
-			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+			http.Error(w, "Invalid oauth state", http.StatusBadRequest)
 			return
 		}
 
@@ -156,20 +154,10 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			Domain: s.config.Domain,
 		})
 
-		var redirectURL string
+		redirectURL := state.RedirectURL
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 	}
-}
-
-func getOriginalTarget(r *http.Request) string {
-	proto := r.Header.Get("X-Forwarded-Proto")
-	if proto == "" {
-		// TODO: why is this sometimes not set?
-		proto = "https"
-	}
-	redirectURL := proto + "://" + r.Header.Get("X-Forwarded-Host") + r.Header.Get("X-Forwarded-Uri")
-	return redirectURL
 }
 
 func isValidSubdomain(domain, subdomain string) bool {
