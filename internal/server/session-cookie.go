@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const sessionCookieName = "_forward_auth"
+const sessionCookieName = "_simple_auth"
 
 var (
 	errCookieExpired      = errors.New("expired cookie")

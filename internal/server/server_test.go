@@ -191,11 +191,11 @@ func TestServer_authRedirect(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		uri, err := url.QueryUnescape(u.Query().Get("redirect_uri"))
+		_, err = url.QueryUnescape(u.Query().Get("redirect_uri"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Log(uri)
+		//t.Log(uri)
 	}
 	gotURL, err := url.Parse(got)
 	if err != nil {
