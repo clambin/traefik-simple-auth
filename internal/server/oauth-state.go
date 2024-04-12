@@ -11,35 +11,35 @@ import (
 const oauthStateCookieName = "oauthstate"
 const nonceSize = 32
 
-type OAuthState struct {
+type oauthState struct {
 	Nonce       []byte
 	RedirectURL string
 }
 
-func makeOAuthState(redirectURL string) (OAuthState, error) {
-	oauthState := OAuthState{
+func makeOAuthState(redirectURL string) (oauthState, error) {
+	state := oauthState{
 		Nonce:       make([]byte, nonceSize),
 		RedirectURL: redirectURL,
 	}
-	_, err := rand.Read(oauthState.Nonce)
-	return oauthState, err
+	_, err := rand.Read(state.Nonce)
+	return state, err
 }
 
-func GetOAuthState(r *http.Request) (OAuthState, error) {
+func getOAuthState(r *http.Request) (oauthState, error) {
 	state := r.URL.Query().Get(oauthStateCookieName)
-	if len(state) < nonceSize {
-		return OAuthState{}, errors.New("invalid state parameter")
+	if len(state) < nonceSize+1 {
+		return oauthState{}, errors.New("invalid state parameter")
 	}
-	nonce, err := hex.DecodeString(state[:32])
+	nonce, err := hex.DecodeString(state[:nonceSize])
 	if err != nil {
-		return OAuthState{}, fmt.Errorf("invalid nonce parameter: %v", err)
+		return oauthState{}, fmt.Errorf("invalid nonce parameter: %v", err)
 	}
-	return OAuthState{
+	return oauthState{
 		Nonce:       nonce,
-		RedirectURL: state[33:],
+		RedirectURL: state[nonceSize+1:],
 	}, nil
 }
 
-func (s OAuthState) Encode() string {
+func (s oauthState) encode() string {
 	return hex.EncodeToString(s.Nonce) + s.RedirectURL
 }

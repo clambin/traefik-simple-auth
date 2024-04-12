@@ -100,13 +100,13 @@ func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Log
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	encodedState := state.Encode()
+	encodedState := state.encode()
 
 	cookie := http.Cookie{Name: oauthStateCookieName, Value: encodedState, Expires: time.Now().Add(time.Hour)}
 	http.SetCookie(w, &cookie)
 	authCodeURL := s.oauthHandler.Config.AuthCodeURL(encodedState)
 
-	l.Debug("Redirecting", authCodeURL, "cookie", oauthStateCookieName)
+	l.Debug("Redirecting", "cookie", oauthStateCookieName)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
@@ -129,14 +129,14 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// TODO: verify hmac to ensure it came from us
-		oauthState, err := GetOAuthState(r)
+		oauthState, err := getOAuthState(r)
 		if err != nil {
 			l.Warn("could not get oauth state", "err", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
-		if r.FormValue("state") != oauthState.Encode() {
+		if r.FormValue("state") != oauthState.encode() {
 			l.Error("invalid oauth google state", "state", r.FormValue("state"))
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 			return
