@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"github.com/clambin/go-common/cache"
@@ -11,23 +10,21 @@ import (
 	"golang.org/x/oauth2/google"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 )
 
 const oauthPath = "/_oauth"
-const nonceSize = 32
 
 type Server struct {
 	OAuthHandler
-	SessionCookieHandler
-	cache  *cache.Cache[string, string]
+	sessionCookieHandler
+	stateHandler
 	config Config
 }
 
 type OAuthHandler interface {
-	Login(code string) (string, error)
 	AuthCodeURL(state string) string
+	Login(code string) (string, error)
 }
 
 type Config struct {
@@ -44,8 +41,6 @@ type Config struct {
 func New(config Config, l *slog.Logger) http.Handler {
 	s := Server{
 		config: config,
-		cache:  cache.New[string, string](5*time.Minute, time.Hour),
-
 		OAuthHandler: oauth.Handler{
 			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
@@ -56,9 +51,12 @@ func New(config Config, l *slog.Logger) http.Handler {
 				Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			},
 		},
-		SessionCookieHandler: SessionCookieHandler{
+		sessionCookieHandler: sessionCookieHandler{
 			SecureCookie: !config.InsecureCookie,
 			Secret:       config.Secret,
+		},
+		stateHandler: stateHandler{
+			cache: cache.New[string, string](5*time.Second, 10*time.Minute),
 		},
 	}
 
@@ -105,15 +103,13 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 }
 
 func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
-	key := make([]byte, nonceSize)
-	if _, err := rand.Read(key); err != nil {
-		l.Error("error generating random key", "err", err)
+	key, err := s.stateHandler.Add(r.URL.String())
+	if err != nil {
+		l.Error("error adding to state cache", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
-	encodedKey := hex.EncodeToString(key)
-	s.cache.Add(encodedKey, r.URL.String())
 
-	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedKey)
+	authCodeURL := s.OAuthHandler.AuthCodeURL(hex.EncodeToString([]byte(key)))
 	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
@@ -125,7 +121,7 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		key := r.URL.Query().Get("state")
-		redirectURL, ok := s.cache.Get(key)
+		redirectURL, ok := s.stateHandler.Get(key)
 		if !ok {
 			l.Warn("invalid state")
 			http.Error(w, "Invalid state", http.StatusBadRequest)
@@ -140,7 +136,7 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// login successful. add session cookie
-		s.SaveCookie(w, SessionCookie{
+		s.SaveCookie(w, sessionCookie{
 			Email:  user,
 			Expiry: time.Now().Add(s.config.Expiry),
 			Domain: s.config.Domain,
@@ -157,7 +153,7 @@ func (s Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
-		s.SaveCookie(w, SessionCookie{})
+		s.SaveCookie(w, sessionCookie{})
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		l.Info("user has been logged out")
 	}
@@ -165,23 +161,4 @@ func (s Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
 
 func isValidSubdomain(domain, subdomain string) bool {
 	return len(subdomain) >= len(domain) && subdomain[len(subdomain)-len(domain):] == domain
-}
-
-var _ slog.LogValuer = loggedRequest{}
-
-type loggedRequest struct{ r *http.Request }
-
-func (r loggedRequest) LogValue() slog.Value {
-	cookies := make([]string, 0, 1)
-	for _, c := range r.r.Cookies() {
-		if c.Name == sessionCookieName {
-			cookies = append(cookies, c.Name)
-		}
-	}
-	return slog.GroupValue(
-		slog.String("http", r.r.URL.String()),
-		slog.String("traefik", getOriginalTarget(r.r)),
-		slog.String("cookies", strings.Join(cookies, ",")),
-		slog.String("source", r.r.Header.Get("X-Forwarded-For")),
-	)
 }

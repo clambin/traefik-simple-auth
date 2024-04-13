@@ -19,48 +19,48 @@ var (
 	errCookieInvalidStructure = errors.New("cookie has invalid structure")
 )
 
-type SessionCookie struct {
+type sessionCookie struct {
 	Email  string
 	Expiry time.Time
 	Domain string
 }
 
-type SessionCookieHandler struct {
+type sessionCookieHandler struct {
 	SecureCookie bool
 	Secret       []byte
 }
 
-func (h SessionCookieHandler) GetCookie(r *http.Request) (SessionCookie, error) {
+func (h sessionCookieHandler) GetCookie(r *http.Request) (sessionCookie, error) {
 	c, err := r.Cookie(sessionCookieName)
 	if err != nil || len(c.Value) == 0 {
-		return SessionCookie{}, http.ErrNoCookie
+		return sessionCookie{}, http.ErrNoCookie
 	}
 
 	parts := strings.Split(c.Value, "|")
 	if len(parts) != 3 {
-		return SessionCookie{}, errCookieInvalidStructure
+		return sessionCookie{}, errCookieInvalidStructure
 	}
 
 	calculatedMAC := calculateMAC(h.Secret, parts[0], parts[1])
 	if calculatedMAC != parts[2] {
-		return SessionCookie{}, errCookieInvalidMAC
+		return sessionCookie{}, errCookieInvalidMAC
 	}
 
 	unixTime, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return SessionCookie{}, errCookieInvalidStructure
+		return sessionCookie{}, errCookieInvalidStructure
 	}
 	if time.Now().After(time.Unix(unixTime, 0)) {
-		return SessionCookie{}, errCookieExpired
+		return sessionCookie{}, errCookieExpired
 	}
 
-	return SessionCookie{
+	return sessionCookie{
 		Email:  parts[0],
 		Expiry: time.Unix(unixTime, 0),
 	}, nil
 }
 
-func (h SessionCookieHandler) SaveCookie(w http.ResponseWriter, c SessionCookie) {
+func (h sessionCookieHandler) SaveCookie(w http.ResponseWriter, c sessionCookie) {
 	var value string
 	if c.Email != "" {
 		parts := []string{c.Email, strconv.FormatInt(c.Expiry.Unix(), 10), ""}

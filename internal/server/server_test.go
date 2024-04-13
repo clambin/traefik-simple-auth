@@ -1,9 +1,7 @@
 package server
 
 import (
-	"bytes"
 	"github.com/clambin/go-common/set"
-	"github.com/clambin/go-common/testutils"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +14,7 @@ import (
 func TestServer_AuthHandler(t *testing.T) {
 	type args struct {
 		host   string
-		cookie SessionCookie
+		cookie sessionCookie
 	}
 	tests := []struct {
 		name string
@@ -32,7 +30,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			name: "valid cookie",
 			args: args{
 				host:   "example.com",
-				cookie: SessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)},
+				cookie: sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)},
 			},
 			want: http.StatusOK,
 			user: "foo@example.com",
@@ -41,7 +39,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			name: "invalid cookie",
 			args: args{
 				host:   "example.com",
-				cookie: SessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(-time.Hour)},
+				cookie: sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(-time.Hour)},
 			},
 			want: http.StatusTemporaryRedirect,
 		},
@@ -49,7 +47,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			name: "invalid user",
 			args: args{
 				host:   "example.com",
-				cookie: SessionCookie{Email: "bar@example.com", Expiry: time.Now().Add(time.Hour)},
+				cookie: sessionCookie{Email: "bar@example.com", Expiry: time.Now().Add(time.Hour)},
 			},
 			want: http.StatusUnauthorized,
 		},
@@ -57,7 +55,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			name: "valid subdomain",
 			args: args{
 				host:   "www.example.com",
-				cookie: SessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)},
+				cookie: sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)},
 			},
 			want: http.StatusOK,
 			user: "foo@example.com",
@@ -76,7 +74,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			name: "invalid domain",
 			args: args{
 				host:   "example2.com",
-				cookie: SessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)},
+				cookie: sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)},
 			},
 			want: http.StatusUnauthorized,
 		},
@@ -100,7 +98,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			if tt.args.cookie.Email != "" {
 				// Generate a new cookie.
 				// SaveCookie works in ResponseWriters, so save it there and then copy it to the request
-				p := SessionCookieHandler{Secret: config.Secret}
+				p := sessionCookieHandler{Secret: config.Secret}
 				p.SaveCookie(w, tt.args.cookie)
 				for _, c := range w.Header()["Set-Cookie"] {
 					r.Header.Add("Cookie", c)
@@ -276,21 +274,6 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 				t.Errorf("got %d, want %d", w.Code, tt.wantCode)
 			}
 		})
-	}
-}
-func Test_loggedRequest(t *testing.T) {
-	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo/bar")
-	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "foo"})
-	r.Header.Add("X-Forwarded-For", "127.0.0.1:0")
-
-	var out bytes.Buffer
-	l := testutils.NewJSONLogger(&out, slog.LevelInfo)
-	l.Info("request", "r", loggedRequest{r: r})
-
-	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth","source":"127.0.0.1:0"}}
-`
-	if got := out.String(); got != want {
-		t.Errorf("got %q, want %q string", got, want)
 	}
 }
 

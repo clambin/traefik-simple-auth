@@ -10,13 +10,13 @@ import (
 )
 
 func TestSessionCookieParser_SaveCookie(t *testing.T) {
-	p := SessionCookieHandler{
+	p := sessionCookieHandler{
 		SecureCookie: false,
 		Secret:       []byte("secret"),
 	}
 
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c := SessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour), Domain: ".example.com"}
+		c := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour), Domain: ".example.com"}
 		p.SaveCookie(w, c)
 	}))
 	defer s.Close()
@@ -41,7 +41,7 @@ func TestSessionCookieParser_SaveCookie(t *testing.T) {
 }
 
 func TestSessionCookieParser_GetCookie(t *testing.T) {
-	p := SessionCookieHandler{
+	p := sessionCookieHandler{
 		SecureCookie: false,
 		Secret:       []byte("secret"),
 	}
@@ -59,7 +59,7 @@ func TestSessionCookieParser_GetCookie(t *testing.T) {
 	defer s.Close()
 
 	w := httptest.NewRecorder()
-	p.SaveCookie(w, SessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour), Domain: ".example.com"})
+	p.SaveCookie(w, sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour), Domain: ".example.com"})
 	rawCookie := strings.TrimPrefix(strings.Split(w.Header().Get("Set-Cookie"), ";")[0], sessionCookieName+"=")
 
 	req, _ := http.NewRequest(http.MethodGet, s.URL, nil)
@@ -104,7 +104,7 @@ func TestSessionCookieParser_GetCookie_Validation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := SessionCookieHandler{
+			p := sessionCookieHandler{
 				SecureCookie: true,
 				Secret:       []byte("secret"),
 			}
