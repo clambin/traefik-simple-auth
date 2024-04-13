@@ -283,7 +283,7 @@ func Test_loggedRequest(t *testing.T) {
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo/bar")
 	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "foo"})
 	r.AddCookie(&http.Cookie{Name: oauthStateCookieName, Value: "bar"})
-	r.RemoteAddr = "127.0.0.1:0"
+	r.Header.Add("X-Forwarded-For", "127.0.0.1:0")
 
 	var out bytes.Buffer
 	l := testutils.NewJSONLogger(&out, slog.LevelInfo)
