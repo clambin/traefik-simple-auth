@@ -1,7 +1,10 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"github.com/clambin/go-common/cache"
 	"github.com/clambin/go-common/set"
 	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
 	"golang.org/x/oauth2"
@@ -13,10 +16,12 @@ import (
 )
 
 const oauthPath = "/_oauth"
+const nonceSize = 32
 
 type Server struct {
 	OAuthHandler
 	SessionCookieHandler
+	cache  *cache.Cache[string, string]
 	config Config
 }
 
@@ -39,6 +44,7 @@ type Config struct {
 func New(config Config, l *slog.Logger) http.Handler {
 	s := Server{
 		config: config,
+		cache:  cache.New[string, string](5*time.Minute, time.Hour),
 
 		OAuthHandler: oauth.Handler{
 			HTTPClient: http.DefaultClient,
@@ -99,15 +105,15 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 }
 
 func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
-	state, err := makeOAuthState(r.URL.String())
-	if err != nil {
-		l.Warn("could not generate state", "err", err)
+	key := make([]byte, nonceSize)
+	if _, err := rand.Read(key); err != nil {
+		l.Error("error generating random key", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
 	}
-	encodedState := state.encode()
-	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState)
+	encodedKey := hex.EncodeToString(key)
+	s.cache.Add(encodedKey, r.URL.String())
 
+	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedKey)
 	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
@@ -118,12 +124,11 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
-		// TODO: add mac to state to ensure it came from us
-		// Alternatively: keep track of in-flight authStates and only accept if we sent it (and remove it to avoid replay)
-		state, err := getOAuthState(r)
-		if err != nil {
-			l.Warn("could not get oauth state", "err", err)
-			http.Error(w, "Invalid oauth state", http.StatusBadRequest)
+		key := r.URL.Query().Get("state")
+		redirectURL, ok := s.cache.Get(key)
+		if !ok {
+			l.Warn("invalid state")
+			http.Error(w, "Invalid state", http.StatusBadRequest)
 			return
 		}
 
@@ -141,7 +146,6 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			Domain: s.config.Domain,
 		})
 
-		redirectURL := state.RedirectURL
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 	}
@@ -168,9 +172,9 @@ var _ slog.LogValuer = loggedRequest{}
 type loggedRequest struct{ r *http.Request }
 
 func (r loggedRequest) LogValue() slog.Value {
-	var cookies []string
+	cookies := make([]string, 0, 1)
 	for _, c := range r.r.Cookies() {
-		if c.Name == oauthStateCookieName || c.Name == sessionCookieName {
+		if c.Name == sessionCookieName {
 			cookies = append(cookies, c.Name)
 		}
 	}

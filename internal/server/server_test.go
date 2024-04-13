@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"strings"
 	"testing"
 	"time"
 )
@@ -215,8 +214,8 @@ func TestServer_authRedirect(t *testing.T) {
 		}
 	}
 
-	if state := gotURL.Query().Get(oauthStateCookieName); !strings.HasSuffix(state, "https://example.com/foo") {
-		t.Errorf("redirect is missing/invalid expected parameter %q: got %q, want %q", oauthStateCookieName, state, "https://example.com/foo")
+	if state := gotURL.Query().Get("state"); state == "" {
+		t.Errorf("redirect is missing expected parameter \"state\"")
 	}
 }
 
@@ -253,7 +252,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 		},
 		{
 			name:     "invalid state parameter",
-			path:     oauthPath + "?" + oauthStateCookieName + "=1234",
+			path:     oauthPath + "?" + "state=1234",
 			wantCode: http.StatusBadRequest,
 		},
 		/*
@@ -282,14 +281,13 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 func Test_loggedRequest(t *testing.T) {
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo/bar")
 	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "foo"})
-	r.AddCookie(&http.Cookie{Name: oauthStateCookieName, Value: "bar"})
 	r.Header.Add("X-Forwarded-For", "127.0.0.1:0")
 
 	var out bytes.Buffer
 	l := testutils.NewJSONLogger(&out, slog.LevelInfo)
 	l.Info("request", "r", loggedRequest{r: r})
 
-	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth,state","source":"127.0.0.1:0"}}
+	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth","source":"127.0.0.1:0"}}
 `
 	if got := out.String(); got != want {
 		t.Errorf("got %q, want %q string", got, want)
