@@ -67,7 +67,7 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 		c, err := s.GetCookie(r)
 		if err != nil {
 			if errors.Is(err, http.ErrNoCookie) {
-				l.Warn("no cookie found, redirecting ...")
+				l.Debug("no cookie found, redirecting ...")
 			} else {
 				l.Warn("invalid cookie. redirecting ...", "err", err)
 			}
@@ -75,6 +75,7 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 		if !s.config.Users.Contains(c.Email) {
+			l.Debug("invalid user", "user", c.Email, "valid", s.config.Users.List())
 			l.Warn("invalid user", "user", c.Email)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
@@ -170,5 +171,6 @@ func (r loggedRequest) LogValue() slog.Value {
 		slog.String("http", r.r.URL.String()),
 		slog.String("traefik", getOriginalTarget(r.r)),
 		slog.String("cookies", strings.Join(cookies, ",")),
+		slog.String("user-agent", r.r.Header.Get("User-Agent")),
 	)
 }

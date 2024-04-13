@@ -288,7 +288,7 @@ func Test_loggedRequest(t *testing.T) {
 	l := testutils.NewJSONLogger(&out, slog.LevelInfo)
 	l.Info("request", "r", loggedRequest{r: r})
 
-	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth,state"}}
+	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth,state","user-agent":"unit-test"}}
 `
 	if got := out.String(); got != want {
 		t.Errorf("got %q, want %q string", got, want)
@@ -301,5 +301,6 @@ func makeHTTPRequest(method, host, uri string) *http.Request {
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.Header.Set("X-Forwarded-Host", host)
 	req.Header.Set("X-Forwarded-Uri", uri)
+	req.Header.Set("User-Agent", "unit-test")
 	return req
 }

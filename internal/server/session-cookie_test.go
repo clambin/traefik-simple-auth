@@ -84,7 +84,7 @@ func TestSessionCookieParser_GetCookie_Validation(t *testing.T) {
 		{
 			name:    "invalid cookie",
 			value:   "foo@example.com|1234",
-			wantErr: errCookieInvalidValue,
+			wantErr: errCookieInvalidStructure,
 		},
 		{
 			name:    "invalid mac",
@@ -94,7 +94,7 @@ func TestSessionCookieParser_GetCookie_Validation(t *testing.T) {
 		{
 			name:    "invalid timestamp",
 			value:   "foo@example.com|abcd|2nXfiuQLTAhWCnSRymk2ynqnja6knT7DAlCu9fQsLpw=",
-			wantErr: errCookieInvalidValue,
+			wantErr: errCookieInvalidStructure,
 		},
 		{
 			name:    "expired cookie",

@@ -14,9 +14,9 @@ import (
 const sessionCookieName = "_simple_auth"
 
 var (
-	errCookieExpired      = errors.New("expired cookie")
-	errCookieInvalidMAC   = errors.New("invalid MAC in cookie")
-	errCookieInvalidValue = errors.New("invalid value in cookie")
+	errCookieExpired          = errors.New("expired cookie")
+	errCookieInvalidMAC       = errors.New("cookie has invalid MAC")
+	errCookieInvalidStructure = errors.New("cookie has invalid structure")
 )
 
 type SessionCookie struct {
@@ -32,12 +32,13 @@ type SessionCookieHandler struct {
 
 func (h SessionCookieHandler) GetCookie(r *http.Request) (SessionCookie, error) {
 	c, err := r.Cookie(sessionCookieName)
-	if err != nil {
-		return SessionCookie{}, err
+	if err != nil || len(c.Value) == 0 {
+		return SessionCookie{}, http.ErrNoCookie
 	}
+
 	parts := strings.Split(c.Value, "|")
 	if len(parts) != 3 {
-		return SessionCookie{}, errCookieInvalidValue
+		return SessionCookie{}, errCookieInvalidStructure
 	}
 
 	calculatedMAC := calculateMAC(h.Secret, parts[0], parts[1])
@@ -47,7 +48,7 @@ func (h SessionCookieHandler) GetCookie(r *http.Request) (SessionCookie, error) 
 
 	unixTime, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
-		return SessionCookie{}, errCookieInvalidValue
+		return SessionCookie{}, errCookieInvalidStructure
 	}
 	if time.Now().After(time.Unix(unixTime, 0)) {
 		return SessionCookie{}, errCookieExpired
