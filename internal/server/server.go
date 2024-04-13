@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"github.com/clambin/go-common/set"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"log/slog"
@@ -14,9 +15,14 @@ import (
 const oauthPath = "/_oauth"
 
 type Server struct {
-	oauthHandler
+	OAuthHandler
 	SessionCookieHandler
 	config Config
+}
+
+type OAuthHandler interface {
+	Login(code string) (string, error)
+	AuthCodeURL(state string) string
 }
 
 type Config struct {
@@ -34,8 +40,8 @@ func New(config Config, l *slog.Logger) http.Handler {
 	s := Server{
 		config: config,
 
-		oauthHandler: oauthHandler{
-			httpClient: http.DefaultClient,
+		OAuthHandler: oauth.Handler{
+			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
 				ClientID:     config.ClientID,
 				ClientSecret: config.ClientSecret,
@@ -100,7 +106,7 @@ func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Log
 		return
 	}
 	encodedState := state.encode()
-	authCodeURL := s.oauthHandler.Config.AuthCodeURL(encodedState)
+	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState)
 
 	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
@@ -132,7 +138,7 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		user, err := s.oauthHandler.login(r.FormValue("code"))
+		user, err := s.OAuthHandler.Login(r.FormValue("code"))
 		if err != nil {
 			l.Error("failed to log in to google", "err", err)
 			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)

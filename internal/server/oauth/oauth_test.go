@@ -1,4 +1,4 @@
-package server
+package oauth
 
 import (
 	"fmt"
@@ -12,8 +12,8 @@ import (
 
 func Test_oauth_Login(t *testing.T) {
 	s := oauthServer{}
-	o := oauthHandler{
-		httpClient: &http.Client{
+	o := Handler{
+		HTTPClient: &http.Client{
 			Transport: s,
 		},
 		Config: oauth2.Config{
@@ -25,9 +25,9 @@ func Test_oauth_Login(t *testing.T) {
 		},
 	}
 
-	user, err := o.login("abcd1234")
+	user, err := o.Login("abcd1234")
 	if err != nil {
-		t.Fatalf("Error while login: %v", err)
+		t.Fatalf("Error while Login: %v", err)
 	}
 	if user != "foo@example.com" {
 		t.Errorf("Unexpected user: want: %v, got: %v", "foo@example.com", user)

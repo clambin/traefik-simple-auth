@@ -1,4 +1,4 @@
-package server
+package oauth
 
 import (
 	"encoding/json"
@@ -8,12 +8,12 @@ import (
 	"net/url"
 )
 
-type oauthHandler struct {
+type Handler struct {
 	oauth2.Config
-	httpClient *http.Client
+	HTTPClient *http.Client
 }
 
-func (o oauthHandler) login(code string) (string, error) {
+func (o Handler) Login(code string) (string, error) {
 	// Use code to get token and get user info from Google.
 	token, err := o.getToken(o.Config.RedirectURL, code)
 	if err != nil {
@@ -27,9 +27,14 @@ func (o oauthHandler) login(code string) (string, error) {
 	return email, nil
 }
 
-func (o oauthHandler) getEmailFromToken(token string) (string, error) {
+func (o Handler) AuthCodeURL(state string) string {
+	return o.Config.AuthCodeURL(state)
+
+}
+
+func (o Handler) getEmailFromToken(token string) (string, error) {
 	// TODO:
-	response, err := o.httpClient.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token)
+	response, err := o.HTTPClient.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token)
 	if err != nil {
 		return "", fmt.Errorf("failed getting user info: %s", err.Error())
 	}
@@ -41,7 +46,7 @@ func (o oauthHandler) getEmailFromToken(token string) (string, error) {
 	err = json.NewDecoder(response.Body).Decode(&user)
 	return user.Email, err
 }
-func (o oauthHandler) getToken(redirectURI string, code string) (string, error) {
+func (o Handler) getToken(redirectURI string, code string) (string, error) {
 	form := url.Values{
 		"client_id":     {o.Config.ClientID},
 		"client_secret": {o.Config.ClientSecret},
@@ -50,7 +55,7 @@ func (o oauthHandler) getToken(redirectURI string, code string) (string, error) 
 		"code":          {code},
 	}
 
-	resp, err := o.httpClient.PostForm(o.Config.Endpoint.TokenURL, form)
+	resp, err := o.HTTPClient.PostForm(o.Config.Endpoint.TokenURL, form)
 	if err != nil {
 		return "", fmt.Errorf("error getting token: %w", err)
 	}
