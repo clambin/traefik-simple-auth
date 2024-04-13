@@ -198,7 +198,6 @@ func TestServer_authRedirect(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		//t.Log(uri)
 	}
 	gotURL, err := url.Parse(got)
 	if err != nil {
@@ -216,20 +215,8 @@ func TestServer_authRedirect(t *testing.T) {
 		}
 	}
 
-	var cookieFound bool
-	for _, cookie := range w.Result().Header["Set-Cookie"] {
-		if strings.HasPrefix(cookie, oauthStateCookieName+"=") {
-			cookieFound = true
-			cookie = strings.Split(cookie, ";")[0]
-			cookie = cookie[len(oauthStateCookieName)+1+2*nonceSize:]
-			if cookie != "https://example.com/foo" {
-				t.Errorf("oauthstate cookie: got %q, want https://example.com/foo", cookie)
-			}
-			break
-		}
-	}
-	if !cookieFound {
-		t.Errorf("no oauthstate cookie found")
+	if state := gotURL.Query().Get(oauthStateCookieName); !strings.HasSuffix(state, "https://example.com/foo") {
+		t.Errorf("redirect is missing/invalid expected parameter %q: got %q, want %q", oauthStateCookieName, state, "https://example.com/foo")
 	}
 }
 
@@ -249,16 +236,33 @@ func TestServer_LogoutHandler(t *testing.T) {
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {
+	/*validOauth := oauthState{
+		Nonce:       []byte("12345678901234567890123456789012"),
+		RedirectURL: "https://example.com/foo",
+	}*/
+
 	tests := []struct {
 		name     string
 		path     string
 		wantCode int
 	}{
 		{
-			name:     "valid",
-			path:     oauthPath + "?args=foo",
+			name:     "missing state parameter",
+			path:     oauthPath,
 			wantCode: http.StatusBadRequest,
 		},
+		{
+			name:     "invalid state parameter",
+			path:     oauthPath + "?" + oauthStateCookieName + "=1234",
+			wantCode: http.StatusBadRequest,
+		},
+		/*
+			{
+				name:     "valid state parameter",
+				path:     oauthPath + "?" + oauthStateCookieName + "=" + validOauth.encode(),
+				wantCode: http.StatusBadRequest,
+			},
+		*/
 	}
 
 	s := New(Config{}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
@@ -284,7 +288,7 @@ func Test_loggedRequest(t *testing.T) {
 	l := testutils.NewJSONLogger(&out, slog.LevelInfo)
 	l.Info("request", "r", loggedRequest{r: r})
 
-	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth, oauthstate"}}
+	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth,state"}}
 `
 	if got := out.String(); got != want {
 		t.Errorf("got %q, want %q string", got, want)

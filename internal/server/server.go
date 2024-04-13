@@ -99,12 +99,9 @@ func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Log
 		return
 	}
 	encodedState := state.encode()
-
-	cookie := http.Cookie{Name: oauthStateCookieName, Value: encodedState, Expires: time.Now().Add(time.Hour)}
-	http.SetCookie(w, &cookie)
 	authCodeURL := s.oauthHandler.Config.AuthCodeURL(encodedState)
 
-	l.Debug("Redirecting", "cookie", oauthStateCookieName)
+	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
@@ -126,16 +123,10 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
-		// TODO: verify hmac to ensure it came from us
+		// TODO: add mac to state to ensure it came from us
 		state, err := getOAuthState(r)
 		if err != nil {
 			l.Warn("could not get oauth state", "err", err)
-			http.Error(w, "Internal server error", http.StatusBadRequest)
-			return
-		}
-
-		if r.FormValue("state") != state.encode() {
-			l.Error("invalid oauth google state", "state", r.FormValue("state"))
 			http.Error(w, "Invalid oauth state", http.StatusBadRequest)
 			return
 		}
@@ -178,6 +169,6 @@ func (r loggedRequest) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.String("http", r.r.URL.String()),
 		slog.String("traefik", getOriginalTarget(r.r)),
-		slog.String("cookies", strings.Join(cookies, ", ")),
+		slog.String("cookies", strings.Join(cookies, ",")),
 	)
 }
