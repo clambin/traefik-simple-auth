@@ -171,6 +171,6 @@ func (r loggedRequest) LogValue() slog.Value {
 		slog.String("http", r.r.URL.String()),
 		slog.String("traefik", getOriginalTarget(r.r)),
 		slog.String("cookies", strings.Join(cookies, ",")),
-		slog.String("user-agent", r.r.Header.Get("User-Agent")),
+		slog.String("source", r.r.RemoteAddr),
 	)
 }
