@@ -112,18 +112,6 @@ func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Log
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
-func (s Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "LogoutHandler")
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		l.Debug("request received", "request", loggedRequest{r: r})
-
-		s.SaveCookie(w, SessionCookie{})
-		http.Error(w, "You have been logged out", http.StatusUnauthorized)
-		l.Info("user has been logged out")
-	}
-}
-
 func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	l = l.With("handler", "AuthCallbackHandler")
 
@@ -131,6 +119,7 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// TODO: add mac to state to ensure it came from us
+		// Alternatively: keep track of in-flight authStates and only accept if we sent it (and remove it to avoid replay)
 		state, err := getOAuthState(r)
 		if err != nil {
 			l.Warn("could not get oauth state", "err", err)
@@ -155,6 +144,18 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		redirectURL := state.RedirectURL
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+	}
+}
+
+func (s Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "LogoutHandler")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		l.Debug("request received", "request", loggedRequest{r: r})
+
+		s.SaveCookie(w, SessionCookie{})
+		http.Error(w, "You have been logged out", http.StatusUnauthorized)
+		l.Info("user has been logged out")
 	}
 }
 

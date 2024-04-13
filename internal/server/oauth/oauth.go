@@ -15,12 +15,12 @@ type Handler struct {
 
 func (o Handler) Login(code string) (string, error) {
 	// Use code to get token and get user info from Google.
-	token, err := o.getToken(o.Config.RedirectURL, code)
+	token, err := o.getAccessToken(o.Config.RedirectURL, code)
 	if err != nil {
 		return "", fmt.Errorf("token: %w", err)
 	}
 
-	email, err := o.getEmailFromToken(token)
+	email, err := o.getUserEmailAddress(token)
 	if err != nil {
 		return "", fmt.Errorf("email address: %w", err)
 	}
@@ -32,21 +32,7 @@ func (o Handler) AuthCodeURL(state string) string {
 
 }
 
-func (o Handler) getEmailFromToken(token string) (string, error) {
-	// TODO:
-	response, err := o.HTTPClient.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token)
-	if err != nil {
-		return "", fmt.Errorf("failed getting user info: %s", err.Error())
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	var user struct {
-		Email string `json:"email"`
-	}
-	err = json.NewDecoder(response.Body).Decode(&user)
-	return user.Email, err
-}
-func (o Handler) getToken(redirectURI string, code string) (string, error) {
+func (o Handler) getAccessToken(redirectURI string, code string) (string, error) {
 	form := url.Values{
 		"client_id":     {o.Config.ClientID},
 		"client_secret": {o.Config.ClientSecret},
@@ -67,4 +53,18 @@ func (o Handler) getToken(redirectURI string, code string) (string, error) {
 
 	err = json.NewDecoder(resp.Body).Decode(&token)
 	return token.Token, err
+}
+
+func (o Handler) getUserEmailAddress(token string) (string, error) {
+	response, err := o.HTTPClient.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token)
+	if err != nil {
+		return "", fmt.Errorf("failed getting user info: %s", err.Error())
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	var user struct {
+		Email string `json:"email"`
+	}
+	err = json.NewDecoder(response.Body).Decode(&user)
+	return user.Email, err
 }
