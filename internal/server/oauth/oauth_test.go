@@ -13,9 +13,7 @@ import (
 func Test_oauth_Login(t *testing.T) {
 	s := oauthServer{}
 	o := Handler{
-		HTTPClient: &http.Client{
-			Transport: s,
-		},
+		HTTPClient: &http.Client{Transport: s},
 		Config: oauth2.Config{
 			ClientID:     "1234",
 			ClientSecret: "1234567",

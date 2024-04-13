@@ -8,6 +8,7 @@ func traefikParser() func(next http.Handler) http.HandlerFunc {
 	return func(next http.Handler) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			r2, _ := http.NewRequest(r.Method, getOriginalTarget(r), nil)
+			r2.RemoteAddr = r.RemoteAddr
 			for _, c := range r.Cookies() {
 				r2.AddCookie(c)
 			}

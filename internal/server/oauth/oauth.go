@@ -1,11 +1,11 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"golang.org/x/oauth2"
 	"net/http"
-	"net/url"
 )
 
 type Handler struct {
@@ -15,7 +15,7 @@ type Handler struct {
 
 func (o Handler) Login(code string) (string, error) {
 	// Use code to get token and get user info from Google.
-	token, err := o.getAccessToken(o.Config.RedirectURL, code)
+	token, err := o.getAccessToken(code)
 	if err != nil {
 		return "", fmt.Errorf("token: %w", err)
 	}
@@ -32,27 +32,13 @@ func (o Handler) AuthCodeURL(state string) string {
 
 }
 
-func (o Handler) getAccessToken(redirectURI string, code string) (string, error) {
-	form := url.Values{
-		"client_id":     {o.Config.ClientID},
-		"client_secret": {o.Config.ClientSecret},
-		"grant_type":    {"authorization_code"},
-		"redirect_uri":  {redirectURI},
-		"code":          {code},
-	}
-
-	resp, err := o.HTTPClient.PostForm(o.Config.Endpoint.TokenURL, form)
+func (o Handler) getAccessToken(code string) (string, error) {
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, o.HTTPClient)
+	token, err := o.Config.Exchange(ctx, code)
 	if err != nil {
-		return "", fmt.Errorf("error getting token: %w", err)
+		return "", fmt.Errorf("token: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	var token struct {
-		Token string `json:"access_token"`
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&token)
-	return token.Token, err
+	return token.AccessToken, err
 }
 
 func (o Handler) getUserEmailAddress(token string) (string, error) {
