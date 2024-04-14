@@ -8,11 +8,30 @@ import (
 	"golang.org/x/oauth2/google"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
 
-func Test_oauth_Login(t *testing.T) {
+func TestHandler_AuthCodeURL(t *testing.T) {
+	o := Handler{
+		Config: oauth2.Config{
+			ClientID:     "CLIENT_ID",
+			ClientSecret: "CLIENT_SECRET",
+			Endpoint:     google.Endpoint,
+			RedirectURL:  "http://localhost",
+			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+		},
+	}
+
+	u, err := url.Parse(o.AuthCodeURL("state", oauth2.SetAuthURLParam("prompt", "select_profile")))
+	require.NoError(t, err)
+	q := u.Query()
+	assert.Equal(t, "state", q.Get("state"))
+	assert.Equal(t, "select_profile", q.Get("prompt"))
+}
+
+func TestHandler_Login(t *testing.T) {
 	s := oauthServer{}
 	o := Handler{
 		HTTPClient: &http.Client{Transport: s},

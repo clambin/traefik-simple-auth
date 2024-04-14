@@ -113,7 +113,7 @@ func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Lo
 
 	// Redirect user to Google to select the account to be used to authenticate the request
 	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
-	l.Debug("Redirecting", "authCodeURL", authCodeURL)
+	l.Debug("redirecting ...", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
