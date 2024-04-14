@@ -47,14 +47,6 @@ func TestServer_AuthHandler(t *testing.T) {
 			want: http.StatusTemporaryRedirect,
 		},
 		{
-			name: "invalid user",
-			args: args{
-				host:   "example.com",
-				cookie: sessionCookie{Email: "bar@example.com", Expiry: time.Now().Add(time.Hour)},
-			},
-			want: http.StatusUnauthorized,
-		},
-		{
 			name: "valid subdomain",
 			args: args{
 				host:   "www.example.com",
@@ -235,6 +227,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 		name      string
 		state     string
 		makeState bool
+		oauthUser string
 		oauthErr  error
 		wantCode  int
 	}{
@@ -250,6 +243,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 		{
 			name:      "valid state parameter",
 			makeState: true,
+			oauthUser: "foo@example.com",
 			wantCode:  http.StatusTemporaryRedirect,
 		},
 		{
@@ -258,14 +252,21 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			oauthErr:  errors.New("something went wrong"),
 			wantCode:  http.StatusBadGateway,
 		},
+		{
+			name:      "invalid user",
+			makeState: true,
+			oauthUser: "bar@example.com",
+			wantCode:  http.StatusUnauthorized,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := New(Config{}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
-			s.OAuthHandler = &fakeOauthHandler{email: "foo@example.com", err: tt.oauthErr}
+			l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+			s := New(Config{Users: []string{"foo@example.com"}}, l)
+			s.OAuthHandler = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
 
 			state := tt.state
 			if tt.makeState {

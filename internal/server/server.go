@@ -86,13 +86,6 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		// TODO: these two checks could be done in AuthCallbackHandler so we don't issue a cookie if these conditions aren't met
-		if !s.whitelist.contains(c.Email) {
-			l.Debug("invalid user", "user", c.Email, "valid", s.whitelist.list())
-			l.Warn("invalid user", "user", c.Email)
-			http.Error(w, "Not authorized", http.StatusUnauthorized)
-			return
-		}
 		if host := r.URL.Host; !isValidSubdomain(s.config.Domain, host) {
 			l.Warn("invalid host", "host", host, "domain", s.config.Domain)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -135,6 +128,13 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		if err != nil {
 			l.Error("failed to log in to google", "err", err)
 			http.Error(w, "oauth2 failed", http.StatusBadGateway)
+			return
+		}
+
+		if !s.whitelist.contains(user) {
+			l.Debug("invalid user", "user", user, "valid", s.whitelist.list())
+			l.Warn("invalid user", "user", user)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
