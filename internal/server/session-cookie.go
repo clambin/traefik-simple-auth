@@ -36,6 +36,7 @@ func (h sessionCookieHandler) GetCookie(r *http.Request) (sessionCookie, error) 
 		return sessionCookie{}, http.ErrNoCookie
 	}
 
+	// TODO: strings.Split is fairly slow. Maybe have timestamp fixed-length (64bits) so we can parse by token length?
 	parts := strings.Split(c.Value, "|")
 	if len(parts) != 3 {
 		return sessionCookie{}, errCookieInvalidStructure

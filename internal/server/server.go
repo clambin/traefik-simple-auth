@@ -92,7 +92,7 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
-		if host := r.Host; !isValidSubdomain(s.config.Domain, host) {
+		if host := r.URL.Host; !isValidSubdomain(s.config.Domain, host) {
 			l.Warn("invalid host", "host", host, "domain", s.config.Domain)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return

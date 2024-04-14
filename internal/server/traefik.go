@@ -2,17 +2,14 @@ package server
 
 import (
 	"net/http"
+	"net/url"
 )
 
 func traefikParser() func(next http.Handler) http.HandlerFunc {
 	return func(next http.Handler) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			r2, _ := http.NewRequest(r.Method, getOriginalTarget(r), nil)
-			r2.RemoteAddr = r.RemoteAddr
-			for _, c := range r.Cookies() {
-				r2.AddCookie(c)
-			}
-			next.ServeHTTP(w, r2)
+			r.URL, _ = url.Parse(getOriginalTarget(r))
+			next.ServeHTTP(w, r)
 		}
 	}
 }
@@ -23,6 +20,5 @@ func getOriginalTarget(r *http.Request) string {
 		// TODO: why is this sometimes not set?
 		proto = "https"
 	}
-	redirectURL := proto + "://" + r.Header.Get("X-Forwarded-Host") + r.Header.Get("X-Forwarded-Uri")
-	return redirectURL
+	return proto + "://" + r.Header.Get("X-Forwarded-Host") + r.Header.Get("X-Forwarded-Uri")
 }

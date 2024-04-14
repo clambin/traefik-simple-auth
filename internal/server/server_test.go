@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"github.com/clambin/go-common/set"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -117,6 +118,30 @@ func TestServer_AuthHandler(t *testing.T) {
 				assert.NotEmpty(t, w.Header().Get("Location"))
 			}
 		})
+	}
+}
+
+func Benchmark_AuthHandler(b *testing.B) {
+	config := Config{
+		Domain:   "example.com",
+		Secret:   []byte("secret"),
+		Expiry:   time.Hour,
+		Users:    set.New("foo@example.com"),
+		AuthHost: "https://auth.example.com",
+	}
+	s := New(config, slog.Default())
+	w := httptest.NewRecorder()
+	s.sessionCookieHandler.SaveCookie(w, sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)})
+	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
+
+	b.ResetTimer()
+	for range b.N {
+		r2 := r.Clone(context.Background())
+		r2.Header.Set("Cookie", w.Header()["Set-Cookie"][0])
+		s.ServeHTTP(w, r2)
+		if w.Code != http.StatusOK {
+			b.Fatal("unexpected status code", w.Code)
+		}
 	}
 }
 
