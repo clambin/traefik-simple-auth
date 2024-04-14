@@ -2,6 +2,8 @@ package server
 
 import (
 	"github.com/clambin/go-common/set"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -106,20 +108,13 @@ func TestServer_AuthHandler(t *testing.T) {
 			}
 
 			s.ServeHTTP(w, r)
-
-			if w.Code != tt.want {
-				t.Fatalf("got %d, want %d", w.Code, tt.want)
-			}
+			require.Equal(t, tt.want, w.Code)
 
 			switch w.Code {
 			case http.StatusOK:
-				if got := w.Header().Get("X-Forwarded-User"); got != tt.user {
-					t.Errorf("X-Forwarded-User: got %q, want %q", got, tt.user)
-				}
+				assert.Equal(t, tt.user, w.Header().Get("X-Forwarded-User"))
 			case http.StatusTemporaryRedirect:
-				if got := w.Header().Get("Location"); got == "" {
-					t.Errorf("Location: empty, want redirect URL")
-				}
+				assert.NotEmpty(t, w.Header().Get("Location"))
 			}
 		})
 	}
@@ -130,38 +125,36 @@ func Test_isSubdomain(t *testing.T) {
 		name      string
 		domain    string
 		subdomain string
-		want      bool
+		want      assert.BoolAssertionFunc
 	}{
 		{
 			name:      "equal",
 			domain:    "example.com",
 			subdomain: "example.com",
-			want:      true,
+			want:      assert.True,
 		},
 		{
 			name:      "valid subdomain",
 			domain:    "example.com",
 			subdomain: "www.example.com",
-			want:      true,
+			want:      assert.True,
 		},
 		{
 			name:      "mismatch",
 			domain:    "example.com",
 			subdomain: "example2.com",
-			want:      false,
+			want:      assert.False,
 		},
 		{
 			name:      "mismatch",
 			domain:    "example.com",
 			subdomain: "www.example2.com",
-			want:      false,
+			want:      assert.False,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isValidSubdomain(tt.domain, tt.subdomain); got != tt.want {
-				t.Errorf("isValidSubdomain() = %v, want %v", got, tt.want)
-			}
+			tt.want(t, isValidSubdomain(tt.domain, tt.subdomain))
 		})
 	}
 }
@@ -178,28 +171,12 @@ func TestServer_authRedirect(t *testing.T) {
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 
-	if w.Code != http.StatusTemporaryRedirect {
-		t.Fatalf("got %d, want %d", w.Code, http.StatusTemporaryRedirect)
-	}
+	require.Equal(t, http.StatusTemporaryRedirect, w.Code)
 
 	got := w.Header().Get("Location")
-	if got == "" {
-		t.Error("Location missing")
-	}
-	{
-		u, err := url.Parse(got)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = url.QueryUnescape(u.Query().Get("redirect_uri"))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	gotURL, err := url.Parse(got)
-	if err != nil {
-		t.Fatalf("url.Parse(%q): %v", got, err)
-	}
+	require.NotEmpty(t, got)
+	u, err := url.Parse(got)
+	require.NoError(t, err)
 
 	for key, wantValue := range map[string]string{
 		"client_id":     config.ClientID,
@@ -207,14 +184,14 @@ func TestServer_authRedirect(t *testing.T) {
 		"response_type": "code",
 		"scope":         "https://www.googleapis.com/auth/userinfo.email",
 	} {
-		if got := gotURL.Query().Get(key); got != wantValue {
-			t.Errorf("redirect is missing expected parameter %q: got %q, want %q", key, got, wantValue)
-		}
+		assert.Equal(t, wantValue, u.Query().Get(key))
 	}
 
-	if state := gotURL.Query().Get("state"); state == "" {
-		t.Errorf("redirect is missing expected parameter \"state\"")
-	}
+	state := u.Query().Get("state")
+	require.NotEmpty(t, state)
+	cachedURL, ok := s.stateHandler.cache.Get(state)
+	require.True(t, ok)
+	assert.Equal(t, "https://example.com/foo", cachedURL)
 }
 
 func TestServer_LogoutHandler(t *testing.T) {
@@ -224,12 +201,8 @@ func TestServer_LogoutHandler(t *testing.T) {
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("got %d, want %d", w.Code, http.StatusUnauthorized)
-	}
-	if w.Body.String() != "You have been logged out\n" {
-		t.Errorf("got %q, want %q", w.Body.String(), "You have been logged out\n")
-	}
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, "You have been logged out\n", w.Body.String())
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {
@@ -270,9 +243,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			r := makeHTTPRequest(http.MethodGet, "example.com", tt.path)
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, r)
-			if w.Code != tt.wantCode {
-				t.Errorf("got %d, want %d", w.Code, tt.wantCode)
-			}
+			assert.Equal(t, tt.wantCode, w.Code)
 		})
 	}
 }

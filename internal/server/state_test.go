@@ -2,6 +2,8 @@ package server
 
 import (
 	"github.com/clambin/go-common/cache"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
@@ -13,17 +15,13 @@ func TestStateHandler(t *testing.T) {
 
 	url := "https://example.com"
 	key, err := h.Add(url)
-	if err != nil {
-		t.Fatalf("Error adding to cache: %v", err)
-	}
+	require.NoErrorf(t, err, "failed to add to cache")
 
 	url2, ok := h.Get(key)
-	if !ok || url != url2 {
-		t.Errorf("Getting from cache failed: expected %v, got %v", url2, url)
-	}
+	require.Truef(t, ok && url == url2, "failed to retrieve url from cache")
 
-	time.Sleep(300 * time.Millisecond)
-	if _, ok = h.Get(key); ok {
-		t.Errorf("Getting from cache failed: cache still exists")
-	}
+	assert.Eventuallyf(t, func() bool {
+		_, ok = h.Get(key)
+		return !ok
+	}, time.Second, 50*time.Millisecond, "state didn't expire")
 }

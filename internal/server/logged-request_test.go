@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"github.com/clambin/go-common/testutils"
+	"github.com/stretchr/testify/assert"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -19,7 +20,5 @@ func Test_loggedRequest(t *testing.T) {
 
 	want := `{"level":"INFO","msg":"request","r":{"http":"https://traefik/","traefik":"https://example.com/foo/bar","cookies":"_simple_auth","source":"127.0.0.1:0"}}
 `
-	if got := out.String(); got != want {
-		t.Errorf("got %q, want %q string", got, want)
-	}
+	assert.Equal(t, want, out.String())
 }

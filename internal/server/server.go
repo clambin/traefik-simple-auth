@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/hex"
 	"errors"
 	"github.com/clambin/go-common/cache"
 	"github.com/clambin/go-common/set"
@@ -16,6 +15,7 @@ import (
 const oauthPath = "/_oauth"
 
 type Server struct {
+	http.Handler
 	OAuthHandler
 	sessionCookieHandler
 	stateHandler
@@ -38,7 +38,7 @@ type Config struct {
 	ClientSecret   string
 }
 
-func New(config Config, l *slog.Logger) http.Handler {
+func New(config Config, l *slog.Logger) *Server {
 	s := Server{
 		config: config,
 		OAuthHandler: oauth.Handler{
@@ -64,8 +64,8 @@ func New(config Config, l *slog.Logger) http.Handler {
 	h.Handle(oauthPath, s.AuthCallbackHandler(l))
 	h.HandleFunc(oauthPath+"/logout", s.LogoutHandler(l))
 	h.HandleFunc("/", s.AuthHandler(l))
-
-	return traefikParser()(h)
+	s.Handler = traefikParser()(h)
+	return &s
 }
 
 func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
@@ -84,6 +84,8 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			s.authRedirect(w, r, l)
 			return
 		}
+
+		// TODO: these two checks could be done in AuthCallbackHandler so we don't issue a cookie if these conditations aren't met
 		if !s.config.Users.Contains(c.Email) {
 			l.Debug("invalid user", "user", c.Email, "valid", s.config.Users.List())
 			l.Warn("invalid user", "user", c.Email)
@@ -105,11 +107,11 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
 	key, err := s.stateHandler.Add(r.URL.String())
 	if err != nil {
-		l.Error("error adding to state cache", "err", err)
+		l.Error("error adding to state to cache", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 
-	authCodeURL := s.OAuthHandler.AuthCodeURL(hex.EncodeToString([]byte(key)))
+	authCodeURL := s.OAuthHandler.AuthCodeURL(key)
 	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }

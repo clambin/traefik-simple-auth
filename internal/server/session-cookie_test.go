@@ -1,7 +1,8 @@
 package server
 
 import (
-	"errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,22 +23,17 @@ func TestSessionCookieParser_SaveCookie(t *testing.T) {
 	defer s.Close()
 
 	resp, err := http.Get(s.URL)
-	if err != nil {
-		t.Fatalf("Failed to get session cookie from %s: %v", s.URL, err)
-	}
+	require.NoErrorf(t, err, "failed to get session cookie from %s", s.URL)
+
 	var found bool
 	for _, c := range resp.Cookies() {
 		if c.Name == sessionCookieName {
-			if got := c.Domain; got != "example.com" {
-				t.Errorf("got cookie domain %v, want %v", got, "example.com")
-			}
 			found = true
+			assert.Equalf(t, "example.com", c.Domain, "unexpected domain in session cookie")
 			break
 		}
 	}
-	if !found {
-		t.Errorf("Session cookie %s not found", sessionCookieName)
-	}
+	require.Truef(t, found, "session cookie %s not found", s.URL)
 }
 
 func TestSessionCookieParser_GetCookie(t *testing.T) {
@@ -49,11 +45,9 @@ func TestSessionCookieParser_GetCookie(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Helper()
 		c, err := p.GetCookie(r)
-		if err != nil {
-			t.Fatalf("Failed to get cookie: %v", err)
-		}
-		if c.Email != "foo@example.com" {
-			t.Errorf("got cookie email %v, want %v", c.Email, "foo@example.com")
+		require.NoError(t, err)
+		if !assert.Equal(t, "foo@example.com", c.Email) {
+			http.Error(w, "forbidden", http.StatusForbidden)
 		}
 	}))
 	defer s.Close()
@@ -66,9 +60,7 @@ func TestSessionCookieParser_GetCookie(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: rawCookie})
 
 	_, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Errorf("Failed to send session cookie: %v", err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestSessionCookieParser_GetCookie_Validation(t *testing.T) {
@@ -115,9 +107,7 @@ func TestSessionCookieParser_GetCookie_Validation(t *testing.T) {
 			}
 
 			_, err := p.GetCookie(r)
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("GetCookie() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }

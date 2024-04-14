@@ -2,6 +2,8 @@ package oauth
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"io"
@@ -24,12 +26,8 @@ func Test_oauth_Login(t *testing.T) {
 	}
 
 	user, err := o.Login("abcd1234")
-	if err != nil {
-		t.Fatalf("Error while Login: %v", err)
-	}
-	if user != "foo@example.com" {
-		t.Errorf("Unexpected user: want: %v, got: %v", "foo@example.com", user)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "foo@example.com", user)
 }
 
 var _ http.RoundTripper = &oauthServer{}
