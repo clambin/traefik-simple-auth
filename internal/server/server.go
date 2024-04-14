@@ -86,7 +86,7 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		// TODO: these two checks could be done in AuthCallbackHandler so we don't issue a cookie if these conditations aren't met
+		// TODO: these two checks could be done in AuthCallbackHandler so we don't issue a cookie if these conditions aren't met
 		if !s.whitelist.contains(c.Email) {
 			l.Debug("invalid user", "user", c.Email, "valid", s.whitelist.list())
 			l.Warn("invalid user", "user", c.Email)
@@ -99,7 +99,7 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		l.Debug("Allowing valid request", "email", c.Email)
+		l.Debug("allowing valid request", "email", c.Email)
 		w.Header().Set("X-Forwarded-User", c.Email)
 		w.WriteHeader(http.StatusOK)
 	}

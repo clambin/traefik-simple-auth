@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,7 +15,8 @@ import (
 
 var (
 	debug        = flag.Bool("debug", false, "Enable debug mode")
-	addr         = flag.String("addr", ":8080", "The address to listen on for HTTP requests.")
+	addr         = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
+	promAddr     = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
 	expiry       = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
 	secret       = flag.String("secret", "", "Secret to use for authentication")
 	insecure     = flag.Bool("insecure", false, "Enable insecure cookies")
@@ -27,6 +29,12 @@ var (
 
 func main() {
 	flag.Parse()
+
+	go func() {
+		if err := http.ListenAndServe(*promAddr, promhttp.Handler()); !errors.Is(err, http.ErrServerClosed) {
+			panic(err)
+		}
+	}()
 
 	var opts slog.HandlerOptions
 	if *debug {

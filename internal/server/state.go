@@ -19,6 +19,7 @@ func (s *stateHandler) Add(redirectURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error generating random key: %v", err)
 	}
+	// TODO: base64.URLEncoding.EncodeToString(key)?
 	keyString := hex.EncodeToString(key)
 	s.cache.Add(keyString, redirectURL)
 	return keyString, nil
