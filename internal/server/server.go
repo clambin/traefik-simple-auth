@@ -2,11 +2,13 @@ package server
 
 import (
 	"errors"
-	"github.com/clambin/go-common/set"
+	"github.com/clambin/go-common/cache"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -14,10 +16,16 @@ const oauthPath = "/_oauth"
 
 type Server struct {
 	http.Handler
-	oauthHandler
-	SessionCookieHandler
+	OAuthHandler
+	sessionCookieHandler
+	stateHandler
+	whitelist
 	config Config
-	logger *slog.Logger
+}
+
+type OAuthHandler interface {
+	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
+	Login(code string) (string, error)
 }
 
 type Config struct {
@@ -25,7 +33,7 @@ type Config struct {
 	Secret         []byte
 	InsecureCookie bool
 	Domain         string
-	Users          set.Set[string]
+	Users          []string
 	AuthHost       string
 	ClientID       string
 	ClientSecret   string
@@ -34,10 +42,8 @@ type Config struct {
 func New(config Config, l *slog.Logger) *Server {
 	s := Server{
 		config: config,
-		logger: l,
-
-		oauthHandler: oauthHandler{
-			httpClient: http.DefaultClient,
+		OAuthHandler: &oauth.Handler{
+			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
 				ClientID:     config.ClientID,
 				ClientSecret: config.ClientSecret,
@@ -46,148 +52,136 @@ func New(config Config, l *slog.Logger) *Server {
 				Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			},
 		},
-		SessionCookieHandler: SessionCookieHandler{
+		sessionCookieHandler: sessionCookieHandler{
 			SecureCookie: !config.InsecureCookie,
 			Secret:       config.Secret,
 		},
+		stateHandler: stateHandler{
+			// 5 minutes should be enough for the user to log in to Google
+			cache: cache.New[string, string](5*time.Minute, time.Minute),
+		},
+		whitelist: newWhitelist(config.Users),
 	}
-	m := http.NewServeMux()
-	m.HandleFunc(oauthPath, s.AuthCallbackHandler)
-	m.HandleFunc(oauthPath+"/logout", s.LogoutHandler)
-	m.HandleFunc("/", s.AuthHandler)
-	s.Handler = m
 
+	h := http.NewServeMux()
+	h.Handle(oauthPath, s.AuthCallbackHandler(l))
+	h.HandleFunc(oauthPath+"/logout", s.LogoutHandler(l))
+	h.HandleFunc("/", s.AuthHandler(l))
+	s.Handler = traefikParser()(h)
 	return &s
 }
 
-/*
-	func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-		// TODO: do we need to do this? Or can we rely on the X-Forwarded headers instead?
-		// Modify request
-		//r.Method = r.Header.Get("X-Forwarded-Method")
-		//r.Host = r.Header.Get("X-Forwarded-Host")
+func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "AuthHandler")
 
-		// Read URI from header if we're acting as forward auth middleware
-		//if _, ok := r.Header["X-Forwarded-Uri"]; ok {
-		//	r.URL, _ = url.Parse(r.Header.Get("X-Forwarded-Uri"))
-		//}
+	return func(w http.ResponseWriter, r *http.Request) {
+		l.Debug("request received", "request", loggedRequest{r: r})
 
-		// Pass to mux
-		s.Handler.ServeHTTP(w, r)
-	}
-*/
-func (s Server) AuthHandler(w http.ResponseWriter, r *http.Request) {
-	s.logRequest(r)
-
-	c, err := s.GetCookie(r)
-	if err != nil {
-		if errors.Is(err, http.ErrNoCookie) {
-			s.logger.Warn("no cookie found, redirecting ...")
-			s.authRedirect(w, r)
+		c, err := s.GetCookie(r)
+		if err != nil {
+			if errors.Is(err, http.ErrNoCookie) {
+				l.Debug("no cookie found, redirecting ...")
+			} else {
+				l.Warn("invalid cookie. redirecting ...", "err", err)
+			}
+			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
+			// When the user is authenticated, AuthCallbackHandler generates a new valid cookie.
+			s.authRedirect(w, r, l)
 			return
 		}
-		s.logger.Warn("invalid cookie", "err", err)
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
-	if !s.config.Users.Contains(c.Email) {
-		s.logger.Warn("invalid user", "user", c.Email)
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
-	if host := r.Header.Get("X-Forwarded-Host"); !isValidSubdomain(s.config.Domain, host) {
-		s.logger.Warn("invalid host", "host", host, "domain", s.config.Domain)
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
 
-	s.logger.Debug("Allowing valid request", "email", c.Email)
-	w.Header().Set("X-Forwarded-User", c.Email)
-	w.WriteHeader(http.StatusOK)
+		if host := r.URL.Host; !isValidSubdomain(s.config.Domain, host) {
+			l.Warn("invalid host", "host", host, "domain", s.config.Domain)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
+			return
+		}
+
+		l.Debug("allowing valid request", "email", c.Email)
+		w.Header().Set("X-Forwarded-User", c.Email)
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
-func isValidSubdomain(domain, subdomain string) bool {
-	return len(subdomain) >= len(domain) && subdomain[len(subdomain)-len(domain):] == domain
-}
-
-func (s Server) authRedirect(w http.ResponseWriter, r *http.Request) {
-	redirectURL := r.Header.Get("X-Forwarded-Proto") + "://" + r.Header.Get("X-Forwarded-Host") + r.Header.Get("X-Forwarded-Uri")
-
-	state, err := makeOAuthState(redirectURL)
+func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
+	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
+	// AuthCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
+	encodedState, err := s.stateHandler.Add(r.URL.String())
 	if err != nil {
-		s.logger.Warn("could not generate state", "err", err)
+		l.Error("error adding to state cache", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	encodedState := state.Encode()
-
-	cookie := http.Cookie{Name: oauthStateCookieName, Value: encodedState, Expires: time.Now().Add(time.Hour)}
-	http.SetCookie(w, &cookie)
-	http.Redirect(w, r, s.oauthHandler.Config.AuthCodeURL(encodedState), http.StatusTemporaryRedirect)
-}
-func (s Server) AuthCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	s.logRequest(r)
-
-	// TODO: verify hmac to ensure it came from us
-	oauthState, err := GetOAuthState(r)
-	if err != nil {
-		s.logger.Warn("could not get oauth state", "err", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
 	}
 
-	if r.FormValue("state") != oauthState.Encode() {
-		s.logger.Error("invalid oauth google state", "state", r.FormValue("state"))
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return
-	}
-
-	user, err := s.oauthHandler.login(r.FormValue("code"))
-	if err != nil {
-		s.logger.Error("failed to log in to google", "err", err)
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		return
-	}
-
-	// login successful. add session cookie
-	s.SaveCookie(w, SessionCookie{
-		Email:  user,
-		Expiry: time.Now().Add(s.config.Expiry),
-		Domain: s.config.Domain,
-	})
-
-	var redirectURL string
-	s.logger.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
-	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+	// Redirect user to Google to select the account to be used to authenticate the request
+	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
+	l.Debug("Redirecting", "authCodeURL", authCodeURL)
+	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
-func (s Server) LogoutHandler(w http.ResponseWriter, r *http.Request) {
-	s.logRequest(r)
+func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "AuthCallbackHandler")
 
-	s.SaveCookie(w, SessionCookie{})
-	http.Error(w, "You have been logged out", http.StatusUnauthorized)
-	s.logger.Info("user has been logged out")
+	return func(w http.ResponseWriter, r *http.Request) {
+		l.Debug("request received", "request", loggedRequest{r: r})
+
+		// Look up the (random) state to find the final destination.
+		encodedState := r.URL.Query().Get("state")
+		redirectURL, ok := s.stateHandler.Get(encodedState)
+		if !ok {
+			l.Warn("invalid state. Dropping request ...")
+			http.Error(w, "Invalid state", http.StatusBadRequest)
+			return
+		}
+
+		// Use the "code" in the response to determine the user's email address.
+		user, err := s.OAuthHandler.Login(r.FormValue("code"))
+		if err != nil {
+			l.Error("failed to log in to google", "err", err)
+			http.Error(w, "oauth2 failed", http.StatusBadGateway)
+			return
+		}
+
+		// Check that the user's email address is in the whitelist.
+		if !s.whitelist.contains(user) {
+			l.Debug("invalid user", "user", user, "valid", s.whitelist.list())
+			l.Warn("invalid user", "user", user)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Login successful. Add session cookie and redirect the user to the final destination.
+		s.SaveCookie(w, sessionCookie{
+			Email:  user,
+			Expiry: time.Now().Add(s.config.Expiry),
+			Domain: s.config.Domain,
+		})
+
+		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
+		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+	}
 }
 
-func (s Server) logRequest(r *http.Request) {
-	if !s.logger.Handler().Enabled(r.Context(), slog.LevelDebug) {
-		return
-	}
+func (s *Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "LogoutHandler")
 
-	var cookies []any
-	if c, err := r.Cookie(sessionCookieName); err == nil {
-		cookies = append(cookies, slog.String("oauth", c.Value))
-	}
-	if c, err := r.Cookie(oauthStateCookieName); err == nil {
-		cookies = append(cookies, slog.String("oauth_state", c.Value))
-	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		l.Debug("request received", "request", loggedRequest{r: r})
 
-	attrs := make([]any, 2, 3)
-	attrs[0] = slog.String("path", r.URL.Path)
-	attrs[1] = slog.String("method", r.Method)
-	if len(cookies) > 0 {
-		attrs = append(attrs, slog.Group("cookies", cookies...))
+		// Write a blank session cookie to override the current valid one.
+		s.SaveCookie(w, sessionCookie{})
+		http.Error(w, "You have been logged out", http.StatusUnauthorized)
+		l.Info("user has been logged out")
 	}
+}
 
-	s.logger.Debug("request received", slog.Group("request", attrs...))
+func isValidSubdomain(domain, input string) bool {
+	if domain == "" {
+		return false
+	}
+	if domain[0] != '.' {
+		domain = "." + domain
+	}
+	if "."+input == domain {
+		return true
+	}
+	return strings.HasSuffix(input, domain)
 }
