@@ -8,6 +8,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -99,13 +100,13 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 }
 
 func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
-	key, err := s.stateHandler.Add(r.URL.String())
+	encodedState, err := s.stateHandler.Add(r.URL.String())
 	if err != nil {
-		l.Error("error adding to state to cache", "err", err)
+		l.Error("error adding to state cache", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 
-	authCodeURL := s.OAuthHandler.AuthCodeURL(key, oauth2.ApprovalForce)
+	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState /*, oauth2.ApprovalForce*/)
 	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
@@ -116,9 +117,10 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
-		key := r.URL.Query().Get("state")
-		redirectURL, ok := s.stateHandler.Get(key)
+		encodedState := r.URL.Query().Get("state")
+		redirectURL, ok := s.stateHandler.Get(encodedState)
 		if !ok {
+			l.Debug("invalid state", "state", encodedState, "keys", strings.Join(s.stateHandler.cache.GetKeys(), ","))
 			l.Warn("invalid state")
 			http.Error(w, "Invalid state", http.StatusBadRequest)
 			return

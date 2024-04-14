@@ -14,15 +14,14 @@ type stateHandler struct {
 }
 
 func (s *stateHandler) Add(redirectURL string) (string, error) {
-	key := make([]byte, stateSize)
-	_, err := rand.Read(key)
+	state := make([]byte, stateSize)
+	_, err := rand.Read(state)
 	if err != nil {
-		return "", fmt.Errorf("error generating random key: %v", err)
+		return "", fmt.Errorf("error generating random state: %v", err)
 	}
-	// TODO: base64.URLEncoding.EncodeToString(key)?
-	keyString := hex.EncodeToString(key)
-	s.cache.Add(keyString, redirectURL)
-	return keyString, nil
+	encodedState := hex.EncodeToString(state)
+	s.cache.Add(encodedState, redirectURL)
+	return encodedState, nil
 }
 
 func (s *stateHandler) Get(state string) (string, bool) {
