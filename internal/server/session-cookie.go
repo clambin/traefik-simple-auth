@@ -58,6 +58,14 @@ func (c *sessionCookie) decode(secret []byte, s string) error {
 	return nil
 }
 
+func calculateMAC(secret []byte, parts ...[]byte) []byte {
+	hash := hmac.New(sha256.New, secret)
+	for _, part := range parts {
+		hash.Write(part)
+	}
+	return hash.Sum(nil)
+}
+
 type sessionCookieHandler struct {
 	SecureCookie bool
 	Secret       []byte
@@ -96,12 +104,4 @@ func (h sessionCookieHandler) SaveCookie(w http.ResponseWriter, c sessionCookie)
 		Secure:   h.SecureCookie,
 		HttpOnly: true,
 	})
-}
-
-func calculateMAC(secret []byte, parts ...[]byte) []byte {
-	hash := hmac.New(sha256.New, secret)
-	for _, part := range parts {
-		hash.Write(part)
-	}
-	return hash.Sum(nil)
 }
