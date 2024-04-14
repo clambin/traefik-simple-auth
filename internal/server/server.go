@@ -86,7 +86,7 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			}
 			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
 			// When the user is authenticated, AuthCallbackHandler generates a new valid cookie.
-			s.authRedirect(w, r, l)
+			s.redirectToAuth(w, r, l)
 			return
 		}
 
@@ -102,7 +102,7 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
+func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
 	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 	// AuthCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
 	encodedState, err := s.stateHandler.Add(r.URL.String())
@@ -113,7 +113,7 @@ func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Lo
 
 	// Redirect user to Google to select the account to be used to authenticate the request
 	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
-	l.Debug("Redirecting", "authCodeURL", authCodeURL)
+	l.Debug("redirecting ...", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
@@ -139,11 +139,11 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			http.Error(w, "oauth2 failed", http.StatusBadGateway)
 			return
 		}
+		l.Debug("user authenticated", "user", user)
 
 		// Check that the user's email address is in the whitelist.
 		if !s.whitelist.contains(user) {
-			l.Debug("invalid user", "user", user, "valid", s.whitelist.list())
-			l.Warn("invalid user", "user", user)
+			l.Warn("not a valid user. rejecting ...", "user", user)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}

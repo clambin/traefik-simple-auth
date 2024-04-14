@@ -71,6 +71,19 @@ func TestSessionCookie_codec(t *testing.T) {
 	}
 }
 
+func BenchmarkSessionCookie_decode(b *testing.B) {
+	c := sessionCookie{}
+	secret := []byte("secret")
+	encoded := c.encode(secret)
+
+	b.ResetTimer()
+	for range b.N {
+		if err := c.decode(secret, encoded); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestSessionCookieParser_SaveCookie(t *testing.T) {
 	p := sessionCookieHandler{
 		SecureCookie: false,

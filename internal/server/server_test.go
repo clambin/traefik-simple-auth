@@ -138,7 +138,7 @@ func Benchmark_AuthHandler(b *testing.B) {
 	}
 }
 
-func TestServer_authRedirect(t *testing.T) {
+func TestServer_redirectToAuth(t *testing.T) {
 	config := Config{
 		AuthHost:     "auth.example.com",
 		ClientID:     "1234",
