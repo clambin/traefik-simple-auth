@@ -106,7 +106,7 @@ func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Lo
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 
-	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState /*, oauth2.ApprovalForce*/)
+	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
