@@ -49,9 +49,12 @@ func main() {
 }
 
 func getConfiguration(l *slog.Logger) server.Config {
+	if len(*domain) > 0 && (*domain)[0] != '.' {
+		*domain = "." + *domain
+	}
 	authHostname := *authHost
 	if authHostname == "" {
-		authHostname = "auth." + *domain
+		authHostname = "auth" + *domain
 		l.Warn("no auth hostname set, using default auth hostname: " + authHostname)
 	}
 	secretBytes, err := base64.StdEncoding.DecodeString(*secret)

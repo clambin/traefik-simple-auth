@@ -8,6 +8,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -172,6 +173,15 @@ func (s *Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func isValidSubdomain(domain, subdomain string) bool {
-	return len(subdomain) >= len(domain) && subdomain[len(subdomain)-len(domain):] == domain
+func isValidSubdomain(domain, input string) bool {
+	if domain == "" {
+		return false
+	}
+	if domain[0] != '.' {
+		domain = "." + domain
+	}
+	if "."+input == domain {
+		return true
+	}
+	return strings.HasSuffix(input, domain)
 }

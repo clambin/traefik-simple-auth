@@ -138,45 +138,6 @@ func Benchmark_AuthHandler(b *testing.B) {
 	}
 }
 
-func Test_isSubdomain(t *testing.T) {
-	tests := []struct {
-		name      string
-		domain    string
-		subdomain string
-		want      assert.BoolAssertionFunc
-	}{
-		{
-			name:      "equal",
-			domain:    "example.com",
-			subdomain: "example.com",
-			want:      assert.True,
-		},
-		{
-			name:      "valid subdomain",
-			domain:    "example.com",
-			subdomain: "www.example.com",
-			want:      assert.True,
-		},
-		{
-			name:      "mismatch",
-			domain:    "example.com",
-			subdomain: "example2.com",
-			want:      assert.False,
-		},
-		{
-			name:      "mismatch",
-			domain:    "example.com",
-			subdomain: "www.example2.com",
-			want:      assert.False,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.want(t, isValidSubdomain(tt.domain, tt.subdomain))
-		})
-	}
-}
-
 func TestServer_authRedirect(t *testing.T) {
 	config := Config{
 		AuthHost:     "auth.example.com",
@@ -286,6 +247,50 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			if w.Code == http.StatusTemporaryRedirect {
 				assert.Equal(t, "https://example.com/foo", w.Header().Get("Location"))
 			}
+		})
+	}
+}
+
+func Test_isSubdomain(t *testing.T) {
+	tests := []struct {
+		name   string
+		domain string
+		input  string
+		want   assert.BoolAssertionFunc
+	}{
+		{
+			name:   "equal",
+			domain: ".example.com",
+			input:  "example.com",
+			want:   assert.True,
+		},
+		{
+			name:   "valid subdomain",
+			domain: ".example.com",
+			input:  "www.example.com",
+			want:   assert.True,
+		},
+		{
+			name:   "don't match on overlap",
+			domain: ".example.com",
+			input:  "bad-example.com",
+			want:   assert.False,
+		},
+		{
+			name:   "mismatch",
+			domain: ".example.com",
+			input:  "www.example2.com",
+			want:   assert.False,
+		},
+		{
+			name:  "empty subdomain",
+			input: "example.com",
+			want:  assert.False,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.want(t, isValidSubdomain(tt.domain, tt.input))
 		})
 	}
 }
