@@ -8,7 +8,6 @@ import (
 	"golang.org/x/oauth2/google"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -57,7 +56,8 @@ func New(config Config, l *slog.Logger) *Server {
 			Secret:       config.Secret,
 		},
 		stateHandler: stateHandler{
-			cache: cache.New[string, string](5*time.Second, 10*time.Minute),
+			// 5 minutes should be enough for the user to log in to Google
+			cache: cache.New[string, string](5*time.Minute, time.Minute),
 		},
 		whitelist: newWhitelist(config.Users),
 	}
@@ -83,6 +83,8 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 			} else {
 				l.Warn("invalid cookie. redirecting ...", "err", err)
 			}
+			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
+			// When the user is authenticated, AuthCallbackHandler generates a new valid cookie.
 			s.authRedirect(w, r, l)
 			return
 		}
@@ -100,12 +102,15 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 }
 
 func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
+	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
+	// AuthCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
 	encodedState, err := s.stateHandler.Add(r.URL.String())
 	if err != nil {
 		l.Error("error adding to state cache", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 
+	// Redirect user to Google to select the account to be used to authenticate the request
 	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
@@ -117,15 +122,16 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
+		// Look up the (random) state to find the final destination.
 		encodedState := r.URL.Query().Get("state")
 		redirectURL, ok := s.stateHandler.Get(encodedState)
 		if !ok {
-			l.Debug("invalid state", "state", encodedState, "keys", strings.Join(s.stateHandler.cache.GetKeys(), ","))
-			l.Warn("invalid state")
+			l.Warn("invalid state. Dropping request ...")
 			http.Error(w, "Invalid state", http.StatusBadRequest)
 			return
 		}
 
+		// Use the "code" in the response to determine the user's email address.
 		user, err := s.OAuthHandler.Login(r.FormValue("code"))
 		if err != nil {
 			l.Error("failed to log in to google", "err", err)
@@ -133,6 +139,7 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
+		// Check that the user's email address is in the whitelist.
 		if !s.whitelist.contains(user) {
 			l.Debug("invalid user", "user", user, "valid", s.whitelist.list())
 			l.Warn("invalid user", "user", user)
@@ -140,7 +147,7 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		// login successful. add session cookie
+		// Login successful. Add session cookie and redirect the user to the final destination.
 		s.SaveCookie(w, sessionCookie{
 			Email:  user,
 			Expiry: time.Now().Add(s.config.Expiry),
@@ -158,6 +165,7 @@ func (s *Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
+		// Write a blank session cookie to override the current valid one.
 		s.SaveCookie(w, sessionCookie{})
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		l.Info("user has been logged out")
