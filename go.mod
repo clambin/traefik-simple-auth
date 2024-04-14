@@ -2,6 +2,8 @@ module github.com/clambin/traefik-simple-auth
 
 go 1.22
 
+toolchain go1.22.2
+
 require (
 	github.com/clambin/go-common/cache v0.3.0
 	github.com/clambin/go-common/testutils v0.1.0
