@@ -23,7 +23,7 @@ type Server struct {
 }
 
 type OAuthHandler interface {
-	AuthCodeURL(state string) string
+	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
 	Login(code string) (string, error)
 }
 
@@ -105,7 +105,7 @@ func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Lo
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 
-	authCodeURL := s.OAuthHandler.AuthCodeURL(key)
+	authCodeURL := s.OAuthHandler.AuthCodeURL(key, oauth2.ApprovalForce)
 	l.Debug("Redirecting", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }

@@ -27,9 +27,8 @@ func (o Handler) Login(code string) (string, error) {
 	return email, nil
 }
 
-func (o Handler) AuthCodeURL(state string) string {
-	return o.Config.AuthCodeURL(state)
-
+func (o Handler) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string {
+	return o.Config.AuthCodeURL(state, opts...)
 }
 
 func (o Handler) getAccessToken(code string) (string, error) {

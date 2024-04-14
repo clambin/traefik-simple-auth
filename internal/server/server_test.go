@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -306,7 +307,7 @@ type fakeOauthHandler struct {
 	err   error
 }
 
-func (f fakeOauthHandler) AuthCodeURL(_ string) string {
+func (f fakeOauthHandler) AuthCodeURL(_ string, _ ...oauth2.AuthCodeOption) string {
 	// not needed to test AuthCallbackHandler()
 	panic("implement me")
 }
