@@ -10,6 +10,67 @@ import (
 	"time"
 )
 
+func TestSessionCookie_codec(t *testing.T) {
+	c := sessionCookie{
+		Expiry: time.Date(2024, time.April, 14, 0, 0, 0, 0, time.Local),
+	}
+	secret := []byte("secret")
+	encoded := c.encode(secret)
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr assert.ErrorAssertionFunc
+		want    sessionCookie
+	}{
+		{
+			name:    "valid",
+			input:   encoded,
+			wantErr: assert.NoError,
+			want:    c,
+		},
+		{
+			name:    "mac mismatch",
+			input:   "0000" + encoded[4:],
+			wantErr: assert.Error,
+		},
+		{
+			name:    "empty",
+			input:   "",
+			wantErr: assert.Error,
+		},
+		{
+			name:    "mac too short",
+			input:   encoded[:10],
+			wantErr: assert.Error,
+		},
+		{
+			name:    "mac invalid",
+			input:   "zzzz" + encoded[4:],
+			wantErr: assert.Error,
+		},
+		{
+			name:    "ts too short",
+			input:   encoded[:70],
+			wantErr: assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var c2 sessionCookie
+			err := c2.decode(secret, tt.input)
+			tt.wantErr(t, err)
+
+			if err == nil {
+				assert.Equal(t, tt.want, c2)
+			}
+		})
+	}
+}
+
 func TestSessionCookieParser_SaveCookie(t *testing.T) {
 	p := sessionCookieHandler{
 		SecureCookie: false,
@@ -64,41 +125,42 @@ func TestSessionCookieParser_GetCookie(t *testing.T) {
 }
 
 func TestSessionCookieParser_GetCookie_Validation(t *testing.T) {
+	secret := []byte("secret")
+	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
+	goodCookie := sc.encode(secret)
+	sc.Expiry = time.Now().Add(-time.Hour)
+	expiredCookie := sc.encode(secret)
+
 	tests := []struct {
 		name    string
 		value   string
 		wantErr error
 	}{
 		{
-			name:    "no cookie",
-			wantErr: http.ErrNoCookie,
-		},
-		{
-			name:    "invalid cookie",
-			value:   "foo@example.com|1234",
-			wantErr: errCookieInvalidStructure,
-		},
-		{
-			name:    "invalid mac",
-			value:   "foo@example.com|123456789|mac",
-			wantErr: errCookieInvalidMAC,
-		},
-		{
-			name:    "invalid timestamp",
-			value:   "foo@example.com|abcd|2nXfiuQLTAhWCnSRymk2ynqnja6knT7DAlCu9fQsLpw=",
-			wantErr: errCookieInvalidStructure,
+			name:    "valid",
+			value:   goodCookie,
+			wantErr: nil,
 		},
 		{
 			name:    "expired cookie",
-			value:   "foo@example.com|123456789|cbaZTEq2adeyQ1Slwhhhv-SOwObTB-4me_4CA_EG6Ew=",
+			value:   expiredCookie,
 			wantErr: errCookieExpired,
+		},
+		{
+			name:    "invalid cookie",
+			value:   "0000" + goodCookie[4:],
+			wantErr: errCookieInvalidMAC,
+		},
+		{
+			name:    "no cookie",
+			wantErr: http.ErrNoCookie,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := sessionCookieHandler{
 				SecureCookie: true,
-				Secret:       []byte("secret"),
+				Secret:       secret,
 			}
 
 			r := httptest.NewRequest(http.MethodGet, "/", nil)

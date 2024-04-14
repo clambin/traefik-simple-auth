@@ -1,13 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -25,6 +25,39 @@ type sessionCookie struct {
 	Domain string
 }
 
+func (c *sessionCookie) encode(secret []byte) string {
+	ts := make([]byte, 8)
+	binary.BigEndian.PutUint64(ts, uint64(c.Expiry.Unix()))
+	mac := calculateMAC(secret, ts, []byte(c.Email))
+	return hex.EncodeToString(mac) + hex.EncodeToString(ts) + c.Email
+}
+
+func (c *sessionCookie) decode(secret []byte, s string) error {
+	const macSize = 32                   // 256 bits
+	const timeSize = 8                   // 64 bits
+	const encodedMACSize = 2 * macSize   // 2 * 256 bits
+	const encodedTimeSize = 2 * timeSize // 2 * 64 bits
+
+	if len(s) < encodedMACSize+encodedTimeSize {
+		return errCookieInvalidStructure
+	}
+	bin, err := hex.DecodeString(s[:encodedMACSize+encodedTimeSize])
+	if err != nil {
+		return errCookieInvalidStructure
+	}
+	s = s[encodedMACSize+encodedTimeSize:]
+
+	mac := bin[:macSize]
+	calcMac := calculateMAC(secret, bin[macSize:], []byte(s))
+	if bytes.Compare(mac, calcMac) != 0 {
+		return errCookieInvalidMAC
+	}
+
+	c.Expiry = time.Unix(int64(binary.BigEndian.Uint64(bin[macSize:])), 0)
+	c.Email = s
+	return nil
+}
+
 type sessionCookieHandler struct {
 	SecureCookie bool
 	Secret       []byte
@@ -36,37 +69,22 @@ func (h sessionCookieHandler) GetCookie(r *http.Request) (sessionCookie, error) 
 		return sessionCookie{}, http.ErrNoCookie
 	}
 
-	// TODO: strings.Split is fairly slow. Maybe have timestamp fixed-length (64bits) so we can parse by token length?
-	parts := strings.Split(c.Value, "|")
-	if len(parts) != 3 {
-		return sessionCookie{}, errCookieInvalidStructure
+	var sc sessionCookie
+	if err = sc.decode(h.Secret, c.Value); err != nil {
+		return sessionCookie{}, err
 	}
 
-	calculatedMAC := calculateMAC(h.Secret, parts[0], parts[1])
-	if calculatedMAC != parts[2] {
-		return sessionCookie{}, errCookieInvalidMAC
-	}
-
-	unixTime, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil {
-		return sessionCookie{}, errCookieInvalidStructure
-	}
-	if time.Now().After(time.Unix(unixTime, 0)) {
+	if sc.Expiry.Before(time.Now()) {
 		return sessionCookie{}, errCookieExpired
 	}
 
-	return sessionCookie{
-		Email:  parts[0],
-		Expiry: time.Unix(unixTime, 0),
-	}, nil
+	return sc, nil
 }
 
 func (h sessionCookieHandler) SaveCookie(w http.ResponseWriter, c sessionCookie) {
 	var value string
 	if c.Email != "" {
-		parts := []string{c.Email, strconv.FormatInt(c.Expiry.Unix(), 10), ""}
-		parts[2] = calculateMAC(h.Secret, parts[:2]...)
-		value = strings.Join(parts, "|")
+		value = c.encode(h.Secret)
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -80,10 +98,10 @@ func (h sessionCookieHandler) SaveCookie(w http.ResponseWriter, c sessionCookie)
 	})
 }
 
-func calculateMAC(secret []byte, parts ...string) string {
+func calculateMAC(secret []byte, parts ...[]byte) []byte {
 	hash := hmac.New(sha256.New, secret)
 	for _, part := range parts {
-		hash.Write([]byte(part))
+		hash.Write(part)
 	}
-	return base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	return hash.Sum(nil)
 }
