@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"flag"
-	"github.com/clambin/go-common/set"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"log/slog"
 	"net/http"
@@ -42,7 +41,6 @@ func main() {
 }
 
 func getConfiguration(l *slog.Logger) server.Config {
-	userSet := set.New(strings.Split(*users, ",")...)
 	authHostname := *authHost
 	if authHostname == "" {
 		authHostname = "auth." + *domain
@@ -58,7 +56,7 @@ func getConfiguration(l *slog.Logger) server.Config {
 		Secret:         secretBytes,
 		InsecureCookie: *insecure,
 		Domain:         *domain,
-		Users:          userSet,
+		Users:          strings.Split(*users, ","),
 		AuthHost:       authHostname,
 		ClientID:       *clientId,
 		ClientSecret:   *clientSecret,

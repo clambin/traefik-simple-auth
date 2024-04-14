@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"github.com/clambin/go-common/cache"
-	"github.com/clambin/go-common/set"
 	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -19,6 +18,7 @@ type Server struct {
 	OAuthHandler
 	sessionCookieHandler
 	stateHandler
+	whitelist
 	config Config
 }
 
@@ -32,7 +32,7 @@ type Config struct {
 	Secret         []byte
 	InsecureCookie bool
 	Domain         string
-	Users          set.Set[string]
+	Users          []string
 	AuthHost       string
 	ClientID       string
 	ClientSecret   string
@@ -41,7 +41,7 @@ type Config struct {
 func New(config Config, l *slog.Logger) *Server {
 	s := Server{
 		config: config,
-		OAuthHandler: oauth.Handler{
+		OAuthHandler: &oauth.Handler{
 			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
 				ClientID:     config.ClientID,
@@ -58,6 +58,7 @@ func New(config Config, l *slog.Logger) *Server {
 		stateHandler: stateHandler{
 			cache: cache.New[string, string](5*time.Second, 10*time.Minute),
 		},
+		whitelist: newWhitelist(config.Users),
 	}
 
 	h := http.NewServeMux()
@@ -68,7 +69,7 @@ func New(config Config, l *slog.Logger) *Server {
 	return &s
 }
 
-func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
+func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 	l = l.With("handler", "AuthHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -86,8 +87,8 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// TODO: these two checks could be done in AuthCallbackHandler so we don't issue a cookie if these conditations aren't met
-		if !s.config.Users.Contains(c.Email) {
-			l.Debug("invalid user", "user", c.Email, "valid", s.config.Users.List())
+		if !s.whitelist.contains(c.Email) {
+			l.Debug("invalid user", "user", c.Email, "valid", s.whitelist.list())
 			l.Warn("invalid user", "user", c.Email)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
@@ -104,7 +105,7 @@ func (s Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
+func (s *Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
 	key, err := s.stateHandler.Add(r.URL.String())
 	if err != nil {
 		l.Error("error adding to state to cache", "err", err)
@@ -116,7 +117,7 @@ func (s Server) authRedirect(w http.ResponseWriter, r *http.Request, l *slog.Log
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
-func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
+func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	l = l.With("handler", "AuthCallbackHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +134,7 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		user, err := s.OAuthHandler.Login(r.FormValue("code"))
 		if err != nil {
 			l.Error("failed to log in to google", "err", err)
-			http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+			http.Error(w, "oauth2 failed", http.StatusBadGateway)
 			return
 		}
 
@@ -149,7 +150,7 @@ func (s Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func (s Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
+func (s *Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
 	l = l.With("handler", "LogoutHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {

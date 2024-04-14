@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/go-common/set"
+	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"log/slog"
@@ -87,7 +87,7 @@ func TestServer_AuthHandler(t *testing.T) {
 		Domain:   "example.com",
 		Secret:   []byte("secret"),
 		Expiry:   time.Hour,
-		Users:    set.New("foo@example.com"),
+		Users:    []string{"foo@example.com"},
 		AuthHost: "https://auth.example.com",
 	}
 	s := New(config, slog.Default())
@@ -126,7 +126,7 @@ func Benchmark_AuthHandler(b *testing.B) {
 		Domain:   "example.com",
 		Secret:   []byte("secret"),
 		Expiry:   time.Hour,
-		Users:    set.New("foo@example.com"),
+		Users:    []string{"foo@example.com"},
 		AuthHost: "https://auth.example.com",
 	}
 	s := New(config, slog.Default())
@@ -231,44 +231,59 @@ func TestServer_LogoutHandler(t *testing.T) {
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {
-	/*validOauth := oauthState{
-		Nonce:       []byte("12345678901234567890123456789012"),
-		RedirectURL: "https://example.com/foo",
-	}*/
-
 	tests := []struct {
-		name     string
-		path     string
-		wantCode int
+		name      string
+		state     string
+		makeState bool
+		oauthErr  error
+		wantCode  int
 	}{
 		{
 			name:     "missing state parameter",
-			path:     oauthPath,
 			wantCode: http.StatusBadRequest,
 		},
 		{
 			name:     "invalid state parameter",
-			path:     oauthPath + "?" + "state=1234",
+			state:    "1234",
 			wantCode: http.StatusBadRequest,
 		},
-		/*
-			{
-				name:     "valid state parameter",
-				path:     oauthPath + "?" + oauthStateCookieName + "=" + validOauth.encode(),
-				wantCode: http.StatusBadRequest,
-			},
-		*/
+		{
+			name:      "valid state parameter",
+			makeState: true,
+			wantCode:  http.StatusTemporaryRedirect,
+		},
+		{
+			name:      "login failed",
+			makeState: true,
+			oauthErr:  errors.New("something went wrong"),
+			wantCode:  http.StatusBadGateway,
+		},
 	}
 
-	s := New(Config{}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			r := makeHTTPRequest(http.MethodGet, "example.com", tt.path)
+			s := New(Config{}, slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+			s.OAuthHandler = &fakeOauthHandler{email: "foo@example.com", err: tt.oauthErr}
+
+			state := tt.state
+			if tt.makeState {
+				state, _ = s.stateHandler.Add("https://example.com/foo")
+			}
+			path := oauthPath
+			if state != "" {
+				path += "?state=" + state
+			}
+
+			r := makeHTTPRequest(http.MethodGet, "example.com", path)
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, r)
 			assert.Equal(t, tt.wantCode, w.Code)
+
+			if w.Code == http.StatusTemporaryRedirect {
+				assert.Equal(t, "https://example.com/foo", w.Header().Get("Location"))
+			}
 		})
 	}
 }
@@ -281,4 +296,20 @@ func makeHTTPRequest(method, host, uri string) *http.Request {
 	req.Header.Set("X-Forwarded-Uri", uri)
 	req.Header.Set("User-Agent", "unit-test")
 	return req
+}
+
+var _ OAuthHandler = fakeOauthHandler{}
+
+type fakeOauthHandler struct {
+	email string
+	err   error
+}
+
+func (f fakeOauthHandler) AuthCodeURL(_ string) string {
+	// not needed to test AuthCallbackHandler()
+	panic("implement me")
+}
+
+func (f fakeOauthHandler) Login(_ string) (string, error) {
+	return f.email, f.err
 }

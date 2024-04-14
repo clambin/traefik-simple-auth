@@ -4,7 +4,6 @@ go 1.22
 
 require (
 	github.com/clambin/go-common/cache v0.3.0
-	github.com/clambin/go-common/set v0.4.3
 	github.com/clambin/go-common/testutils v0.1.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/oauth2 v0.19.0
