@@ -4,7 +4,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"flag"
+	"github.com/clambin/go-common/http/metrics"
+	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"log/slog"
 	"net/http"
@@ -30,20 +33,24 @@ var (
 func main() {
 	flag.Parse()
 
-	go func() {
-		if err := http.ListenAndServe(*promAddr, promhttp.Handler()); !errors.Is(err, http.ErrServerClosed) {
-			panic(err)
-		}
-	}()
-
 	var opts slog.HandlerOptions
 	if *debug {
 		opts.Level = slog.LevelDebug
 	}
 	l := slog.New(slog.NewJSONHandler(os.Stderr, &opts))
 
+	go func() {
+		if err := http.ListenAndServe(*promAddr, promhttp.Handler()); !errors.Is(err, http.ErrServerClosed) {
+			l.Error("failed to start Prometheus metrics handler", "error", err)
+			panic(err)
+		}
+	}()
+
+	m := metrics.NewRequestSummaryMetrics("traefik_simple_auth", "", nil)
+	prometheus.MustRegister(m)
+
 	s := server.New(getConfiguration(l), l)
-	if err := http.ListenAndServe(*addr, s); !errors.Is(err, http.ErrServerClosed) {
+	if err := http.ListenAndServe(*addr, middleware.WithRequestMetrics(m)(s)); !errors.Is(err, http.ErrServerClosed) {
 		panic(err)
 	}
 }

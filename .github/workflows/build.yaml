@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - metrics
 
 jobs:
   test:
