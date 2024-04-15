@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const oauthPath = "/_oauth"
+const OAUTHPath = "/_oauth"
 
 type Server struct {
 	http.Handler
@@ -48,7 +48,7 @@ func New(config Config, l *slog.Logger) *Server {
 				ClientID:     config.ClientID,
 				ClientSecret: config.ClientSecret,
 				Endpoint:     google.Endpoint,
-				RedirectURL:  "https://" + config.AuthHost + oauthPath,
+				RedirectURL:  "https://" + config.AuthHost + OAUTHPath,
 				Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			},
 		},
@@ -64,8 +64,8 @@ func New(config Config, l *slog.Logger) *Server {
 	}
 
 	h := http.NewServeMux()
-	h.Handle(oauthPath, s.AuthCallbackHandler(l))
-	h.HandleFunc(oauthPath+"/logout", s.LogoutHandler(l))
+	h.Handle(OAUTHPath, s.AuthCallbackHandler(l))
+	h.HandleFunc(OAUTHPath+"/logout", s.LogoutHandler(l))
 	h.HandleFunc("/", s.AuthHandler(l))
 	s.Handler = traefikParser()(h)
 	return &s

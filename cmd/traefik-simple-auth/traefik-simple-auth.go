@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"flag"
-	"github.com/clambin/go-common/http/metrics"
 	"github.com/clambin/go-common/http/middleware"
+	"github.com/clambin/traefik-simple-auth/internal/metrics"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -46,7 +46,7 @@ func main() {
 		}
 	}()
 
-	m := metrics.NewRequestSummaryMetrics("traefik_simple_auth", "", nil)
+	m := metrics.New("traefik_simple_auth", "", nil)
 	prometheus.MustRegister(m)
 
 	s := server.New(getConfiguration(l), l)
