@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"net/http"
@@ -12,7 +13,7 @@ import (
 )
 
 func TestMetrics_Collect(t *testing.T) {
-	m := New("", "", nil)
+	m := New("", "", nil, prometheus.DefBuckets...)
 	m.Measure(&http.Request{URL: &url.URL{Path: "/foo"}}, http.StatusOK, time.Millisecond)
 	m.Measure(&http.Request{URL: &url.URL{Path: "/bar"}}, http.StatusTemporaryRedirect, 2*time.Millisecond)
 	m.Measure(&http.Request{URL: &url.URL{Path: server.OAUTHPath}}, http.StatusTemporaryRedirect, 10*time.Millisecond)

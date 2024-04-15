@@ -18,7 +18,7 @@ type Metrics struct {
 
 func New(namespace, subsystem string, constLabels map[string]string, buckets ...float64) *Metrics {
 	if len(buckets) == 0 {
-		buckets = prometheus.DefBuckets
+		buckets = []float64{0.0001, 0.0005, 0.001, .005, .01, .05, .1, .5, 1}
 	}
 	return &Metrics{
 		requestCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
