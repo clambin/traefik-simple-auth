@@ -1,8 +1,8 @@
 # traefik-simple-auth
 [![release](https://img.shields.io/github/v/tag/clambin/traefik-simple-auth?color=green&label=release&style=plastic)](https://github.com/clambin/traefik-simple-auth/releases)
 [![codecov](https://img.shields.io/codecov/c/gh/clambin/traefik-simple-auth?style=plastic)](https://app.codecov.io/gh/clambin/traefik-simple-auth)
-[![test](https://github.com/clambin/traefik-simple-auth/workflows/ci.yaml/badge.svg)](https://github.com/clambin/traefik-simple-auth/actions)
-[![build](https://github.com/clambin/traefik-simple-auth/workflows/build.yaml/badge.svg)](https://github.com/clambin/traefik-simple-auth/actions)
+[![Test](https://github.com/clambin/traefik-simple-auth/actions/workflows/ci.yaml/badge.svg)](https://github.com/clambin/traefik-simple-auth/actions)
+[![Build](https://github.com/clambin/traefik-simple-auth/actions/workflows/build.yaml/badge.svg)](https://github.com/clambin/traefik-simple-auth/actions)
 [![go report card](https://goreportcard.com/badge/github.com/clambin/traefik-simple-auth)](https://goreportcard.com/report/github.com/clambin/traefik-simple-auth)
 [![license](https://img.shields.io/github/license/clambin/traefik-simple-auth?style=plastic)](LICENSE.md)
 
@@ -27,7 +27,7 @@ will need to be grouped under the same domain. E.g. if you need to support the f
 
     * app1.example.com
     * app2.example.com
-    * app3.exammple.com
+    * app3.example.com
 
 then the redirectURL should use the domain `example.com` and the redirect URL should be `auth.example.com/_oauth`.
 
