@@ -159,7 +159,7 @@ func TestServer_redirectToAuth(t *testing.T) {
 
 	for key, wantValue := range map[string]string{
 		"client_id":     config.ClientID,
-		"redirect_uri":  "https://" + config.AuthHost + oauthPath,
+		"redirect_uri":  "https://" + config.AuthHost + OAUTHPath,
 		"response_type": "code",
 		"scope":         "https://www.googleapis.com/auth/userinfo.email",
 	} {
@@ -234,7 +234,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			if tt.makeState {
 				state, _ = s.stateHandler.Add("https://example.com/foo")
 			}
-			path := oauthPath
+			path := OAUTHPath
 			if state != "" {
 				path += "?state=" + state
 			}
