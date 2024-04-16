@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 	"github.com/clambin/go-common/cache"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
+	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
