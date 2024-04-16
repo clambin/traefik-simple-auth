@@ -21,7 +21,7 @@ type Server struct {
 	sessionCookieHandler
 	stateHandler
 	whitelist.Whitelist
-	config Config
+	Config
 }
 
 type OAuthHandler interface {
@@ -42,7 +42,7 @@ type Config struct {
 
 func New(config Config, l *slog.Logger) *Server {
 	s := Server{
-		config: config,
+		Config: config,
 		OAuthHandler: &oauth.Handler{
 			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
@@ -65,15 +65,15 @@ func New(config Config, l *slog.Logger) *Server {
 	}
 
 	h := http.NewServeMux()
-	h.Handle(OAUTHPath, s.AuthCallbackHandler(l))
-	h.HandleFunc(OAUTHPath+"/logout", s.LogoutHandler(l))
-	h.HandleFunc("/", s.AuthHandler(l))
+	h.Handle(OAUTHPath, s.authCallbackHandler(l))
+	h.HandleFunc(OAUTHPath+"/logout", s.logoutHandler(l))
+	h.HandleFunc("/", s.authHandler(l))
 	s.Handler = traefikParser()(h)
 	return &s
 }
 
-func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "AuthHandler")
+func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "authHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
@@ -86,13 +86,13 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 				l.Warn("invalid cookie. redirecting ...", "err", err)
 			}
 			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
-			// When the user is authenticated, AuthCallbackHandler generates a new valid cookie.
+			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
 			s.redirectToAuth(w, r, l)
 			return
 		}
 
-		if host := r.URL.Host; !isValidSubdomain(s.config.Domain, host) {
-			l.Warn("invalid host", "host", host, "domain", s.config.Domain)
+		if host := r.URL.Host; !isValidSubdomain(s.Config.Domain, host) {
+			l.Warn("invalid host", "host", host, "domain", s.Config.Domain)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
@@ -105,7 +105,7 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 
 func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
 	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
-	// AuthCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
+	// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
 	encodedState, err := s.stateHandler.add(r.URL.String())
 	if err != nil {
 		l.Error("error adding to state cache", "err", err)
@@ -118,8 +118,8 @@ func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
-func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "AuthCallbackHandler")
+func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "authCallbackHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
@@ -152,8 +152,8 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		// Login successful. Add session cookie and redirect the user to the final destination.
 		s.SaveCookie(w, sessionCookie{
 			Email:  user,
-			Expiry: time.Now().Add(s.config.Expiry),
-			Domain: s.config.Domain,
+			Expiry: time.Now().Add(s.Config.Expiry),
+			Domain: s.Config.Domain,
 		})
 
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
@@ -161,8 +161,8 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func (s *Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "LogoutHandler")
+func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "logoutHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})

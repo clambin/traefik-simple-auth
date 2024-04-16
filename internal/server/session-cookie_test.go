@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func TestSessionCookie_codec(t *testing.T) {
+func Test_sessionCookie_codec(t *testing.T) {
 	c := sessionCookie{
 		Expiry: time.Date(2024, time.April, 14, 0, 0, 0, 0, time.Local),
 	}
@@ -71,7 +71,7 @@ func TestSessionCookie_codec(t *testing.T) {
 	}
 }
 
-func BenchmarkSessionCookie_decode(b *testing.B) {
+func Benchmark_sessionCookie_decode(b *testing.B) {
 	c := sessionCookie{}
 	secret := []byte("secret")
 	encoded := c.encode(secret)
@@ -84,7 +84,7 @@ func BenchmarkSessionCookie_decode(b *testing.B) {
 	}
 }
 
-func TestSessionCookieParser_SaveCookie(t *testing.T) {
+func Test_sessionCookieParser_SaveCookie(t *testing.T) {
 	p := sessionCookieHandler{
 		SecureCookie: false,
 		Secret:       []byte("secret"),
@@ -110,7 +110,7 @@ func TestSessionCookieParser_SaveCookie(t *testing.T) {
 	require.Truef(t, found, "session cookie %s not found", s.URL)
 }
 
-func TestSessionCookieParser_GetCookie(t *testing.T) {
+func Test_sessionCookieParser_GetCookie(t *testing.T) {
 	p := sessionCookieHandler{
 		SecureCookie: false,
 		Secret:       []byte("secret"),
@@ -137,7 +137,7 @@ func TestSessionCookieParser_GetCookie(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestSessionCookieParser_GetCookie_Validation(t *testing.T) {
+func Test_sessionCookieParser_GetCookie_Validation(t *testing.T) {
 	secret := []byte("secret")
 	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
 	goodCookie := sc.encode(secret)

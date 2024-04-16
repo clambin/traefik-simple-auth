@@ -60,7 +60,7 @@ func TestServer_AuthHandler(t *testing.T) {
 					name: "valid domain with user info",
 					args: args{
 						host:   "user:password@www.example.com",
-						cookie: s.makeSessionCookie("foo@example.com", config.Secret),
+						cookie: s.makeSessionCookie("foo@example.com", Config.Secret),
 					},
 					want: http.StatusOK,
 					user: "foo@example.com",
@@ -313,7 +313,7 @@ type fakeOauthHandler struct {
 }
 
 func (f fakeOauthHandler) AuthCodeURL(_ string, _ ...oauth2.AuthCodeOption) string {
-	// not needed to test AuthCallbackHandler()
+	// not needed to test authCallbackHandler()
 	panic("implement me")
 }
 

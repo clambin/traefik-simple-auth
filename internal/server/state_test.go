@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestStateHandler(t *testing.T) {
+func Test_stateHandler(t *testing.T) {
 	h := stateHandler{
 		cache: cache.New[string, string](100*time.Millisecond, time.Hour),
 	}
