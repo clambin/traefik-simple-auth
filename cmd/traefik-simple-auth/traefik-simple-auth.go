@@ -21,13 +21,13 @@ var (
 	addr         = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
 	promAddr     = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
 	expiry       = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
-	secret       = flag.String("secret", "", "Secret to use for authentication")
-	insecure     = flag.Bool("insecure", false, "Enable insecure cookies")
-	domain       = flag.String("domain", "", "domain managed by traefik-simple-auth")
+	insecure     = flag.Bool("insecure", false, "Use insecure cookies")
+	authHost     = flag.String("auth-host", "", "Hostname that handles authentication requests from Google (default: auth.<domain>)")
+	domain       = flag.String("domain", "", "Domain managed by traefik-simple-auth")
 	users        = flag.String("users", "", "Comma-separated list of usernames to login")
-	authHost     = flag.String("auth-host", "", "Hostname that handles authentication requests from Google")
 	clientId     = flag.String("client-id", "", "Google OAuth Client ID")
 	clientSecret = flag.String("client-secret", "", "Google OAuth Client Secret")
+	secret       = flag.String("secret", "", "Secret to use for authentication")
 )
 
 func main() {
