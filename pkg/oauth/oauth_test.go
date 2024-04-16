@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,6 +48,18 @@ func TestHandler_GetUserEmailAddress(t *testing.T) {
 	user, err := o.GetUserEmailAddress("abcd1234")
 	require.NoError(t, err)
 	assert.Equal(t, "foo@example.com", user)
+}
+
+func TestHandler_userInfoEndpoint(t *testing.T) {
+	resp, err := http.Get("https://accounts.google.com/.well-known/openid-configuration")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	var response struct {
+		UserInfoEndpoint string `json:"userinfo_endpoint"`
+	}
+	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&response))
+	assert.Equal(t, userInfoURL, response.UserInfoEndpoint)
 }
 
 var _ http.RoundTripper = &oauthServer{}
