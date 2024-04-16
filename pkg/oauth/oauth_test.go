@@ -59,7 +59,7 @@ func TestHandler_userInfoEndpoint(t *testing.T) {
 		UserInfoEndpoint string `json:"userinfo_endpoint"`
 	}
 	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&response))
-	assert.Equal(t, userInfoURL, response.UserInfoEndpoint)
+	assert.Equal(t, userInfoURL, response.UserInfoEndpoint, "google userinfo endpoint has changed")
 }
 
 var _ http.RoundTripper = &oauthServer{}
