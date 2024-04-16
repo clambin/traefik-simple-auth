@@ -6,7 +6,7 @@
 [![go report card](https://goreportcard.com/badge/github.com/clambin/traefik-simple-auth)](https://goreportcard.com/report/github.com/clambin/traefik-simple-auth)
 [![license](https://img.shields.io/github/license/clambin/traefik-simple-auth?style=plastic)](LICENSE.md)
 
-A simple, up-to-date re-implementation of traefik-forward-auth.
+A simple, up-to-date, re-implementation of traefik-forward-auth.
 
 ## Design
 
