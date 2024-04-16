@@ -31,7 +31,7 @@ func TestHandler_AuthCodeURL(t *testing.T) {
 	assert.Equal(t, "select_profile", q.Get("prompt"))
 }
 
-func TestHandler_Login(t *testing.T) {
+func TestHandler_GetUserEmailAddress(t *testing.T) {
 	s := oauthServer{}
 	o := Handler{
 		HTTPClient: &http.Client{Transport: s},
@@ -44,7 +44,7 @@ func TestHandler_Login(t *testing.T) {
 		},
 	}
 
-	user, err := o.Login("abcd1234")
+	user, err := o.GetUserEmailAddress("abcd1234")
 	require.NoError(t, err)
 	assert.Equal(t, "foo@example.com", user)
 }

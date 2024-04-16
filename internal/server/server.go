@@ -26,7 +26,7 @@ type Server struct {
 
 type OAuthHandler interface {
 	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
-	Login(code string) (string, error)
+	GetUserEmailAddress(code string) (string, error)
 }
 
 type Config struct {
@@ -134,7 +134,7 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// Use the "code" in the response to determine the user's email address.
-		user, err := s.OAuthHandler.Login(r.FormValue("code"))
+		user, err := s.OAuthHandler.GetUserEmailAddress(r.FormValue("code"))
 		if err != nil {
 			l.Error("failed to log in to google", "err", err)
 			http.Error(w, "oauth2 failed", http.StatusBadGateway)
@@ -149,7 +149,7 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		// Login successful. Add session cookie and redirect the user to the final destination.
+		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
 		s.SaveCookie(w, sessionCookie{
 			Email:  user,
 			Expiry: time.Now().Add(s.Config.Expiry),

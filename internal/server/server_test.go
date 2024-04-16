@@ -317,6 +317,6 @@ func (f fakeOauthHandler) AuthCodeURL(_ string, _ ...oauth2.AuthCodeOption) stri
 	panic("implement me")
 }
 
-func (f fakeOauthHandler) Login(_ string) (string, error) {
+func (f fakeOauthHandler) GetUserEmailAddress(_ string) (string, error) {
 	return f.email, f.err
 }
