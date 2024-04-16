@@ -13,7 +13,7 @@ type stateHandler struct {
 	cache *cache.Cache[string, string]
 }
 
-func (s *stateHandler) Add(redirectURL string) (string, error) {
+func (s *stateHandler) add(redirectURL string) (string, error) {
 	state := make([]byte, stateSize)
 	_, err := rand.Read(state)
 	if err != nil {
@@ -24,6 +24,6 @@ func (s *stateHandler) Add(redirectURL string) (string, error) {
 	return encodedState, nil
 }
 
-func (s *stateHandler) Get(state string) (string, bool) {
+func (s *stateHandler) get(state string) (string, bool) {
 	return s.cache.Get(state)
 }

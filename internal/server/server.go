@@ -3,7 +3,8 @@ package server
 import (
 	"errors"
 	"github.com/clambin/go-common/cache"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
+	"github.com/clambin/traefik-simple-auth/pkg/oauth"
+	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"log/slog"
@@ -19,13 +20,13 @@ type Server struct {
 	OAuthHandler
 	sessionCookieHandler
 	stateHandler
-	whitelist
-	config Config
+	whitelist.Whitelist
+	Config
 }
 
 type OAuthHandler interface {
 	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
-	Login(code string) (string, error)
+	GetUserEmailAddress(code string) (string, error)
 }
 
 type Config struct {
@@ -41,7 +42,7 @@ type Config struct {
 
 func New(config Config, l *slog.Logger) *Server {
 	s := Server{
-		config: config,
+		Config: config,
 		OAuthHandler: &oauth.Handler{
 			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
@@ -60,19 +61,19 @@ func New(config Config, l *slog.Logger) *Server {
 			// 5 minutes should be enough for the user to log in to Google
 			cache: cache.New[string, string](5*time.Minute, time.Minute),
 		},
-		whitelist: newWhitelist(config.Users),
+		Whitelist: whitelist.New(config.Users),
 	}
 
 	h := http.NewServeMux()
-	h.Handle(OAUTHPath, s.AuthCallbackHandler(l))
-	h.HandleFunc(OAUTHPath+"/logout", s.LogoutHandler(l))
-	h.HandleFunc("/", s.AuthHandler(l))
+	h.Handle(OAUTHPath, s.authCallbackHandler(l))
+	h.HandleFunc(OAUTHPath+"/logout", s.logoutHandler(l))
+	h.HandleFunc("/", s.authHandler(l))
 	s.Handler = traefikParser()(h)
 	return &s
 }
 
-func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "AuthHandler")
+func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "authHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
@@ -85,13 +86,13 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 				l.Warn("invalid cookie. redirecting ...", "err", err)
 			}
 			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
-			// When the user is authenticated, AuthCallbackHandler generates a new valid cookie.
+			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
 			s.redirectToAuth(w, r, l)
 			return
 		}
 
-		if host := r.URL.Host; !isValidSubdomain(s.config.Domain, host) {
-			l.Warn("invalid host", "host", host, "domain", s.config.Domain)
+		if host := r.URL.Host; !isValidSubdomain(s.Config.Domain, host) {
+			l.Warn("invalid host", "host", host, "domain", s.Config.Domain)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
@@ -104,8 +105,8 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 
 func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
 	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
-	// AuthCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
-	encodedState, err := s.stateHandler.Add(r.URL.String())
+	// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
+	encodedState, err := s.stateHandler.add(r.URL.String())
 	if err != nil {
 		l.Error("error adding to state cache", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -117,15 +118,15 @@ func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
-func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "AuthCallbackHandler")
+func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "authCallbackHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// Look up the (random) state to find the final destination.
 		encodedState := r.URL.Query().Get("state")
-		redirectURL, ok := s.stateHandler.Get(encodedState)
+		redirectURL, ok := s.stateHandler.get(encodedState)
 		if !ok {
 			l.Warn("invalid state. Dropping request ...")
 			http.Error(w, "Invalid state", http.StatusBadRequest)
@@ -133,7 +134,7 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// Use the "code" in the response to determine the user's email address.
-		user, err := s.OAuthHandler.Login(r.FormValue("code"))
+		user, err := s.OAuthHandler.GetUserEmailAddress(r.FormValue("code"))
 		if err != nil {
 			l.Error("failed to log in to google", "err", err)
 			http.Error(w, "oauth2 failed", http.StatusBadGateway)
@@ -142,17 +143,17 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("user authenticated", "user", user)
 
 		// Check that the user's email address is in the whitelist.
-		if !s.whitelist.contains(user) {
+		if !s.Whitelist.Contains(user) {
 			l.Warn("not a valid user. rejecting ...", "user", user)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
-		// Login successful. Add session cookie and redirect the user to the final destination.
+		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
 		s.SaveCookie(w, sessionCookie{
 			Email:  user,
-			Expiry: time.Now().Add(s.config.Expiry),
-			Domain: s.config.Domain,
+			Expiry: time.Now().Add(s.Config.Expiry),
+			Domain: s.Config.Domain,
 		})
 
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
@@ -160,8 +161,8 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 	}
 }
 
-func (s *Server) LogoutHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "LogoutHandler")
+func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
+	l = l.With("handler", "logoutHandler")
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})

@@ -8,20 +8,20 @@ import (
 	"time"
 )
 
-func TestStateHandler(t *testing.T) {
+func Test_stateHandler(t *testing.T) {
 	h := stateHandler{
 		cache: cache.New[string, string](100*time.Millisecond, time.Hour),
 	}
 
 	url := "https://example.com"
-	key, err := h.Add(url)
+	key, err := h.add(url)
 	require.NoErrorf(t, err, "failed to add to cache")
 
-	url2, ok := h.Get(key)
+	url2, ok := h.get(key)
 	require.Truef(t, ok && url == url2, "failed to retrieve url from cache")
 
 	assert.Eventuallyf(t, func() bool {
-		_, ok = h.Get(key)
+		_, ok = h.get(key)
 		return !ok
 	}, time.Second, 50*time.Millisecond, "state didn't expire")
 }
