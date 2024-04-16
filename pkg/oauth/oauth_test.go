@@ -59,7 +59,7 @@ func (o oauthServer) RoundTrip(r *http.Request) (*http.Response, error) {
 	case "/token":
 		resp.StatusCode = http.StatusOK
 		resp.Body = io.NopCloser(strings.NewReader(`{"access_token":"123456789"}`))
-	case "/oauth2/v3/userinfo":
+	case "/v1/userinfo":
 		resp.StatusCode = http.StatusOK
 		resp.Body = io.NopCloser(strings.NewReader(`{"email":"foo@example.com"}`))
 	default:
