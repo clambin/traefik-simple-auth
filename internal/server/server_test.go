@@ -232,7 +232,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 
 			state := tt.state
 			if tt.makeState {
-				state, _ = s.stateHandler.Add("https://example.com/foo")
+				state, _ = s.stateHandler.add("https://example.com/foo")
 			}
 			path := OAUTHPath
 			if state != "" {

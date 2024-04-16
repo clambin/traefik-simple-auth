@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/clambin/go-common/cache"
 	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
+	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"log/slog"
@@ -19,7 +20,7 @@ type Server struct {
 	OAuthHandler
 	sessionCookieHandler
 	stateHandler
-	whitelist
+	whitelist.Whitelist
 	config Config
 }
 
@@ -60,7 +61,7 @@ func New(config Config, l *slog.Logger) *Server {
 			// 5 minutes should be enough for the user to log in to Google
 			cache: cache.New[string, string](5*time.Minute, time.Minute),
 		},
-		whitelist: newWhitelist(config.Users),
+		Whitelist: whitelist.New(config.Users),
 	}
 
 	h := http.NewServeMux()
@@ -105,7 +106,7 @@ func (s *Server) AuthHandler(l *slog.Logger) http.HandlerFunc {
 func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
 	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 	// AuthCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
-	encodedState, err := s.stateHandler.Add(r.URL.String())
+	encodedState, err := s.stateHandler.add(r.URL.String())
 	if err != nil {
 		l.Error("error adding to state cache", "err", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -125,7 +126,7 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 
 		// Look up the (random) state to find the final destination.
 		encodedState := r.URL.Query().Get("state")
-		redirectURL, ok := s.stateHandler.Get(encodedState)
+		redirectURL, ok := s.stateHandler.get(encodedState)
 		if !ok {
 			l.Warn("invalid state. Dropping request ...")
 			http.Error(w, "Invalid state", http.StatusBadRequest)
@@ -142,7 +143,7 @@ func (s *Server) AuthCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("user authenticated", "user", user)
 
 		// Check that the user's email address is in the whitelist.
-		if !s.whitelist.contains(user) {
+		if !s.Whitelist.Contains(user) {
 			l.Warn("not a valid user. rejecting ...", "user", user)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
