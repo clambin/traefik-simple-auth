@@ -28,6 +28,8 @@ var (
 	clientId     = flag.String("client-id", "", "Google OAuth Client ID")
 	clientSecret = flag.String("client-secret", "", "Google OAuth Client Secret")
 	secret       = flag.String("secret", "", "Secret to use for authentication")
+
+	version string = "change-me"
 )
 
 func main() {
@@ -38,6 +40,8 @@ func main() {
 		opts.Level = slog.LevelDebug
 	}
 	l := slog.New(slog.NewJSONHandler(os.Stderr, &opts))
+
+	l.Info("Starting traefik-simple-auth", "version", version)
 
 	go func() {
 		if err := http.ListenAndServe(*promAddr, promhttp.Handler()); !errors.Is(err, http.ErrServerClosed) {
