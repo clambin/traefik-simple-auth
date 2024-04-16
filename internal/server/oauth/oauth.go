@@ -20,24 +20,20 @@ func (o Handler) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
 func (o Handler) Login(code string) (string, error) {
 	// Use code to get token and get user info from Google.
 	token, err := o.getAccessToken(code)
-	if err != nil {
-		return "", fmt.Errorf("token: %w", err)
+	if err == nil {
+		return o.getUserEmailAddress(token)
 	}
-
-	email, err := o.getUserEmailAddress(token)
-	if err != nil {
-		return "", fmt.Errorf("email address: %w", err)
-	}
-	return email, nil
+	return "", err
 }
 
 func (o Handler) getAccessToken(code string) (string, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, o.HTTPClient)
+	var accessToken string
 	token, err := o.Config.Exchange(ctx, code)
-	if err != nil {
-		return "", fmt.Errorf("token: %w", err)
+	if err == nil {
+		accessToken = token.AccessToken
 	}
-	return token.AccessToken, err
+	return accessToken, err
 }
 
 func (o Handler) getUserEmailAddress(token string) (string, error) {
