@@ -8,9 +8,51 @@
 
 A simple, up-to-date, re-implementation of traefik-forward-auth.
 
+## Goals
+
+traefik-simple-auth provides an implementation of Traefik's forwardAuth middleware. Most people typically use Thom Seddon's 
+[!traefik-forward-auth](https://github.com/thomseddon/traefik-forward-auth?tab=readme-ov-file#configuration), or one of its
+many forks. However, that implementation hasn't been updated in over 3 years. I wrote traefik-simple-auth with the following goals:
+
+* to learn about Traefik's forwardAuth middleware and the oauth approach that traefik-forward-auth uses;
+* have an implementation that uses recent versions of Go and underlying modules (incorporating any security fixes since the last version of traefik-forward-auth was released);
+* provide more operational observability into how forwardAuth is used;
+* fun!
+
+traefik-forward-auth offers many features that I wasn't necessarily interested in: support for openID, multiple domains, rules, etc. 
+Those are not implemented in the current version of traefik-simple-auth. That may change in the future. 
+
 ## Design
 
-TODO
+The forwardAuth middleware delegates authentication to an external service. If the service answers with a 2XX code, access is granted, 
+and the original request is performed. Otherwise, the response from the authentication server is returned.
+
+traefik-simple-auth (like traefik-forward-auth) implements this authentication as a session Cookie: if the browser passes a valid cookie,
+we consider the user as a valid user and can tell Traefik to perform the original request. 
+
+For traefik-simple-auth, a valid cookie:
+
+* has the name `_simple_auth`;
+* comes from an authenticated user (more below);
+* hasn't expired (as determined by the `expiry` parameter documented below);
+* is secure (by creating a SHA256 HMAC of the above two values, using the `secret` parameter to generate the HMAC, to ensure it was issued by us);
+* is sent to us by the browser, i.e. the final destination needs to be part of the `domain` configured for traefik-simple-auth).
+
+If an incoming request does not contain a valid session cookie, the user needs to be authenticated:
+
+* We forward the user to Google's login page, so the user can be authenticated;
+* When the user has logged in, Google sends the request back to traefik-simple-auth, specifically to the address `<auth-host>/_oauth`;
+* This routes the request to traefik-simple-auth's authCallback handler;
+* The handler uses the request to retrieve the authenticated user's email address and see if it is part of the `users` whitelist; 
+* If so, it creates a new session cookie, and redirects the user to the original destination, with the session cookie;
+* This results in the request being sent back to traefik-simple-auth, with the session cookie, so it passes and the request is sent to the final destination.
+
+Given the asynchronous nature of the handshake during the authentication, traefik-simple-auth needs to validate the request 
+received from Google, to protect against cross-site request forgery (CSFR). The approach is as follows:
+
+* When the authCallback handler forwards the user to Google, it passes a random 'state', that it associates with the original request (i.e. the final destination)
+* When Google sends the request back to traefik-simple-auth, it passes the same 'state' with the request.
+* traefik-simple-auth only keeps the state (with the final destination) for 5 minutes, which should be ample time for the user to log in.
 
 ## Installation
 
@@ -23,7 +65,7 @@ Head to https://console.developers.google.com and create a new project. Create n
 with "web application" as its application type.
 
 Give the credentials a name and define the authorized redirect URIs. We currently supports one redirect URI, so all applications
-will need to be grouped under the same domain. E.g. if you need to support the following application URLs:
+need to be grouped under the same domain. E.g. if you need to support the following application URLs:
 
     * app1.example.com
     * app2.example.com
@@ -31,12 +73,12 @@ will need to be grouped under the same domain. E.g. if you need to support the f
 
 then the redirectURL should use the domain `example.com` and the redirect URL should be `auth.example.com/_oauth`.
 
-Note the Client ID and Client Secret as you will need to configure these for traefik-auth-simple.
+Note the Client ID and Client Secret as you will need to configure these for traefik-simple-auth.
 
 ### Traefik
 #### Middleware
 
-With your Google credentials defined, set up a `forward-auth` middleware. This will cause Traefik to forward each incoming 
+With your Google credentials defined, set up a `forward-auth` middleware. This causes Traefik to forward each incoming 
 request for an router configured with this middleware for authentication.
 
 In Kubernetes, this can be done with the following manifest:
@@ -59,7 +101,7 @@ This created a new middleware `traefik-simple-auth` that forwards incoming reque
 
 #### Ingress
 
-To authenticate a user, traefik-simple-auth redirects the user to its Google login page. Upon successful login, Google 
+To authenticate a user, traefik-simple-auth redirects the user to their Google login page. Upon successful login, Google 
 forwards the request to the redirectURL (as configured in section Google). You will therefore need an ingress to route 
 the request to traefik-simple-auth:
 
