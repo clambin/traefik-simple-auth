@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func TestHandler_AuthCodeURL(t *testing.T) {
 	assert.Equal(t, "select_profile", q.Get("prompt"))
 }
 
-func TestHandler_Login(t *testing.T) {
+func TestHandler_GetUserEmailAddress(t *testing.T) {
 	s := oauthServer{}
 	o := Handler{
 		HTTPClient: &http.Client{Transport: s},
@@ -44,9 +45,21 @@ func TestHandler_Login(t *testing.T) {
 		},
 	}
 
-	user, err := o.Login("abcd1234")
+	user, err := o.GetUserEmailAddress("abcd1234")
 	require.NoError(t, err)
 	assert.Equal(t, "foo@example.com", user)
+}
+
+func TestHandler_userInfoEndpoint(t *testing.T) {
+	resp, err := http.Get("https://accounts.google.com/.well-known/openid-configuration")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	var response struct {
+		UserInfoEndpoint string `json:"userinfo_endpoint"`
+	}
+	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&response))
+	assert.Equal(t, userInfoURL, response.UserInfoEndpoint, "google userinfo endpoint has changed")
 }
 
 var _ http.RoundTripper = &oauthServer{}
@@ -59,7 +72,7 @@ func (o oauthServer) RoundTrip(r *http.Request) (*http.Response, error) {
 	case "/token":
 		resp.StatusCode = http.StatusOK
 		resp.Body = io.NopCloser(strings.NewReader(`{"access_token":"123456789"}`))
-	case "/oauth2/v2/userinfo":
+	case "/v1/userinfo":
 		resp.StatusCode = http.StatusOK
 		resp.Body = io.NopCloser(strings.NewReader(`{"email":"foo@example.com"}`))
 	default:

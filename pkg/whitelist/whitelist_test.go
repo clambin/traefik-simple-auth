@@ -1,4 +1,4 @@
-package server
+package whitelist
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -42,8 +42,8 @@ func Test_whitelist(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			list := newWhitelist(tt.emails)
-			tt.want(t, list.contains(tt.email))
+			list := New(tt.emails)
+			tt.want(t, list.Contains(tt.email))
 
 			sortedList := list.list()
 			slices.Sort(sortedList)

@@ -17,31 +17,29 @@ func (o Handler) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
 	return o.Config.AuthCodeURL(state, opts...)
 }
 
-func (o Handler) Login(code string) (string, error) {
+func (o Handler) GetUserEmailAddress(code string) (string, error) {
 	// Use code to get token and get user info from Google.
 	token, err := o.getAccessToken(code)
-	if err != nil {
-		return "", fmt.Errorf("token: %w", err)
+	if err == nil {
+		return o.getUserEmailAddress(token)
 	}
-
-	email, err := o.getUserEmailAddress(token)
-	if err != nil {
-		return "", fmt.Errorf("email address: %w", err)
-	}
-	return email, nil
+	return "", err
 }
 
 func (o Handler) getAccessToken(code string) (string, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, o.HTTPClient)
+	var accessToken string
 	token, err := o.Config.Exchange(ctx, code)
-	if err != nil {
-		return "", fmt.Errorf("token: %w", err)
+	if err == nil {
+		accessToken = token.AccessToken
 	}
-	return token.AccessToken, err
+	return accessToken, err
 }
 
+const userInfoURL = "https://openidconnect.googleapis.com/v1/userinfo"
+
 func (o Handler) getUserEmailAddress(token string) (string, error) {
-	response, err := o.HTTPClient.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token)
+	response, err := o.HTTPClient.Get(userInfoURL + "?access_token=" + token)
 	if err != nil {
 		return "", fmt.Errorf("failed getting user info: %s", err.Error())
 	}
