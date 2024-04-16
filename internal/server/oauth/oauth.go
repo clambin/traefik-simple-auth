@@ -37,8 +37,9 @@ func (o Handler) getAccessToken(code string) (string, error) {
 }
 
 // const userInfoURL = "https://openidconnect.googleapis.com/v1/userinfo"
-// const userInfoURL = "https://www.googleapis.com/oauth2/v3/userinfo"
-const userInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
+const userInfoURL = "https://www.googleapis.com/oauth2/v3/userinfo"
+
+//const userInfoURL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
 func (o Handler) getUserEmailAddress(token string) (string, error) {
 	response, err := o.HTTPClient.Get(userInfoURL + "?access_token=" + token)
