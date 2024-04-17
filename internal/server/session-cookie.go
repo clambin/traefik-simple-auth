@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -69,39 +70,47 @@ func calculateMAC(secret []byte, parts ...[]byte) []byte {
 type sessionCookieHandler struct {
 	SecureCookie bool
 	Secret       []byte
+	lock         sync.Mutex
+	sessions     map[string]sessionCookie
 }
 
-func (h sessionCookieHandler) GetCookie(r *http.Request) (sessionCookie, error) {
-	c, err := r.Cookie(sessionCookieName)
-	if err != nil || len(c.Value) == 0 {
-		return sessionCookie{}, http.ErrNoCookie
-	}
+func (h *sessionCookieHandler) getUser(c *http.Cookie) (string, error) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
 
-	var sc sessionCookie
-	if err = sc.decode(h.Secret, c.Value); err != nil {
-		return sessionCookie{}, err
+	sc, ok := h.sessions[c.Value]
+	if !ok {
+		if err := sc.decode(h.Secret, c.Value); err != nil {
+			return "", err
+		}
 	}
-
 	if sc.Expiry.Before(time.Now()) {
-		return sessionCookie{}, errCookieExpired
+		return "", errCookieExpired
 	}
 
-	return sc, nil
+	if !ok {
+		h.sessions[sc.encode(h.Secret)] = sc
+	}
+	return sc.Email, nil
 }
 
-func (h sessionCookieHandler) SaveCookie(w http.ResponseWriter, c sessionCookie) {
+func (h *sessionCookieHandler) deleteSession(c *http.Cookie) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	delete(h.sessions, c.Value)
+}
+
+func (h *sessionCookieHandler) saveCookie(c sessionCookie) {
 	var value string
 	if c.Email != "" {
 		value = c.encode(h.Secret)
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
-		Value:    value,
-		Path:     "/",
-		Domain:   c.Domain,
-		Expires:  c.Expiry,
-		Secure:   h.SecureCookie,
-		HttpOnly: true,
-	})
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	if value != "" {
+		h.sessions[value] = c
+	} else {
+		delete(h.sessions, c.Email)
+	}
 }

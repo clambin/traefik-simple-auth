@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"github.com/clambin/go-common/cache"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
@@ -18,7 +17,7 @@ const OAUTHPath = "/_oauth"
 type Server struct {
 	http.Handler
 	OAuthHandler
-	sessionCookieHandler
+	*sessionCookieHandler
 	stateHandler
 	whitelist.Whitelist
 	Config
@@ -53,9 +52,10 @@ func New(config Config, l *slog.Logger) *Server {
 				Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			},
 		},
-		sessionCookieHandler: sessionCookieHandler{
+		sessionCookieHandler: &sessionCookieHandler{
 			SecureCookie: !config.InsecureCookie,
 			Secret:       config.Secret,
+			sessions:     make(map[string]sessionCookie),
 		},
 		stateHandler: stateHandler{
 			// 5 minutes should be enough for the user to log in to Google
@@ -78,15 +78,19 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
-		c, err := s.GetCookie(r)
+		c, err := r.Cookie(sessionCookieName)
 		if err != nil {
-			if errors.Is(err, http.ErrNoCookie) {
-				l.Debug("no cookie found, redirecting ...")
-			} else {
-				l.Warn("invalid cookie. redirecting ...", "err", err)
-			}
 			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
 			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
+			l.Debug("no cookie found, redirecting ...")
+			s.redirectToAuth(w, r, l)
+			return
+		}
+		user, err := s.getUser(c)
+		if err != nil {
+			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
+			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
+			l.Warn("invalid cookie. redirecting ...", "err", err)
 			s.redirectToAuth(w, r, l)
 			return
 		}
@@ -97,8 +101,8 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		l.Debug("allowing valid request", "email", c.Email)
-		w.Header().Set("X-Forwarded-User", c.Email)
+		l.Debug("allowing valid request", "email", user)
+		w.Header().Set("X-Forwarded-User", user)
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -150,12 +154,14 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
-		s.SaveCookie(w, sessionCookie{
+		sc := sessionCookie{
 			Email:  user,
 			Expiry: time.Now().Add(s.Config.Expiry),
 			Domain: s.Config.Domain,
-		})
+		}
+		s.sessionCookieHandler.saveCookie(sc)
 
+		http.SetCookie(w, s.makeCookie(sc.encode(s.Config.Secret)))
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 	}
@@ -167,10 +173,27 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
+		// remove the cached cookie
+		if c, err := r.Cookie(sessionCookieName); err == nil {
+			s.deleteSession(c)
+		}
+
 		// Write a blank session cookie to override the current valid one.
-		s.SaveCookie(w, sessionCookie{})
+		http.SetCookie(w, s.makeCookie(""))
+
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		l.Info("user has been logged out")
+	}
+}
+
+func (s *Server) makeCookie(value string) *http.Cookie {
+	return &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    value,
+		Domain:   s.Domain,
+		Path:     "/",
+		Secure:   !s.Config.InsecureCookie,
+		HttpOnly: true,
 	}
 }
 

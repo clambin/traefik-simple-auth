@@ -19,7 +19,7 @@ func (r loggedRequest) LogValue() slog.Value {
 	}
 	return slog.GroupValue(
 		slog.String("http", r.r.URL.String()),
-		slog.String("cookies", strings.Join(cookies, ",")),
+		slog.String("sessions", strings.Join(cookies, ",")),
 		slog.String("source", r.r.Header.Get("X-Forwarded-For")),
 	)
 }

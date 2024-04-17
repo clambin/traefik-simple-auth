@@ -92,13 +92,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			r := makeHTTPRequest(http.MethodGet, tt.args.host, "/foo")
 			w := httptest.NewRecorder()
 			if tt.args.cookie.Email != "" {
-				// Generate a new cookie.
-				// SaveCookie works in ResponseWriters, so save it there and then copy it to the request
-				p := sessionCookieHandler{Secret: config.Secret}
-				p.SaveCookie(w, tt.args.cookie)
-				for _, c := range w.Header()["Set-Cookie"] {
-					r.Header.Add("Cookie", c)
-				}
+				r.AddCookie(s.makeCookie(tt.args.cookie.encode(config.Secret)))
 			}
 
 			s.ServeHTTP(w, r)
@@ -114,6 +108,11 @@ func TestServer_AuthHandler(t *testing.T) {
 	}
 }
 
+// w/out caching:
+// Benchmark_AuthHandler-16          389076              2993 ns/op            1997 B/op         23 allocs/op
+// with caching:
+// Benchmark_AuthHandler-16          587284              1914 ns/op            1389 B/op         15 allocs/op
+
 func Benchmark_AuthHandler(b *testing.B) {
 	config := Config{
 		Domain:   "example.com",
@@ -124,7 +123,7 @@ func Benchmark_AuthHandler(b *testing.B) {
 	}
 	s := New(config, slog.Default())
 	w := httptest.NewRecorder()
-	s.sessionCookieHandler.SaveCookie(w, sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)})
+	s.sessionCookieHandler.saveCookie(sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)})
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 
 	b.ResetTimer()
