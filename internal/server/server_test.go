@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -123,14 +122,13 @@ func Benchmark_AuthHandler(b *testing.B) {
 	}
 	s := New(config, slog.Default())
 	w := httptest.NewRecorder()
-	s.sessionCookieHandler.saveCookie(sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)})
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
+	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
 
 	b.ResetTimer()
 	for range b.N {
-		r2 := r.Clone(context.Background())
-		r2.Header.Set("Cookie", w.Header()["Set-Cookie"][0])
-		s.ServeHTTP(w, r2)
+		s.ServeHTTP(w, r)
 		if w.Code != http.StatusOK {
 			b.Fatal("unexpected status code", w.Code)
 		}

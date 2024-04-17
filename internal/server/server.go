@@ -86,15 +86,17 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 			s.redirectToAuth(w, r, l)
 			return
 		}
-		user, err := s.getUser(c)
-		if err != nil {
-			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
-			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
-			l.Warn("invalid cookie. redirecting ...", "err", err)
-			s.redirectToAuth(w, r, l)
-			return
+		l.Info("cookie found", "value", c.Value)
+		var user string
+		if len(c.Value) > 0 {
+			if user, err = s.getUser(c); err != nil {
+				// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
+				// When the user is authenticated, authCallbackHandler generates a new valid cookie.
+				l.Warn("invalid cookie. redirecting ...", "err", err)
+				s.redirectToAuth(w, r, l)
+				return
+			}
 		}
-
 		if host := r.URL.Host; !isValidSubdomain(s.Config.Domain, host) {
 			l.Warn("invalid host", "host", host, "domain", s.Config.Domain)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
