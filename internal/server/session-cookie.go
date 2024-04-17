@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const sessionCookieName = "_simple_auth"
+const sessionCookieName = "_traefik_simple_auth"
 
 var (
 	errCookieExpired          = errors.New("expired cookie")
