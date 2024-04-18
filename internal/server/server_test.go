@@ -107,10 +107,8 @@ func TestServer_AuthHandler(t *testing.T) {
 	}
 }
 
-// w/out caching:
-// Benchmark_AuthHandler-16          389076              2993 ns/op            1997 B/op         23 allocs/op
-// with caching:
-// Benchmark_AuthHandler-16          587284              1914 ns/op            1389 B/op         15 allocs/op
+// Benchmark_AuthHandler/without_cache-16            488750              2261 ns/op            1029 B/op         17 allocs/op
+// Benchmark_AuthHandler/with_cache-16               889609              1290 ns/op             421 B/op          9 allocs/op
 
 func Benchmark_AuthHandler(b *testing.B) {
 	config := Config{
@@ -127,12 +125,24 @@ func Benchmark_AuthHandler(b *testing.B) {
 	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
 
 	b.ResetTimer()
-	for range b.N {
-		s.ServeHTTP(w, r)
-		if w.Code != http.StatusOK {
-			b.Fatal("unexpected status code", w.Code)
+
+	b.Run("without cache", func(b *testing.B) {
+		for range b.N {
+			s.ServeHTTP(w, r)
+			if w.Code != http.StatusOK {
+				b.Fatal("unexpected status code", w.Code)
+			}
 		}
-	}
+	})
+	b.Run("with cache", func(b *testing.B) {
+		s.sessionCookieHandler.cache = true
+		for range b.N {
+			s.ServeHTTP(w, r)
+			if w.Code != http.StatusOK {
+				b.Fatal("unexpected status code", w.Code)
+			}
+		}
+	})
 }
 
 func TestServer_redirectToAuth(t *testing.T) {

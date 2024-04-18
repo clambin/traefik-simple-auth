@@ -15,7 +15,6 @@ import (
 const sessionCookieName = "_traefik_simple_auth"
 
 var (
-	errCookieExpired          = errors.New("expired cookie")
 	errCookieInvalidMAC       = errors.New("cookie has invalid MAC")
 	errCookieInvalidStructure = errors.New("cookie has invalid structure")
 )
@@ -72,18 +71,25 @@ type sessionCookieHandler struct {
 	Secret       []byte
 	Expiry       time.Duration
 	sessions     *cache.Cache[string, sessionCookie]
+	cache        bool
 }
 
 func (h *sessionCookieHandler) getSessionCookie(c *http.Cookie) (sessionCookie, error) {
-	if sc, ok := h.sessions.Get(c.Value); ok {
-		return sc, nil
+	var sc sessionCookie
+	var ok bool
+
+	if h.cache {
+		if sc, ok = h.sessions.Get(c.Value); ok {
+			return sc, nil
+		}
 	}
 
-	var sc sessionCookie
 	if err := sc.decode(h.Secret, c.Value); err != nil {
 		return sessionCookie{}, err
 	}
-	h.sessions.AddWithExpiry(c.Value, sc, h.Expiry)
+	if h.cache {
+		h.sessions.AddWithExpiry(c.Value, sc, h.Expiry)
+	}
 	return sc, nil
 }
 

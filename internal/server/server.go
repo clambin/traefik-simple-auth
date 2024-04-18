@@ -57,6 +57,7 @@ func New(config Config, l *slog.Logger) *Server {
 			Secret:       config.Secret,
 			Expiry:       config.Expiry,
 			sessions:     cache.New[string, sessionCookie](config.Expiry, time.Minute),
+			cache:        true,
 		},
 		stateHandler: stateHandler{
 			// 5 minutes should be enough for the user to log in to Google

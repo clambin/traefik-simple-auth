@@ -82,40 +82,7 @@ func Benchmark_sessionCookie_decode(b *testing.B) {
 	}
 }
 
-/*
-func Test_sessionCookieParser_GetCookie(t *testing.T) {
-	p := sessionCookieHandler{
-		SecureCookie: false,
-		Secret:       []byte("secret"),
-		sessions:     make(map[string]sessionCookie),
-	}
-
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Helper()
-		c, err := r.Cookie(sessionCookieName)
-		require.NoError(t, err)
-		user, err := p.getUser(c)
-		require.NoError(t, err)
-		if !assert.Equal(t, "foo@example.com", user) {
-			http.Error(w, "forbidden", http.StatusForbidden)
-		}
-	}))
-	defer s.Close()
-
-	w := httptest.NewRecorder()
-	p.saveCookie(w, sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour), Domain: ".example.com"})
-	rawCookie := strings.TrimPrefix(strings.Split(w.Header().Get("Set-Cookie"), ";")[0], sessionCookieName+"=")
-
-	req, _ := http.NewRequest(http.MethodGet, s.URL, nil)
-	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: rawCookie})
-
-	_, err := http.DefaultClient.Do(req)
-	assert.NoError(t, err)
-}
-
-*/
-
-func Test_sessionCookieParser_GetCookie_Validation(t *testing.T) {
+func TestSessionCookieHandler_getSessionCookie(t *testing.T) {
 	secret := []byte("secret")
 	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
 	goodCookie := sc.encode(secret)
