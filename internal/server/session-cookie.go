@@ -7,8 +7,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"github.com/clambin/go-common/cache"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -70,47 +70,30 @@ func calculateMAC(secret []byte, parts ...[]byte) []byte {
 type sessionCookieHandler struct {
 	SecureCookie bool
 	Secret       []byte
-	lock         sync.Mutex
-	sessions     map[string]sessionCookie
+	Expiry       time.Duration
+	sessions     *cache.Cache[string, sessionCookie]
 }
 
-func (h *sessionCookieHandler) getUser(c *http.Cookie) (string, error) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-
-	sc, ok := h.sessions[c.Value]
-	if !ok {
-		if err := sc.decode(h.Secret, c.Value); err != nil {
-			return "", err
-		}
-	}
-	if sc.Expiry.Before(time.Now()) {
-		return "", errCookieExpired
+func (h *sessionCookieHandler) getSessionCookie(c *http.Cookie) (sessionCookie, error) {
+	if sc, ok := h.sessions.Get(c.Value); ok {
+		return sc, nil
 	}
 
-	if !ok {
-		h.sessions[sc.encode(h.Secret)] = sc
+	var sc sessionCookie
+	if err := sc.decode(h.Secret, c.Value); err != nil {
+		return sessionCookie{}, err
 	}
-	return sc.Email, nil
+	h.sessions.AddWithExpiry(c.Value, sc, h.Expiry)
+	return sc, nil
 }
 
-func (h *sessionCookieHandler) deleteSession(c *http.Cookie) {
-	h.lock.Lock()
-	defer h.lock.Unlock()
-	delete(h.sessions, c.Value)
+func (h *sessionCookieHandler) deleteSessionCookie(c *http.Cookie) {
+	h.sessions.Remove(c.Value)
 }
 
 func (h *sessionCookieHandler) saveCookie(c sessionCookie) {
-	var value string
 	if c.Email != "" {
-		value = c.encode(h.Secret)
-	}
-
-	h.lock.Lock()
-	defer h.lock.Unlock()
-	if value != "" {
-		h.sessions[value] = c
-	} else {
-		delete(h.sessions, c.Email)
+		value := c.encode(h.Secret)
+		h.sessions.AddWithExpiry(value, c, h.Expiry)
 	}
 }

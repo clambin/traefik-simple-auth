@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/clambin/go-common/cache"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
@@ -119,7 +120,6 @@ func Test_sessionCookieParser_GetCookie_Validation(t *testing.T) {
 	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
 	goodCookie := sc.encode(secret)
 	sc.Expiry = time.Now().Add(-time.Hour)
-	expiredCookie := sc.encode(secret)
 
 	tests := []struct {
 		name    string
@@ -132,11 +132,6 @@ func Test_sessionCookieParser_GetCookie_Validation(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "expired cookie",
-			value:   expiredCookie,
-			wantErr: errCookieExpired,
-		},
-		{
 			name:    "invalid cookie",
 			value:   "0000" + goodCookie[4:],
 			wantErr: errCookieInvalidMAC,
@@ -147,10 +142,10 @@ func Test_sessionCookieParser_GetCookie_Validation(t *testing.T) {
 			p := sessionCookieHandler{
 				SecureCookie: true,
 				Secret:       secret,
-				sessions:     make(map[string]sessionCookie),
+				sessions:     cache.New[string, sessionCookie](time.Hour, time.Minute),
 			}
 
-			_, err := p.getUser(&http.Cookie{Name: sessionCookieName, Value: tt.value})
+			_, err := p.getSessionCookie(&http.Cookie{Name: sessionCookieName, Value: tt.value})
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}

@@ -39,7 +39,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			user: "foo@example.com",
 		},
 		{
-			name: "invalid cookie",
+			name: "expired cookie",
 			args: args{
 				host:   "example.com",
 				cookie: sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(-time.Hour)},
@@ -171,14 +171,28 @@ func TestServer_redirectToAuth(t *testing.T) {
 }
 
 func TestServer_LogoutHandler(t *testing.T) {
-	var config Config
+	config := Config{
+		Secret: []byte("secret"),
+		Domain: "example.com",
+		Expiry: time.Hour,
+	}
 	s := New(config, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
-	r := makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
+	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
+	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
 	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
+	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Equal(t, "You have been logged out\n", w.Body.String())
+
+	assert.Zero(t, s.sessionCookieHandler.sessions.Len())
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {

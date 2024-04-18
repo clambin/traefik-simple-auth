@@ -55,7 +55,8 @@ func New(config Config, l *slog.Logger) *Server {
 		sessionCookieHandler: &sessionCookieHandler{
 			SecureCookie: !config.InsecureCookie,
 			Secret:       config.Secret,
-			sessions:     make(map[string]sessionCookie),
+			Expiry:       config.Expiry,
+			sessions:     cache.New[string, sessionCookie](config.Expiry, time.Minute),
 		},
 		stateHandler: stateHandler{
 			// 5 minutes should be enough for the user to log in to Google
@@ -79,31 +80,38 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		c, err := r.Cookie(sessionCookieName)
-		if err != nil {
+		if err != nil || c.Value == "" {
 			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
 			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
 			l.Debug("no cookie found, redirecting ...")
 			s.redirectToAuth(w, r, l)
 			return
 		}
-		user, err := s.getUser(c)
+		session, err := s.getSessionCookie(c)
 		if err != nil {
-			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
+			// Client has an invalid cookie. Redirect to Google to authenticate the user.
 			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
-			if len(c.Value) > 0 {
-				l.Warn("invalid cookie. redirecting ...", "err", err)
-			}
+			l.Warn("invalid cookie. redirecting ...", "err", err)
 			s.redirectToAuth(w, r, l)
 			return
 		}
+		if time.Now().After(session.Expiry) {
+			// Client has an expired cookie. Redirect to Google to authenticate the user.
+			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
+			l.Warn("expired cookie. redirecting ...", "err", err)
+			s.redirectToAuth(w, r, l)
+			return
+
+		}
+
 		if host := r.URL.Host; !isValidSubdomain(s.Config.Domain, host) {
 			l.Warn("invalid host", "host", host, "domain", s.Config.Domain)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
-		l.Debug("allowing valid request", "email", user)
-		w.Header().Set("X-Forwarded-User", user)
+		l.Debug("allowing valid request", "email", session.Email)
+		w.Header().Set("X-Forwarded-User", session.Email)
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -176,7 +184,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 
 		// remove the cached cookie
 		if c, err := r.Cookie(sessionCookieName); err == nil {
-			s.deleteSession(c)
+			s.deleteSessionCookie(c)
 		}
 
 		// Write a blank session cookie to override the current valid one.
