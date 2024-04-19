@@ -5,7 +5,9 @@ go 1.22
 toolchain go1.22.2
 
 require (
-	github.com/clambin/go-common/cache v0.3.0
+	github.com/clambin/go-common/cache v0.4.0
+	github.com/clambin/go-common/http v0.4.3
+	github.com/clambin/go-common/set v0.4.3
 	github.com/clambin/go-common/testutils v0.1.0
 	github.com/prometheus/client_golang v1.19.0
 	github.com/stretchr/testify v1.9.0
@@ -17,7 +19,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/clambin/go-common/http v0.4.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

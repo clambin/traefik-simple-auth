@@ -7,14 +7,14 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"github.com/clambin/go-common/cache"
 	"net/http"
 	"time"
 )
 
-const sessionCookieName = "_simple_auth"
+const sessionCookieName = "_traefik_simple_auth"
 
 var (
-	errCookieExpired          = errors.New("expired cookie")
 	errCookieInvalidMAC       = errors.New("cookie has invalid MAC")
 	errCookieInvalidStructure = errors.New("cookie has invalid structure")
 )
@@ -23,6 +23,10 @@ type sessionCookie struct {
 	Email  string
 	Expiry time.Time
 	Domain string
+}
+
+func (c *sessionCookie) expired() bool {
+	return time.Now().After(c.Expiry)
 }
 
 func (c *sessionCookie) encode(secret []byte) string {
@@ -69,39 +73,31 @@ func calculateMAC(secret []byte, parts ...[]byte) []byte {
 type sessionCookieHandler struct {
 	SecureCookie bool
 	Secret       []byte
+	Expiry       time.Duration
+	sessions     *cache.Cache[string, sessionCookie]
 }
 
-func (h sessionCookieHandler) GetCookie(r *http.Request) (sessionCookie, error) {
-	c, err := r.Cookie(sessionCookieName)
-	if err != nil || len(c.Value) == 0 {
-		return sessionCookie{}, http.ErrNoCookie
+func (h sessionCookieHandler) getSessionCookie(c *http.Cookie) (sessionCookie, error) {
+	sc, ok := h.sessions.Get(c.Value)
+	if ok {
+		return sc, nil
 	}
 
-	var sc sessionCookie
-	if err = sc.decode(h.Secret, c.Value); err != nil {
+	if err := sc.decode(h.Secret, c.Value); err != nil {
 		return sessionCookie{}, err
 	}
 
-	if sc.Expiry.Before(time.Now()) {
-		return sessionCookie{}, errCookieExpired
-	}
-
+	h.sessions.AddWithExpiry(c.Value, sc, h.Expiry)
 	return sc, nil
 }
 
-func (h sessionCookieHandler) SaveCookie(w http.ResponseWriter, c sessionCookie) {
-	var value string
-	if c.Email != "" {
-		value = c.encode(h.Secret)
-	}
+func (h sessionCookieHandler) deleteSessionCookie(c *http.Cookie) {
+	h.sessions.Remove(c.Value)
+}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
-		Value:    value,
-		Path:     "/",
-		Domain:   c.Domain,
-		Expires:  c.Expiry,
-		Secure:   h.SecureCookie,
-		HttpOnly: true,
-	})
+func (h sessionCookieHandler) saveCookie(c sessionCookie) {
+	if c.Email != "" {
+		value := c.encode(h.Secret)
+		h.sessions.AddWithExpiry(value, c, h.Expiry)
+	}
 }

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,7 +14,7 @@ import (
 	"time"
 )
 
-func TestServer_AuthHandler(t *testing.T) {
+func TestServer_authHandler(t *testing.T) {
 	type args struct {
 		host   string
 		cookie sessionCookie
@@ -40,7 +39,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			user: "foo@example.com",
 		},
 		{
-			name: "invalid cookie",
+			name: "expired cookie",
 			args: args{
 				host:   "example.com",
 				cookie: sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(-time.Hour)},
@@ -92,13 +91,7 @@ func TestServer_AuthHandler(t *testing.T) {
 			r := makeHTTPRequest(http.MethodGet, tt.args.host, "/foo")
 			w := httptest.NewRecorder()
 			if tt.args.cookie.Email != "" {
-				// Generate a new cookie.
-				// SaveCookie works in ResponseWriters, so save it there and then copy it to the request
-				p := sessionCookieHandler{Secret: config.Secret}
-				p.SaveCookie(w, tt.args.cookie)
-				for _, c := range w.Header()["Set-Cookie"] {
-					r.Header.Add("Cookie", c)
-				}
+				r.AddCookie(s.makeCookie(tt.args.cookie.encode(config.Secret)))
 			}
 
 			s.ServeHTTP(w, r)
@@ -114,7 +107,10 @@ func TestServer_AuthHandler(t *testing.T) {
 	}
 }
 
-func Benchmark_AuthHandler(b *testing.B) {
+// Benchmark_AuthHandler/without_cache-16            488750              2261 ns/op            1029 B/op         17 allocs/op
+// Benchmark_AuthHandler/with_cache-16               889609              1290 ns/op             421 B/op          9 allocs/op
+
+func Benchmark_authHandler(b *testing.B) {
 	config := Config{
 		Domain:   "example.com",
 		Secret:   []byte("secret"),
@@ -123,19 +119,38 @@ func Benchmark_AuthHandler(b *testing.B) {
 		AuthHost: "https://auth.example.com",
 	}
 	s := New(config, slog.Default())
-	w := httptest.NewRecorder()
-	s.sessionCookieHandler.SaveCookie(w, sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)})
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
+	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
+	w := httptest.NewRecorder()
 
 	b.ResetTimer()
 	for range b.N {
-		r2 := r.Clone(context.Background())
-		r2.Header.Set("Cookie", w.Header()["Set-Cookie"][0])
-		s.ServeHTTP(w, r2)
+		s.ServeHTTP(w, r)
 		if w.Code != http.StatusOK {
 			b.Fatal("unexpected status code", w.Code)
 		}
 	}
+}
+
+func TestServer_authHandler_expiry(t *testing.T) {
+	config := Config{
+		Expiry: 500 * time.Millisecond,
+		Secret: []byte("secret"),
+		Domain: "example.com",
+		Users:  []string{"foo@example.com"},
+	}
+	s := New(config, slog.Default())
+	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(config.Expiry)}
+	c := s.makeCookie(sc.encode(config.Secret))
+
+	assert.Eventually(t, func() bool {
+		r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
+		r.AddCookie(c)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		return w.Code == http.StatusTemporaryRedirect
+	}, time.Second, 100*time.Millisecond)
 }
 
 func TestServer_redirectToAuth(t *testing.T) {
@@ -174,14 +189,28 @@ func TestServer_redirectToAuth(t *testing.T) {
 }
 
 func TestServer_LogoutHandler(t *testing.T) {
-	var config Config
+	config := Config{
+		Secret: []byte("secret"),
+		Domain: "example.com",
+		Expiry: time.Hour,
+	}
 	s := New(config, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
-	r := makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
+	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
+	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
 	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	require.Equal(t, http.StatusOK, w.Code)
+
+	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
+	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Equal(t, "You have been logged out\n", w.Body.String())
+
+	assert.Zero(t, s.sessionCookieHandler.sessions.Len())
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {

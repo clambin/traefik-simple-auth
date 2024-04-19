@@ -32,7 +32,7 @@ we consider the user as a valid user and can tell Traefik to perform the origina
 
 For traefik-simple-auth, a valid cookie:
 
-* has the name `_simple_auth`;
+* has the name `_traefik_simple_auth`;
 * comes from an authenticated user (more below);
 * hasn't expired (as determined by the `expiry` parameter documented below);
 * is secure (by creating a SHA256 HMAC of the above two values, using the `secret` parameter to generate the HMAC, to ensure it was issued by us);
@@ -48,7 +48,7 @@ If an incoming request does not contain a valid session cookie, the user needs t
 * This results in the request being sent back to traefik-simple-auth, with the session cookie, so it passes and the request is sent to the final destination.
 
 Given the asynchronous nature of the handshake during the authentication, traefik-simple-auth needs to validate the request 
-received from Google, to protect against cross-site request forgery (CSFR). The approach is as follows:
+received from Google, to protect against cross-site request forgery (CSRF). The approach is as follows:
 
 * When the authCallback handler forwards the user to Google, it passes a random 'state', that it associates with the original request (i.e. the final destination)
 * When Google sends the request back to traefik-simple-auth, it passes the same 'state' with the request.
@@ -79,7 +79,7 @@ Note the Client ID and Client Secret as you will need to configure these for tra
 #### Middleware
 
 With your Google credentials defined, set up a `forward-auth` middleware. This causes Traefik to forward each incoming 
-request for an router configured with this middleware for authentication.
+request for a router configured with this middleware for authentication.
 
 In Kubernetes, this can be done with the following manifest:
 
