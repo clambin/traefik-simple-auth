@@ -19,7 +19,7 @@ many forks. However, that implementation hasn't been updated in over 3 years. I 
 * provide more operational observability into how forwardAuth is used;
 * fun!
 
-traefik-forward-auth offers many features that I wasn't necessarily interested in: support for openID, multiple domains, rules, etc. 
+traefik-forward-auth offers many features that I wasn't necessarily interested in: support for openID, rules, etc. 
 Those are not implemented in the current version of traefik-simple-auth. That may change in the future. 
 
 ## Design
@@ -137,16 +137,16 @@ traefik-simple-auth supports the following command-line arguments:
 Usage:
   -addr string
         The address to listen on for HTTP requests (default ":8080")
-  -auth-host string
-        Hostname that handles authentication requests from Google (default: auth.<domain>)
+  -auth-prefix string
+        prefix to construct the authRedirect URL from the domain (default "auth")
   -client-id string
         Google OAuth Client ID
   -client-secret string
         Google OAuth Client Secret
   -debug
         Enable debug mode
-  -domain string
-        Domain managed by traefik-simple-auth
+  -domains string
+        Comma-separated list of domains to allow access
   -expiry duration
         How long a session remains valid (default 720h0m0s)
   -insecure
@@ -161,25 +161,29 @@ Usage:
 
 #### Option details
 
-- `auth-host`
+- `addr`
 
-   Google authentication requests are routed back to this host. If not set, it defaults to auth.`domain`
+  Listener address for traefik-simple-auth
 
-- `domain`
+- `auth-prefix`
 
-   The domain to construct `auth-host`. All targets supported by an installation of traefik-simple-auth must be part of the same domain.
+   Prefix used to construct the authorization URL from the domain.
 
 - `client-id`
 
-   The (hex-encoded) Google Client ID, found in the Google Credentials configuration.
+  The (hex-encoded) Google Client ID, found in the Google Credentials configuration.
 
 - `client-secret`
 
   The (hex-encoded) Google Client Secret, found in the Google Credentials configuration
 
-- `secret`
+- `debug`
 
-  A (hex-encoded) 256-bit secret used to protect the session cookie.
+  Enable debug mode
+
+- `domains`
+
+   A comma-separared list of all domains that should be allowed. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) will be allowed.
 
 - `expiry`
 
@@ -189,21 +193,17 @@ Usage:
 
   Marks the session cookie as insecure so it can be used over HTTP sessions.
 
-- `users`
-
-  A comma-separated list of email addresses that should be allowed to use traefik-simple-auth.
-
-- `addr`
-
-   Listener address for traefik-simple-auth
-
 - `prom`
 
   Listener address for Prometheus metrics
 
-- `debug` 
+- `secret`
 
-  Enable debug mode
+  A (hex-encoded) 256-bit secret used to protect the session cookie.
+
+- `users`
+
+  A comma-separated list of email addresses that should be allowed to use traefik-simple-auth.
 
 ## Metrics
 

@@ -22,8 +22,8 @@ var (
 	promAddr     = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
 	expiry       = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
 	insecure     = flag.Bool("insecure", false, "Use insecure cookies")
-	authHost     = flag.String("auth-host", "", "Hostname that handles authentication requests from Google (default: auth.<domain>)")
-	domain       = flag.String("domain", "", "Domain managed by traefik-simple-auth")
+	authPrefix   = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
+	domains      = flag.String("domains", "", "Comma-separated list of domains to allow access")
 	users        = flag.String("users", "", "Comma-separated list of usernames to login")
 	clientId     = flag.String("client-id", "", "Google OAuth Client ID")
 	clientSecret = flag.String("client-secret", "", "Google OAuth Client Secret")
@@ -60,13 +60,8 @@ func main() {
 }
 
 func getConfiguration(l *slog.Logger) server.Config {
-	if len(*domain) > 0 && (*domain)[0] != '.' {
-		*domain = "." + *domain
-	}
-	authHostname := *authHost
-	if authHostname == "" {
-		authHostname = "auth" + *domain
-		l.Warn("no auth hostname set, using default auth hostname: " + authHostname)
+	if len(*domains) > 0 && (*domains)[0] != '.' {
+		*domains = "." + *domains
 	}
 	secretBytes, err := base64.StdEncoding.DecodeString(*secret)
 	if err != nil {
@@ -77,10 +72,10 @@ func getConfiguration(l *slog.Logger) server.Config {
 		Expiry:         *expiry,
 		Secret:         secretBytes,
 		InsecureCookie: *insecure,
-		Domain:         *domain,
+		Domains:        strings.Split(*domains, ","),
 		Users:          strings.Split(*users, ","),
-		AuthHost:       authHostname,
 		ClientID:       *clientId,
 		ClientSecret:   *clientSecret,
+		AuthPrefix:     *authPrefix,
 	}
 }
