@@ -53,7 +53,7 @@ func (c *sessionCookie) decode(secret []byte, s string) error {
 
 	mac := bin[:macSize]
 	calcMac := calculateMAC(secret, bin[macSize:], []byte(s))
-	if bytes.Compare(mac, calcMac) != 0 {
+	if !bytes.Equal(mac, calcMac) {
 		return errCookieInvalidMAC
 	}
 
