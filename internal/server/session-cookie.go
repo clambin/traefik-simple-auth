@@ -25,6 +25,10 @@ type sessionCookie struct {
 	Domain string
 }
 
+func (c *sessionCookie) expired() bool {
+	return time.Now().After(c.Expiry)
+}
+
 func (c *sessionCookie) encode(secret []byte) string {
 	ts := make([]byte, 8)
 	binary.BigEndian.PutUint64(ts, uint64(c.Expiry.Unix()))
@@ -71,25 +75,19 @@ type sessionCookieHandler struct {
 	Secret       []byte
 	Expiry       time.Duration
 	sessions     *cache.Cache[string, sessionCookie]
-	cache        bool
 }
 
 func (h sessionCookieHandler) getSessionCookie(c *http.Cookie) (sessionCookie, error) {
-	var sc sessionCookie
-	var ok bool
-
-	if h.cache {
-		if sc, ok = h.sessions.Get(c.Value); ok {
-			return sc, nil
-		}
+	sc, ok := h.sessions.Get(c.Value)
+	if ok {
+		return sc, nil
 	}
 
 	if err := sc.decode(h.Secret, c.Value); err != nil {
 		return sessionCookie{}, err
 	}
-	if h.cache {
-		h.sessions.AddWithExpiry(c.Value, sc, h.Expiry)
-	}
+
+	h.sessions.AddWithExpiry(c.Value, sc, h.Expiry)
 	return sc, nil
 }
 

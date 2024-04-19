@@ -125,25 +125,12 @@ func Benchmark_authHandler(b *testing.B) {
 	w := httptest.NewRecorder()
 
 	b.ResetTimer()
-
-	b.Run("without cache", func(b *testing.B) {
-		s.sessionCookieHandler.cache = false
-		for range b.N {
-			s.ServeHTTP(w, r)
-			if w.Code != http.StatusOK {
-				b.Fatal("unexpected status code", w.Code)
-			}
+	for range b.N {
+		s.ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			b.Fatal("unexpected status code", w.Code)
 		}
-	})
-	b.Run("with cache", func(b *testing.B) {
-		s.sessionCookieHandler.cache = true
-		for range b.N {
-			s.ServeHTTP(w, r)
-			if w.Code != http.StatusOK {
-				b.Fatal("unexpected status code", w.Code)
-			}
-		}
-	})
+	}
 }
 
 func TestServer_authHandler_expiry(t *testing.T) {
@@ -154,7 +141,6 @@ func TestServer_authHandler_expiry(t *testing.T) {
 		Users:  []string{"foo@example.com"},
 	}
 	s := New(config, slog.Default())
-	s.sessionCookieHandler.cache = true
 	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(config.Expiry)}
 	c := s.makeCookie(sc.encode(config.Secret))
 
