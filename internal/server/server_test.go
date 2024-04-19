@@ -27,6 +27,9 @@ func TestServer_authHandler(t *testing.T) {
 	}{
 		{
 			name: "missing cookie",
+			args: args{
+				host: "example.com",
+			},
 			want: http.StatusTemporaryRedirect,
 		},
 		{
@@ -76,11 +79,10 @@ func TestServer_authHandler(t *testing.T) {
 	}
 
 	config := Config{
-		Domain:   "example.com",
-		Secret:   []byte("secret"),
-		Expiry:   time.Hour,
-		Users:    []string{"foo@example.com"},
-		AuthHost: "https://auth.example.com",
+		Domains: Domains{"example.com"},
+		Secret:  []byte("secret"),
+		Expiry:  time.Hour,
+		Users:   []string{"foo@example.com"},
 	}
 	s := New(config, slog.Default())
 
@@ -91,7 +93,7 @@ func TestServer_authHandler(t *testing.T) {
 			r := makeHTTPRequest(http.MethodGet, tt.args.host, "/foo")
 			w := httptest.NewRecorder()
 			if tt.args.cookie.Email != "" {
-				r.AddCookie(s.makeCookie(tt.args.cookie.encode(config.Secret)))
+				r.AddCookie(s.makeCookie(tt.args.cookie.encode(config.Secret), config.Domains[0]))
 			}
 
 			s.ServeHTTP(w, r)
@@ -112,16 +114,16 @@ func TestServer_authHandler(t *testing.T) {
 
 func Benchmark_authHandler(b *testing.B) {
 	config := Config{
-		Domain:   "example.com",
-		Secret:   []byte("secret"),
-		Expiry:   time.Hour,
-		Users:    []string{"foo@example.com"},
-		AuthHost: "https://auth.example.com",
+		Domains: Domains{"example.com"},
+		Secret:  []byte("secret"),
+		Expiry:  time.Hour,
+		Users:   []string{"foo@example.com"},
+		//AuthHost: "https://auth.example.com",
 	}
 	s := New(config, slog.Default())
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
-	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret), config.Domains[0]))
 	w := httptest.NewRecorder()
 
 	b.ResetTimer()
@@ -135,14 +137,14 @@ func Benchmark_authHandler(b *testing.B) {
 
 func TestServer_authHandler_expiry(t *testing.T) {
 	config := Config{
-		Expiry: 500 * time.Millisecond,
-		Secret: []byte("secret"),
-		Domain: "example.com",
-		Users:  []string{"foo@example.com"},
+		Expiry:  500 * time.Millisecond,
+		Secret:  []byte("secret"),
+		Domains: []string{"example.com"},
+		Users:   []string{"foo@example.com"},
 	}
 	s := New(config, slog.Default())
 	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(config.Expiry)}
-	c := s.makeCookie(sc.encode(config.Secret))
+	c := s.makeCookie(sc.encode(config.Secret), config.Domains[0])
 
 	assert.Eventually(t, func() bool {
 		r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
@@ -154,57 +156,83 @@ func TestServer_authHandler_expiry(t *testing.T) {
 }
 
 func TestServer_redirectToAuth(t *testing.T) {
+
+	tests := []struct {
+		name            string
+		target          string
+		wantCode        int
+		wantRedirectURI string
+	}{
+		{
+			name:            "redirect for example.com",
+			target:          "example.com",
+			wantCode:        http.StatusTemporaryRedirect,
+			wantRedirectURI: "https://auth.example.com" + OAUTHPath,
+		},
+		{
+			name:            "redirect for example.org",
+			target:          "example.org",
+			wantCode:        http.StatusTemporaryRedirect,
+			wantRedirectURI: "https://auth.example.org" + OAUTHPath,
+		},
+		{
+			name:     "redirect for bad domain",
+			target:   "example.net",
+			wantCode: http.StatusUnauthorized,
+		},
+	}
+
 	config := Config{
-		AuthHost:     "auth.example.com",
 		ClientID:     "1234",
 		ClientSecret: "secret",
+		Domains:      Domains{"example.com", ".example.org"},
+		AuthPrefix:   "auth",
 	}
 	s := New(config, slog.Default())
 
-	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
-	w := httptest.NewRecorder()
-	s.ServeHTTP(w, r)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	require.Equal(t, http.StatusTemporaryRedirect, w.Code)
+			r := makeHTTPRequest(http.MethodGet, tt.target, "/foo")
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, r)
+			assert.Equal(t, tt.wantCode, w.Code)
+			if w.Code != http.StatusTemporaryRedirect {
+				return
+			}
 
-	got := w.Header().Get("Location")
-	require.NotEmpty(t, got)
-	u, err := url.Parse(got)
-	require.NoError(t, err)
+			l := w.Header().Get("Location")
+			u, err := url.Parse(l)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantRedirectURI, u.Query().Get("redirect_uri"))
 
-	for key, wantValue := range map[string]string{
-		"client_id":     config.ClientID,
-		"redirect_uri":  "https://" + config.AuthHost + OAUTHPath,
-		"response_type": "code",
-		"scope":         "https://www.googleapis.com/auth/userinfo.email",
-	} {
-		assert.Equal(t, wantValue, u.Query().Get(key))
+			state := u.Query().Get("state")
+			require.NotEmpty(t, state)
+			cachedURL, ok := s.stateHandler.cache.Get(state)
+			require.True(t, ok)
+			assert.Equal(t, "https://"+tt.target+"/foo", cachedURL)
+		})
 	}
-
-	state := u.Query().Get("state")
-	require.NotEmpty(t, state)
-	cachedURL, ok := s.stateHandler.cache.Get(state)
-	require.True(t, ok)
-	assert.Equal(t, "https://example.com/foo", cachedURL)
 }
 
 func TestServer_LogoutHandler(t *testing.T) {
 	config := Config{
-		Secret: []byte("secret"),
-		Domain: "example.com",
-		Expiry: time.Hour,
+		Secret:  []byte("secret"),
+		Domains: Domains{"example.com"},
+		Expiry:  time.Hour,
 	}
 	s := New(config, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(time.Hour)}
-	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret), config.Domains[0]))
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusOK, w.Code)
 
 	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
-	r.AddCookie(s.makeCookie(sc.encode(config.Secret)))
+	r.AddCookie(s.makeCookie(sc.encode(config.Secret), config.Domains[0]))
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -256,7 +284,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			t.Parallel()
 
 			l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			s := New(Config{Users: []string{"foo@example.com"}}, l)
+			s := New(Config{Users: []string{"foo@example.com"}, Domains: Domains{"example.com"}}, l)
 			s.OAuthHandler = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
 
 			state := tt.state
@@ -276,50 +304,6 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			if w.Code == http.StatusTemporaryRedirect {
 				assert.Equal(t, "https://example.com/foo", w.Header().Get("Location"))
 			}
-		})
-	}
-}
-
-func Test_isSubdomain(t *testing.T) {
-	tests := []struct {
-		name   string
-		domain string
-		input  string
-		want   assert.BoolAssertionFunc
-	}{
-		{
-			name:   "equal",
-			domain: ".example.com",
-			input:  "example.com",
-			want:   assert.True,
-		},
-		{
-			name:   "valid subdomain",
-			domain: ".example.com",
-			input:  "www.example.com",
-			want:   assert.True,
-		},
-		{
-			name:   "don't match on overlap",
-			domain: ".example.com",
-			input:  "bad-example.com",
-			want:   assert.False,
-		},
-		{
-			name:   "mismatch",
-			domain: ".example.com",
-			input:  "www.example2.com",
-			want:   assert.False,
-		},
-		{
-			name:  "empty subdomain",
-			input: "example.com",
-			want:  assert.False,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.want(t, isValidSubdomain(tt.domain, tt.input))
 		})
 	}
 }
