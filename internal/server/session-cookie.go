@@ -74,7 +74,7 @@ type sessionCookieHandler struct {
 	cache        bool
 }
 
-func (h *sessionCookieHandler) getSessionCookie(c *http.Cookie) (sessionCookie, error) {
+func (h sessionCookieHandler) getSessionCookie(c *http.Cookie) (sessionCookie, error) {
 	var sc sessionCookie
 	var ok bool
 
@@ -93,11 +93,11 @@ func (h *sessionCookieHandler) getSessionCookie(c *http.Cookie) (sessionCookie, 
 	return sc, nil
 }
 
-func (h *sessionCookieHandler) deleteSessionCookie(c *http.Cookie) {
+func (h sessionCookieHandler) deleteSessionCookie(c *http.Cookie) {
 	h.sessions.Remove(c.Value)
 }
 
-func (h *sessionCookieHandler) saveCookie(c sessionCookie) {
+func (h sessionCookieHandler) saveCookie(c sessionCookie) {
 	if c.Email != "" {
 		value := c.encode(h.Secret)
 		h.sessions.AddWithExpiry(value, c, h.Expiry)
