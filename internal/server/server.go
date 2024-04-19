@@ -95,10 +95,10 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 			s.redirectToAuth(w, r, l)
 			return
 		}
-		if now := time.Now(); now.After(session.Expiry) {
+		if session.expired() {
 			// Client has an expired cookie. Redirect to Google to authenticate the user.
 			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
-			l.Warn("expired cookie. redirecting ...", "err", err, "now", now, "expiry", session.Expiry)
+			l.Debug("expired cookie. redirecting ...")
 			s.redirectToAuth(w, r, l)
 			return
 
