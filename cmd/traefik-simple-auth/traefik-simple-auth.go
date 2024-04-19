@@ -44,7 +44,8 @@ func main() {
 	l.Info("Starting traefik-simple-auth", "version", version)
 
 	go func() {
-		if err := http.ListenAndServe(*promAddr, promhttp.Handler()); !errors.Is(err, http.ErrServerClosed) {
+		http.Handle(*promAddr, promhttp.Handler())
+		if err := http.ListenAndServe(*promAddr, nil); !errors.Is(err, http.ErrServerClosed) {
 			l.Error("failed to start Prometheus metrics handler", "error", err)
 			panic(err)
 		}
