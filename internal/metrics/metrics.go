@@ -28,7 +28,7 @@ func New(namespace, subsystem string, constLabels map[string]string, buckets ...
 			Help:        "total number of http requests",
 			ConstLabels: constLabels,
 		},
-			[]string{"method", "path", "code"},
+			[]string{"host", "path", "code"},
 		),
 		requestDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace:   namespace,
@@ -38,7 +38,7 @@ func New(namespace, subsystem string, constLabels map[string]string, buckets ...
 			ConstLabels: constLabels,
 			Buckets:     buckets,
 		},
-			[]string{"method", "path", "code"},
+			[]string{"host", "path", "code"},
 		),
 	}
 }
@@ -49,9 +49,9 @@ func (m Metrics) Measure(req *http.Request, statusCode int, duration time.Durati
 	if req.URL != nil && (req.URL.Path == server.OAUTHPath || req.URL.Path == server.OAUTHPath+"/logout") {
 		path = req.URL.Path
 	}
-	m.requestCounter.WithLabelValues(req.Method, path, code).Inc()
-	m.requestDuration.WithLabelValues(req.Method, path, code).Observe(duration.Seconds())
-
+	host := req.Header.Get("X-Forwarded-Host")
+	m.requestCounter.WithLabelValues(host, path, code).Inc()
+	m.requestDuration.WithLabelValues(host, path, code).Observe(duration.Seconds())
 }
 
 func (m Metrics) Describe(ch chan<- *prometheus.Desc) {
