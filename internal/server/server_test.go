@@ -62,7 +62,7 @@ func TestServer_authHandler(t *testing.T) {
 					name: "valid domain with user info",
 					args: args{
 						host:   "user:password@www.example.com",
-						cookie: s.makeSessionCookie("foo@example.com", config.Secret),
+						cookie: s.makeSessionCookie("foo@example.com", Config.Secret),
 					},
 					want: http.StatusOK,
 					user: "foo@example.com",
