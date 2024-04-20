@@ -25,6 +25,7 @@ var (
 	authPrefix   = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
 	domains      = flag.String("domains", "", "Comma-separated list of domains to allow access")
 	users        = flag.String("users", "", "Comma-separated list of usernames to login")
+	provider     = flag.String("provider", "google", "The oauth2 provider to use")
 	clientId     = flag.String("client-id", "", "Google OAuth Client ID")
 	clientSecret = flag.String("client-secret", "", "Google OAuth Client Secret")
 	secret       = flag.String("secret", "", "Secret to use for authentication")
@@ -75,6 +76,7 @@ func getConfiguration(l *slog.Logger) server.Config {
 		InsecureCookie: *insecure,
 		Domains:        strings.Split(*domains, ","),
 		Users:          strings.Split(*users, ","),
+		Provider:       *provider,
 		ClientID:       *clientId,
 		ClientSecret:   *clientSecret,
 		AuthPrefix:     *authPrefix,

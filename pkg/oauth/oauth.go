@@ -5,12 +5,59 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
+	"golang.org/x/oauth2/google"
 	"net/http"
 )
 
 type Handler struct {
 	oauth2.Config
 	HTTPClient *http.Client
+	userURL    string
+}
+
+var userURLS = map[string]string{
+	"google": "https://openidconnect.googleapis.com/v1/userinfo",
+	"github": "https://api.github.com/user", // TODO
+}
+
+func NewHandler(provider, clientID, clientSecret, authPrefix, domain, oauthPath string) (*Handler, error) {
+	switch provider {
+	case "google":
+		return newGoogleHandler(clientID, clientSecret, authPrefix, domain, oauthPath), nil
+	case "github":
+		return newGithubHandler(clientID, clientSecret, authPrefix, domain, oauthPath), nil
+	default:
+		return nil, fmt.Errorf("unknown provider: %s", provider)
+	}
+}
+
+func newGoogleHandler(clientID, clientSecret, authPrefix, domain, oauthPath string) *Handler {
+	return &Handler{
+		HTTPClient: http.DefaultClient,
+		Config: oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     google.Endpoint,
+			RedirectURL:  makeAuthURL(authPrefix, domain, oauthPath),
+			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
+		},
+		userURL: userURLS["google"],
+	}
+}
+
+func newGithubHandler(clientID, clientSecret, authPrefix, domain, oauthPath string) *Handler {
+	return &Handler{
+		HTTPClient: http.DefaultClient,
+		Config: oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     github.Endpoint,
+			RedirectURL:  makeAuthURL(authPrefix, domain, oauthPath),
+			Scopes:       []string{"user.email"},
+		},
+		userURL: userURLS["github"],
+	}
 }
 
 func (o Handler) GetUserEmailAddress(code string) (string, error) {
@@ -32,10 +79,8 @@ func (o Handler) getAccessToken(code string) (string, error) {
 	return accessToken, err
 }
 
-const userInfoURL = "https://openidconnect.googleapis.com/v1/userinfo"
-
 func (o Handler) getUserEmailAddress(token string) (string, error) {
-	response, err := o.HTTPClient.Get(userInfoURL + "?access_token=" + token)
+	response, err := o.HTTPClient.Get(o.userURL + "?access_token=" + token)
 	if err != nil {
 		return "", fmt.Errorf("failed getting user info: %s", err.Error())
 	}
@@ -46,4 +91,13 @@ func (o Handler) getUserEmailAddress(token string) (string, error) {
 	}
 	err = json.NewDecoder(response.Body).Decode(&user)
 	return user.Email, err
+}
+
+// makeAuthURL returns the auth URL for a given domain
+func makeAuthURL(authPrefix, domain, OAUTHPath string) string {
+	var dot string
+	if domain != "" && domain[0] != '.' {
+		dot = "."
+	}
+	return "https://" + authPrefix + dot + domain + OAUTHPath
 }

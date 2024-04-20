@@ -79,10 +79,11 @@ func TestServer_authHandler(t *testing.T) {
 	}
 
 	config := Config{
-		Domains: Domains{"example.com"},
-		Secret:  []byte("secret"),
-		Expiry:  time.Hour,
-		Users:   []string{"foo@example.com"},
+		Domains:  Domains{"example.com"},
+		Secret:   []byte("secret"),
+		Expiry:   time.Hour,
+		Users:    []string{"foo@example.com"},
+		Provider: "google",
 	}
 	s := New(config, slog.Default())
 
@@ -137,10 +138,11 @@ func Benchmark_authHandler(b *testing.B) {
 
 func TestServer_authHandler_expiry(t *testing.T) {
 	config := Config{
-		Expiry:  500 * time.Millisecond,
-		Secret:  []byte("secret"),
-		Domains: []string{"example.com"},
-		Users:   []string{"foo@example.com"},
+		Expiry:   500 * time.Millisecond,
+		Secret:   []byte("secret"),
+		Domains:  []string{"example.com"},
+		Users:    []string{"foo@example.com"},
+		Provider: "google",
 	}
 	s := New(config, slog.Default())
 	sc := sessionCookie{Email: "foo@example.com", Expiry: time.Now().Add(config.Expiry)}
@@ -156,7 +158,6 @@ func TestServer_authHandler_expiry(t *testing.T) {
 }
 
 func TestServer_redirectToAuth(t *testing.T) {
-
 	tests := []struct {
 		name            string
 		target          string
@@ -187,6 +188,7 @@ func TestServer_redirectToAuth(t *testing.T) {
 		ClientSecret: "secret",
 		Domains:      Domains{"example.com", ".example.org"},
 		AuthPrefix:   "auth",
+		Provider:     "google",
 	}
 	s := New(config, slog.Default())
 
@@ -218,9 +220,10 @@ func TestServer_redirectToAuth(t *testing.T) {
 
 func TestServer_LogoutHandler(t *testing.T) {
 	config := Config{
-		Secret:  []byte("secret"),
-		Domains: Domains{"example.com"},
-		Expiry:  time.Hour,
+		Secret:   []byte("secret"),
+		Domains:  Domains{"example.com"},
+		Expiry:   time.Hour,
+		Provider: "google",
 	}
 	s := New(config, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
@@ -284,7 +287,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			t.Parallel()
 
 			l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			s := New(Config{Users: []string{"foo@example.com"}, Domains: Domains{"example.com"}}, l)
+			s := New(Config{Users: []string{"foo@example.com"}, Domains: Domains{"example.com"}, Provider: "google"}, l)
 			s.oauthHandlers["example.com"] = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
 
 			state := tt.state

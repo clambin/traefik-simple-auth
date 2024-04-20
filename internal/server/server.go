@@ -5,7 +5,6 @@ import (
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -32,6 +31,7 @@ type Config struct {
 	Expiry         time.Duration
 	Secret         []byte
 	InsecureCookie bool
+	Provider       string
 	Domains        Domains
 	Users          []string
 	ClientID       string
@@ -42,16 +42,11 @@ type Config struct {
 func New(config Config, l *slog.Logger) *Server {
 	oauthHandlers := make(map[string]OAuthHandler)
 	for _, domain := range config.Domains {
-		oauthHandlers[domain] = &oauth.Handler{
-			HTTPClient: http.DefaultClient,
-			Config: oauth2.Config{
-				ClientID:     config.ClientID,
-				ClientSecret: config.ClientSecret,
-				Endpoint:     google.Endpoint,
-				RedirectURL:  makeAuthURL(config.AuthPrefix, domain),
-				Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-			},
+		h, err := oauth.NewHandler(config.Provider, config.ClientID, config.ClientSecret, config.AuthPrefix, domain, OAUTHPath)
+		if err != nil {
+			panic(err)
 		}
+		oauthHandlers[domain] = h
 	}
 	s := Server{
 		Config:        config,
@@ -222,13 +217,4 @@ func (s *Server) makeCookie(value, domain string) *http.Cookie {
 		Secure:   !s.InsecureCookie,
 		HttpOnly: true,
 	}
-}
-
-// makeAuthURL returns the auth URL for a given domain
-func makeAuthURL(authPrefix, domain string) string {
-	var dot string
-	if domain != "" && domain[0] != '.' {
-		dot = "."
-	}
-	return "https://" + authPrefix + dot + domain + OAUTHPath
 }

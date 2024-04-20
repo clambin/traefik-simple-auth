@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,17 +14,10 @@ import (
 )
 
 func TestHandler_AuthCodeURL(t *testing.T) {
-	o := Handler{
-		Config: oauth2.Config{
-			ClientID:     "CLIENT_ID",
-			ClientSecret: "CLIENT_SECRET",
-			Endpoint:     google.Endpoint,
-			RedirectURL:  "http://localhost",
-			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-		},
-	}
+	h, err := NewHandler("google", "CLIENT_ID", "CLIENT_SECRET", "auth", "localhost", "/_oauth")
+	require.NoError(t, err)
 
-	u, err := url.Parse(o.AuthCodeURL("state", oauth2.SetAuthURLParam("prompt", "select_profile")))
+	u, err := url.Parse(h.AuthCodeURL("state", oauth2.SetAuthURLParam("prompt", "select_profile")))
 	require.NoError(t, err)
 	q := u.Query()
 	assert.Equal(t, "state", q.Get("state"))
@@ -33,19 +25,11 @@ func TestHandler_AuthCodeURL(t *testing.T) {
 }
 
 func TestHandler_GetUserEmailAddress(t *testing.T) {
-	s := oauthServer{}
-	o := Handler{
-		HTTPClient: &http.Client{Transport: s},
-		Config: oauth2.Config{
-			ClientID:     "1234",
-			ClientSecret: "1234567",
-			Endpoint:     google.Endpoint,
-			RedirectURL:  "/",
-			Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-		},
-	}
+	h, err := NewHandler("google", "1234", "1234567", "auth", "", "/_oauth")
+	require.NoError(t, err)
+	h.HTTPClient = &http.Client{Transport: oauthServer{}}
 
-	user, err := o.GetUserEmailAddress("abcd1234")
+	user, err := h.GetUserEmailAddress("abcd1234")
 	require.NoError(t, err)
 	assert.Equal(t, "foo@example.com", user)
 }
@@ -59,7 +43,7 @@ func TestHandler_userInfoEndpoint(t *testing.T) {
 		UserInfoEndpoint string `json:"userinfo_endpoint"`
 	}
 	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&response))
-	assert.Equal(t, userInfoURL, response.UserInfoEndpoint, "google userinfo endpoint has changed")
+	assert.Equal(t, userURLS["google"], response.UserInfoEndpoint, "google userinfo endpoint has changed")
 }
 
 var _ http.RoundTripper = &oauthServer{}
