@@ -17,7 +17,7 @@ const OAUTHPath = "/_oauth"
 type Server struct {
 	http.Handler
 	OAuthHandler
-	*sessionCookieHandler
+	sessionCookieHandler
 	stateHandler
 	whitelist.Whitelist
 	Config
@@ -42,17 +42,17 @@ type Config struct {
 func New(config Config, l *slog.Logger) *Server {
 	s := Server{
 		Config: config,
-		OAuthHandler: &oauth.Handler{
+		OAuthHandler: oauth.Handler{
 			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
 				ClientID:     config.ClientID,
 				ClientSecret: config.ClientSecret,
 				Endpoint:     google.Endpoint,
-				//RedirectURL:  "https://" + config.AuthHost + OAUTHPath,
-				Scopes: []string{"https://www.googleapis.com/auth/userinfo.email"},
+				RedirectURL:  OAUTHPath, //"https://" + config.AuthHost + OAUTHPath,
+				Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			},
 		},
-		sessionCookieHandler: &sessionCookieHandler{
+		sessionCookieHandler: sessionCookieHandler{
 			SecureCookie: !config.InsecureCookie,
 			Secret:       config.Secret,
 			Expiry:       config.Expiry,
