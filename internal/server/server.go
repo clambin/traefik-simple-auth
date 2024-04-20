@@ -15,12 +15,12 @@ import (
 const OAUTHPath = "/_oauth"
 
 type Server struct {
-	http.Handler
-	OAuthHandler
-	*sessionCookieHandler
+	Config
+	oauthHandlers map[string]OAuthHandler
+	sessionCookieHandler
 	stateHandler
 	whitelist.Whitelist
-	Config
+	http.Handler
 }
 
 type OAuthHandler interface {
@@ -40,19 +40,23 @@ type Config struct {
 }
 
 func New(config Config, l *slog.Logger) *Server {
-	s := Server{
-		Config: config,
-		OAuthHandler: &oauth.Handler{
+	oauthHandlers := make(map[string]OAuthHandler)
+	for _, domain := range config.Domains {
+		oauthHandlers[domain] = oauth.Handler{
 			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
 				ClientID:     config.ClientID,
 				ClientSecret: config.ClientSecret,
 				Endpoint:     google.Endpoint,
-				//RedirectURL:  "https://" + config.AuthHost + OAUTHPath,
-				Scopes: []string{"https://www.googleapis.com/auth/userinfo.email"},
+				RedirectURL:  makeAuthURL(config.AuthPrefix, domain),
+				Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			},
-		},
-		sessionCookieHandler: &sessionCookieHandler{
+		}
+	}
+	s := Server{
+		Config:        config,
+		oauthHandlers: oauthHandlers,
+		sessionCookieHandler: sessionCookieHandler{
 			SecureCookie: !config.InsecureCookie,
 			Secret:       config.Secret,
 			Expiry:       config.Expiry,
@@ -104,7 +108,7 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 
 		}
 
-		if _, ok := s.Config.Domains.getDomain(r.URL); !ok {
+		if _, ok := s.Domains.getDomain(r.URL); !ok {
 			l.Warn("host doesn't match any configured domains", "host", r.URL.Host)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
@@ -125,28 +129,17 @@ func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 
-	domain, ok := s.Config.Domains.getDomain(r.URL)
+	domain, ok := s.Domains.getDomain(r.URL)
 	if !ok {
 		l.Error("invalid target host", "host", r.URL.Host)
 		http.Error(w, "Invalid target host", http.StatusUnauthorized)
+		return
 	}
-
-	// make a copy of the oauth handler, so we set the redirectURL without introducing race conditions
-	oauthHandler := *s.OAuthHandler.(*oauth.Handler)
-	oauthHandler.Config.RedirectURL = makeOAUTHRedirectURL(s.Config.AuthPrefix, domain)
 
 	// Redirect user to Google to select the account to be used to authenticate the request
-	authCodeURL := oauthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
+	authCodeURL := s.oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 	l.Debug("redirecting ...", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
-}
-
-func makeOAUTHRedirectURL(authPrefix, domain string) string {
-	var dot string
-	if domain != "" && domain[0] != '.' {
-		dot = "."
-	}
-	return "https://" + authPrefix + dot + domain + OAUTHPath
 }
 
 func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
@@ -164,8 +157,13 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
+		// we already validated the host vs the domain during the redirect
+		// since the state matches, we can trust the request to be valid
+		u, _ := url.Parse(redirectURL)
+		domain, _ := s.Domains.getDomain(u)
+
 		// Use the "code" in the response to determine the user's email address.
-		user, err := s.OAuthHandler.GetUserEmailAddress(r.FormValue("code"))
+		user, err := s.oauthHandlers[domain].GetUserEmailAddress(r.FormValue("code"))
 		if err != nil {
 			l.Error("failed to log in to google", "err", err)
 			http.Error(w, "oauth2 failed", http.StatusBadGateway)
@@ -179,10 +177,6 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
-
-		// we already validated the host vs the domain during the redirect
-		u, _ := url.Parse(redirectURL)
-		domain, _ := s.Config.Domains.getDomain(u)
 
 		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
 		sc := sessionCookie{
@@ -209,7 +203,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// get the domain for the target
-		domain, _ := s.Config.Domains.getDomain(r.URL)
+		domain, _ := s.Domains.getDomain(r.URL)
 
 		// Write a blank session cookie to override the current valid one.
 		http.SetCookie(w, s.makeCookie("", domain))
@@ -225,7 +219,16 @@ func (s *Server) makeCookie(value, domain string) *http.Cookie {
 		Value:    value,
 		Domain:   domain,
 		Path:     "/",
-		Secure:   !s.Config.InsecureCookie,
+		Secure:   !s.InsecureCookie,
 		HttpOnly: true,
 	}
+}
+
+// makeAuthURL returns the auth URL for a given domain
+func makeAuthURL(authPrefix, domain string) string {
+	var dot string
+	if domain != "" && domain[0] != '.' {
+		dot = "."
+	}
+	return "https://" + authPrefix + dot + domain + OAUTHPath
 }

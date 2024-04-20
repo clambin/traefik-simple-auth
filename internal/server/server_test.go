@@ -285,7 +285,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 
 			l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 			s := New(Config{Users: []string{"foo@example.com"}, Domains: Domains{"example.com"}}, l)
-			s.OAuthHandler = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
+			s.oauthHandlers["example.com"] = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
 
 			state := tt.state
 			if tt.makeState {
