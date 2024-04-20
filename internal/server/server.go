@@ -188,7 +188,6 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		sc := sessionCookie{
 			Email:  user,
 			Expiry: time.Now().Add(s.Config.Expiry),
-			Domain: domain,
 		}
 		s.sessionCookieHandler.saveCookie(sc)
 

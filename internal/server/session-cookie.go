@@ -22,7 +22,6 @@ var (
 type sessionCookie struct {
 	Email  string
 	Expiry time.Time
-	Domain string
 }
 
 func (c *sessionCookie) expired() bool {
