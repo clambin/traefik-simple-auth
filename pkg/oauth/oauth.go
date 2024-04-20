@@ -13,10 +13,6 @@ type Handler struct {
 	HTTPClient *http.Client
 }
 
-func (o Handler) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string {
-	return o.Config.AuthCodeURL(state, opts...)
-}
-
 func (o Handler) GetUserEmailAddress(code string) (string, error) {
 	// Use code to get token and get user info from Google.
 	token, err := o.getAccessToken(code)

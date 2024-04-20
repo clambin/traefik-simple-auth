@@ -42,7 +42,7 @@ type Config struct {
 func New(config Config, l *slog.Logger) *Server {
 	oauthHandlers := make(map[string]OAuthHandler)
 	for _, domain := range config.Domains {
-		oauthHandlers[domain] = oauth.Handler{
+		oauthHandlers[domain] = &oauth.Handler{
 			HTTPClient: http.DefaultClient,
 			Config: oauth2.Config{
 				ClientID:     config.ClientID,
