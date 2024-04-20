@@ -131,17 +131,17 @@ func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.
 		http.Error(w, "Invalid target host", http.StatusUnauthorized)
 	}
 
-	// make a copy of the oauth handler, so we set the redirectURL without introducing race conditions
-	oauthHandler := *s.OAuthHandler.(*oauth.Handler)
-	oauthHandler.Config.RedirectURL = makeOAUTHRedirectURL(s.Config.AuthPrefix, domain)
-
 	// Redirect user to Google to select the account to be used to authenticate the request
-	authCodeURL := oauthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
+	authCodeURL := s.OAuthHandler.AuthCodeURL(encodedState,
+		oauth2.SetAuthURLParam("redirect_uri", makeAuthURL(s.Config.AuthPrefix, domain)),
+		oauth2.SetAuthURLParam("prompt", "select_account"),
+	)
 	l.Debug("redirecting ...", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
-func makeOAUTHRedirectURL(authPrefix, domain string) string {
+// makeAuthURL returns the auth URL for a given domain
+func makeAuthURL(authPrefix, domain string) string {
 	var dot string
 	if domain != "" && domain[0] != '.' {
 		dot = "."
