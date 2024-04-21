@@ -40,18 +40,18 @@ For traefik-simple-auth, a valid cookie:
 
 If an incoming request does not contain a valid session cookie, the user needs to be authenticated:
 
-* We forward the user to Google's login page, so the user can be authenticated;
-* When the user has logged in, Google sends the request back to traefik-simple-auth, specifically to the address `<auth-host>/_oauth`;
+* We forward the user to the auth provider's login page, so the user can be authenticated;
+* When the user has logged in, the provider sends the request back to traefik-simple-auth, specifically to the address `<auth-host>/_oauth`;
 * This routes the request to traefik-simple-auth's authCallback handler;
 * The handler uses the request to retrieve the authenticated user's email address and see if it is part of the `users` whitelist; 
 * If so, it creates a new session cookie, and redirects the user to the original destination, with the session cookie;
 * This results in the request being sent back to traefik-simple-auth, with the session cookie, so it passes and the request is sent to the final destination.
 
 Given the asynchronous nature of the handshake during the authentication, traefik-simple-auth needs to validate the request 
-received from Google, to protect against cross-site request forgery (CSRF). The approach is as follows:
+received from the auth provider, to protect against cross-site request forgery (CSRF). The approach is as follows:
 
-* When the authCallback handler forwards the user to Google, it passes a random 'state', that it associates with the original request (i.e. the final destination)
-* When Google sends the request back to traefik-simple-auth, it passes the same 'state' with the request.
+* When the authCallback handler forwards the user to the auth provider, it passes a random 'state', that it associates with the original request (i.e. the final destination)
+* When the auth provider sends the request back to traefik-simple-auth, it passes the same 'state' with the request.
 * traefik-simple-auth only keeps the state (with the final destination) for 5 minutes, which should be ample time for the user to log in.
 
 ## Installation
@@ -59,7 +59,7 @@ received from Google, to protect against cross-site request forgery (CSRF). The 
 Container images are available on [ghcr.io](https://ghcr.io/clambin/traefik-simple-auth).
 
 ## Configuration
-### Google
+### Using Google as auth provider
 
 Head to https://console.developers.google.com and create a new project. Create new Credentials and select OAuth Client ID 
 with "web application" as its application type.
@@ -78,7 +78,7 @@ Note the Client ID and Client Secret as you will need to configure these for tra
 ### Traefik
 #### Middleware
 
-With your Google credentials defined, set up a `forward-auth` middleware. This causes Traefik to forward each incoming 
+With your auth credentials defined, set up a `forward-auth` middleware. This causes Traefik to forward each incoming 
 request for a router configured with this middleware for authentication.
 
 In Kubernetes, this can be done with the following manifest:
@@ -101,8 +101,8 @@ This created a new middleware `traefik-simple-auth` that forwards incoming reque
 
 #### Ingress
 
-To authenticate a user, traefik-simple-auth redirects the user to their Google login page. Upon successful login, Google 
-forwards the request to the redirectURL (as configured in section Google). You will therefore need an ingress to route 
+To authenticate a user, traefik-simple-auth redirects the user to the auth provider's login page. Upon successful login,
+the provider forwards the request to the redirectURL (as configured in section Google). You therefore need an ingress to route 
 the request to traefik-simple-auth:
 
 ```
@@ -127,7 +127,7 @@ spec:
                   number: 8080
 ```
 
-This forwards the Google request back to traefik-simple-auth. 
+This forwards the request request back to traefik-simple-auth. 
 
 ### Running traefik-simple-auth
 
@@ -135,14 +135,14 @@ traefik-simple-auth supports the following command-line arguments:
 
 ```
 Usage:
-  -addr string
+   -addr string
         The address to listen on for HTTP requests (default ":8080")
   -auth-prefix string
         prefix to construct the authRedirect URL from the domain (default "auth")
   -client-id string
-        Google OAuth Client ID
+        OAuth2 Client ID
   -client-secret string
-        Google OAuth Client Secret
+        OAuth2 Client Secret
   -debug
         Enable debug mode
   -domains string
@@ -153,10 +153,13 @@ Usage:
         Use insecure cookies
   -prom string
         The address to listen on for Prometheus scrape requests (default ":9090")
+  -provider string
+        The OAuth2 provider to use (default "google")
   -secret string
         Secret to use for authentication
   -users string
         Comma-separated list of usernames to login
+
 ```
 
 #### Option details
@@ -168,6 +171,10 @@ Usage:
 - `auth-prefix`
 
    Prefix used to construct the authorization URL from the domain.
+
+- `provider`
+
+  The auth provider to use. Currently, only "google" and "github" are supported.
 
 - `client-id`
 
