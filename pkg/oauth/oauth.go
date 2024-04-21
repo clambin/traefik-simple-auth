@@ -1,12 +1,14 @@
 package oauth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
+	"io"
 	"net/http"
 )
 
@@ -114,7 +116,11 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 	var user struct {
 		Email string `json:"email"`
 	}
-	err = json.NewDecoder(resp.Body).Decode(&user)
+	var body bytes.Buffer
+	err = json.NewDecoder(io.TeeReader(resp.Body, &body)).Decode(&user)
+	if err == nil && user.Email == "" {
+		return "", fmt.Errorf("failed to parse body: %s", body.String())
+	}
 	return user.Email, err
 }
 
