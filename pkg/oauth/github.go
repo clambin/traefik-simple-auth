@@ -76,6 +76,9 @@ func (h GitHubHandler) getAddress(token *oauth2.Token) (string, error) {
 
 func (h GitHubHandler) getAddressFromProfile(token *oauth2.Token) (string, error) {
 	resp, err := h.do("https://api.github.com/user", token)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user info: %w", err)
+	}
 	defer func() { _ = resp.Body.Close() }()
 
 	var user struct {
