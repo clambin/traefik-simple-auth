@@ -4,6 +4,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
@@ -28,7 +29,7 @@ func TestGitHubHandler_GetUserEmailAddress(t *testing.T) {
 		},
 	}
 
-	h, _ := NewHandler("github", "1234", "1234567", "https://auth.example.com/_oauth")
+	h, _ := NewHandler("github", "1234", "1234567", "https://auth.example.com/_oauth", slog.Default())
 	h.(*GitHubHandler).HTTPClient = &http.Client{Transport: s}
 
 	user, err := h.GetUserEmailAddress("abcd1234")

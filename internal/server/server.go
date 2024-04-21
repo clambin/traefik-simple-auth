@@ -38,7 +38,7 @@ func New(config Config, l *slog.Logger) *Server {
 	oauthHandlers := make(map[string]oauth.Handler)
 	for _, domain := range config.Domains {
 		var err error
-		if oauthHandlers[domain], err = oauth.NewHandler(config.Provider, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath)); err != nil {
+		if oauthHandlers[domain], err = oauth.NewHandler(config.Provider, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath), l.With("oauth", config.Provider)); err != nil {
 			panic("unknown provider: " + config.Provider)
 		}
 	}

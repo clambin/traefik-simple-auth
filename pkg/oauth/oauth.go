@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"golang.org/x/oauth2"
+	"log/slog"
 	"net/http"
 )
 
@@ -12,12 +13,12 @@ type Handler interface {
 	GetUserEmailAddress(code string) (string, error)
 }
 
-func NewHandler(provider, clientID, clientSecret, authURL string) (Handler, error) {
+func NewHandler(provider, clientID, clientSecret, authURL string, logger *slog.Logger) (Handler, error) {
 	switch provider {
 	case "google":
-		return NewGoogleHandler(clientID, clientSecret, authURL), nil
+		return NewGoogleHandler(clientID, clientSecret, authURL, logger), nil
 	case "github":
-		return NewGitHubHandler(clientID, clientSecret, authURL), nil
+		return NewGitHubHandler(clientID, clientSecret, authURL, logger), nil
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", provider)
 	}
@@ -26,6 +27,7 @@ func NewHandler(provider, clientID, clientSecret, authURL string) (Handler, erro
 type BaseHandler struct {
 	oauth2.Config
 	HTTPClient *http.Client
+	Logger     *slog.Logger
 }
 
 func (h BaseHandler) getAccessToken(code string) (*oauth2.Token, error) {

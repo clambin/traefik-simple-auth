@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"log/slog"
 	"net/http"
 )
 
@@ -12,7 +13,7 @@ type GoogleHandler struct {
 	BaseHandler
 }
 
-func NewGoogleHandler(clientID, clientSecret, authURL string) *GoogleHandler {
+func NewGoogleHandler(clientID, clientSecret, authURL string, logger *slog.Logger) *GoogleHandler {
 	return &GoogleHandler{
 		BaseHandler: BaseHandler{
 			HTTPClient: http.DefaultClient,
@@ -23,6 +24,7 @@ func NewGoogleHandler(clientID, clientSecret, authURL string) *GoogleHandler {
 				RedirectURL:  authURL,
 				Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 			},
+			Logger: logger,
 		},
 	}
 }

@@ -4,13 +4,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"testing"
 )
 
 func TestHandler_AuthCodeURL(t *testing.T) {
-	h := NewGoogleHandler("CLIENT_ID", "CLIENT_SECRET", "https://auth/example.com/_oauth")
+	h, _ := NewHandler("google", "CLIENT_ID", "CLIENT_SECRET", "https://auth/example.com/_oauth", slog.Default())
 
 	u, err := url.Parse(h.AuthCodeURL("state", oauth2.SetAuthURLParam("prompt", "select_profile")))
 	require.NoError(t, err)

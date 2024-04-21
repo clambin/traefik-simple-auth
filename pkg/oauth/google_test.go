@@ -5,6 +5,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
@@ -29,7 +30,7 @@ func TestGoogleHandler_GetUserEmailAddress(t *testing.T) {
 		},
 	}
 
-	h, _ := NewHandler("google", "1234", "1234567", "https://auth.example.com/_oauth")
+	h, _ := NewHandler("google", "1234", "1234567", "https://auth.example.com/_oauth", slog.Default())
 	h.(*GoogleHandler).HTTPClient = &http.Client{Transport: s}
 
 	user, err := h.GetUserEmailAddress("abcd1234")

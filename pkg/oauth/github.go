@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
+	"log/slog"
 	"net/http"
 )
 
@@ -12,7 +13,7 @@ type GitHubHandler struct {
 	BaseHandler
 }
 
-func NewGitHubHandler(clientID, clientSecret, authURL string) *GitHubHandler {
+func NewGitHubHandler(clientID, clientSecret, authURL string, logger *slog.Logger) *GitHubHandler {
 	return &GitHubHandler{
 		BaseHandler: BaseHandler{
 			HTTPClient: http.DefaultClient,
@@ -21,8 +22,9 @@ func NewGitHubHandler(clientID, clientSecret, authURL string) *GitHubHandler {
 				ClientSecret: clientSecret,
 				Endpoint:     github.Endpoint,
 				RedirectURL:  authURL,
-				Scopes:       []string{"user.email", "emails:read"},
+				Scopes:       []string{"user:email", "read:user"},
 			},
+			Logger: logger,
 		},
 	}
 }
@@ -34,13 +36,16 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 		return "", err
 	}
 
-	// FIXME: should use the /user/email API but currently giving 404???
+	email, err := h.getAddress(token)
+	if email != "" && err == nil {
+		return email, nil
+	}
+	h.Logger.Debug("No email address found. Using user public profile instead", "err", err)
+	return h.getAddressFromProfile(token)
+}
 
-	req, _ := http.NewRequest(http.MethodGet, "https://api.github.com/user", nil)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	token.SetAuthHeader(req)
-
-	resp, err := h.HTTPClient.Do(req)
+func (h GitHubHandler) getAddress(token *oauth2.Token) (string, error) {
+	resp, err := h.do("https://api.github.com/user/email", token)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user info: %w", err)
 	}
@@ -50,26 +55,49 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 		return "", fmt.Errorf("failed to get user info: %s", resp.Status)
 	}
 
-	var user struct {
+	var users []struct {
 		Email   string `json:"email"`
 		Primary bool   `json:"primary"`
 	}
 
-	if err = json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		return "", fmt.Errorf("failed to get user info: decode: %w", err)
+	if err = json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return "", err
 	}
-	return user.Email, nil
 
-	/*
-		if len(users) == 0 {
-			return "", fmt.Errorf("failed to get user info: no user email address")
+	if len(users) == 0 {
+		return "", fmt.Errorf("no email addresses found")
+	}
+
+	for _, user := range users {
+		if user.Primary {
+			return user.Email, nil
 		}
-		for _, user := range users {
-			if user.Primary {
-				return user.Email, nil
-			}
-		}
-		// fallback in case no primary email: return the first one
-		return users[0].Email, nil
-	*/
+	}
+	// fallback in case no primary email: return the first one
+	h.Logger.Warn("No primary email address found. Defaulting to first email address instead.", "email", users[0].Email)
+	return users[0].Email, nil
+}
+
+func (h GitHubHandler) getAddressFromProfile(token *oauth2.Token) (string, error) {
+	resp, err := h.do("https://api.github.com/user", token)
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get user info: %s", resp.Status)
+	}
+
+	var user struct {
+		Email string `json:"email"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&user)
+	return user.Email, err
+}
+
+func (h GitHubHandler) do(url string, token *oauth2.Token) (*http.Response, error) {
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	token.SetAuthHeader(req)
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	return h.HTTPClient.Do(req)
 }
