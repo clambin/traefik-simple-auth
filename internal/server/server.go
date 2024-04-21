@@ -23,15 +23,16 @@ type Server struct {
 }
 
 type Config struct {
-	Expiry         time.Duration
-	Secret         []byte
-	InsecureCookie bool
-	Provider       string
-	Domains        Domains
-	Users          []string
-	ClientID       string
-	ClientSecret   string
-	AuthPrefix     string
+	SessionCookieName string
+	Expiry            time.Duration
+	Secret            []byte
+	InsecureCookie    bool
+	Provider          string
+	Domains           Domains
+	Users             []string
+	ClientID          string
+	ClientSecret      string
+	AuthPrefix        string
 }
 
 func New(config Config, l *slog.Logger) *Server {
@@ -72,7 +73,7 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
-		c, err := r.Cookie(sessionCookieName)
+		c, err := r.Cookie(s.SessionCookieName)
 		if err != nil || c.Value == "" {
 			// Client doesn't have a valid cookie. Redirect to oauth provider to authenticate the user.
 			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
@@ -187,7 +188,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// remove the cached cookie
-		if c, err := r.Cookie(sessionCookieName); err == nil {
+		if c, err := r.Cookie(s.SessionCookieName); err == nil {
 			s.deleteSessionCookie(c)
 		}
 
@@ -204,7 +205,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 
 func (s *Server) makeCookie(value, domain string) *http.Cookie {
 	return &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     s.SessionCookieName,
 		Value:    value,
 		Domain:   domain,
 		Path:     "/",

@@ -80,11 +80,12 @@ func TestServer_authHandler(t *testing.T) {
 	}
 
 	config := Config{
-		Domains:  Domains{"example.com"},
-		Secret:   []byte("secret"),
-		Expiry:   time.Hour,
-		Users:    []string{"foo@example.com"},
-		Provider: "google",
+		SessionCookieName: "_traefik_simple_auth",
+		Domains:           Domains{"example.com"},
+		Secret:            []byte("secret"),
+		Expiry:            time.Hour,
+		Users:             []string{"foo@example.com"},
+		Provider:          "google",
 	}
 	s := New(config, slog.Default())
 
@@ -221,10 +222,11 @@ func TestServer_redirectToAuth(t *testing.T) {
 
 func TestServer_LogoutHandler(t *testing.T) {
 	config := Config{
-		Secret:   []byte("secret"),
-		Domains:  Domains{"example.com"},
-		Expiry:   time.Hour,
-		Provider: "google",
+		SessionCookieName: "_traefik_simple_auth",
+		Secret:            []byte("secret"),
+		Domains:           Domains{"example.com"},
+		Expiry:            time.Hour,
+		Provider:          "google",
 	}
 	s := New(config, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 

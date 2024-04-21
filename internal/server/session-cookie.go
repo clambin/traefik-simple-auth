@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-const sessionCookieName = "_traefik_simple_auth"
-
 var (
 	errCookieInvalidMAC       = errors.New("cookie has invalid MAC")
 	errCookieInvalidStructure = errors.New("cookie has invalid structure")

@@ -17,18 +17,19 @@ import (
 )
 
 var (
-	debug        = flag.Bool("debug", false, "Enable debug mode")
-	addr         = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
-	promAddr     = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
-	expiry       = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
-	insecure     = flag.Bool("insecure", false, "Use insecure cookies")
-	authPrefix   = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
-	domains      = flag.String("domains", "", "Comma-separated list of domains to allow access")
-	users        = flag.String("users", "", "Comma-separated list of usernames to login")
-	provider     = flag.String("provider", "google", "The OAuth2 provider to use")
-	clientId     = flag.String("client-id", "", "OAuth2 Client ID")
-	clientSecret = flag.String("client-secret", "", "OAuth2 Client Secret")
-	secret       = flag.String("secret", "", "Secret to use for authentication")
+	debug             = flag.Bool("debug", false, "Enable debug mode")
+	addr              = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
+	promAddr          = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
+	sessionCookieName = flag.String("session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
+	expiry            = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
+	insecure          = flag.Bool("insecure", false, "Use insecure cookies")
+	authPrefix        = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
+	domains           = flag.String("domains", "", "Comma-separated list of domains to allow access")
+	users             = flag.String("users", "", "Comma-separated list of usernames to login")
+	provider          = flag.String("provider", "google", "The OAuth2 provider to use")
+	clientId          = flag.String("client-id", "", "OAuth2 Client ID")
+	clientSecret      = flag.String("client-secret", "", "OAuth2 Client Secret")
+	secret            = flag.String("secret", "", "Secret to use for authentication")
 
 	version string = "change-me"
 )
@@ -71,14 +72,15 @@ func getConfiguration(l *slog.Logger) server.Config {
 		os.Exit(1)
 	}
 	return server.Config{
-		Expiry:         *expiry,
-		Secret:         secretBytes,
-		InsecureCookie: *insecure,
-		Domains:        strings.Split(*domains, ","),
-		Users:          strings.Split(*users, ","),
-		Provider:       *provider,
-		ClientID:       *clientId,
-		ClientSecret:   *clientSecret,
-		AuthPrefix:     *authPrefix,
+		SessionCookieName: *sessionCookieName,
+		Expiry:            *expiry,
+		Secret:            secretBytes,
+		InsecureCookie:    *insecure,
+		Domains:           strings.Split(*domains, ","),
+		Users:             strings.Split(*users, ","),
+		Provider:          *provider,
+		ClientID:          *clientId,
+		ClientSecret:      *clientSecret,
+		AuthPrefix:        *authPrefix,
 	}
 }

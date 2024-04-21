@@ -106,13 +106,13 @@ func TestSessionCookieHandler_getSessionCookie(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := sessionCookieHandler{
+			handler := sessionCookieHandler{
 				SecureCookie: true,
 				Secret:       secret,
 				sessions:     cache.New[string, sessionCookie](time.Hour, time.Minute),
 			}
 
-			_, err := p.getSessionCookie(&http.Cookie{Name: sessionCookieName, Value: tt.value})
+			_, err := handler.getSessionCookie(&http.Cookie{Value: tt.value})
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
