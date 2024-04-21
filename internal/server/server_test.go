@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
@@ -321,7 +322,7 @@ func makeHTTPRequest(method, host, uri string) *http.Request {
 	return req
 }
 
-var _ OAuthHandler = fakeOauthHandler{}
+var _ oauth.Handler = fakeOauthHandler{}
 
 type fakeOauthHandler struct {
 	email string

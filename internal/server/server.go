@@ -15,16 +15,11 @@ const OAUTHPath = "/_oauth"
 
 type Server struct {
 	Config
-	oauthHandlers map[string]OAuthHandler
+	oauthHandlers map[string]oauth.Handler
 	sessionCookieHandler
 	stateHandler
 	whitelist.Whitelist
 	http.Handler
-}
-
-type OAuthHandler interface {
-	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
-	GetUserEmailAddress(code string) (string, error)
 }
 
 type Config struct {
@@ -40,14 +35,10 @@ type Config struct {
 }
 
 func New(config Config, l *slog.Logger) *Server {
-	oauthHandlers := make(map[string]OAuthHandler)
+	oauthHandlers := make(map[string]oauth.Handler)
 	for _, domain := range config.Domains {
-		switch config.Provider {
-		case "google":
-			oauthHandlers[domain] = oauth.NewGoogleHandler(config.ClientID, config.ClientSecret, config.AuthPrefix, domain, OAUTHPath)
-		case "github":
-			oauthHandlers[domain] = oauth.NewGitHubHandler(config.ClientID, config.ClientSecret, config.AuthPrefix, domain, OAUTHPath)
-		default:
+		var err error
+		if oauthHandlers[domain], err = oauth.NewHandler(config.Provider, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath)); err != nil {
 			panic("unknown provider: " + config.Provider)
 		}
 	}
@@ -220,4 +211,13 @@ func (s *Server) makeCookie(value, domain string) *http.Cookie {
 		Secure:   !s.InsecureCookie,
 		HttpOnly: true,
 	}
+}
+
+// makeAuthURL returns the auth URL for a given domain
+func makeAuthURL(authPrefix, domain, OAUTHPath string) string {
+	var dot string
+	if domain != "" && domain[0] != '.' {
+		dot = "."
+	}
+	return "https://" + authPrefix + dot + domain + OAUTHPath
 }
