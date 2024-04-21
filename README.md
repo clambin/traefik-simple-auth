@@ -102,8 +102,8 @@ This created a new middleware `traefik-simple-auth` that forwards incoming reque
 #### Ingress
 
 To authenticate a user, traefik-simple-auth redirects the user to the auth provider's login page. Upon successful login,
-the provider forwards the request to the redirectURL (as configured in section Google). You therefore need an ingress to route 
-the request to traefik-simple-auth:
+the provider forwards the request to the redirectURL (as configured in section `Using Google as auth provider`). 
+You therefore need an ingress to route the request to traefik-simple-auth:
 
 ```
 apiVersion: networking.k8s.io/v1
@@ -127,7 +127,7 @@ spec:
                   number: 8080
 ```
 
-This forwards the request request back to traefik-simple-auth. 
+This forwards the request to traefik-simple-auth. 
 
 ### Running traefik-simple-auth
 
@@ -157,20 +157,25 @@ Usage:
         The OAuth2 provider to use (default "google")
   -secret string
         Secret to use for authentication
+  -session-cookie-name string
+        The cookie name to use for authentication (default "traefik-simple-auth")
   -users string
         Comma-separated list of usernames to login
-
 ```
 
 #### Option details
+
+- `debug`
+
+  Enable debug mode
 
 - `addr`
 
   Listener address for traefik-simple-auth
 
-- `auth-prefix`
+- `prom`
 
-   Prefix used to construct the authorization URL from the domain.
+  Listener address for Prometheus metrics
 
 - `provider`
 
@@ -178,19 +183,27 @@ Usage:
 
 - `client-id`
 
-  The (hex-encoded) Google Client ID, found in the Google Credentials configuration.
+  The Client ID, found in the OAuth provider's credentials configuration.
 
 - `client-secret`
 
-  The (hex-encoded) Google Client Secret, found in the Google Credentials configuration
+  The Client Secret, found in the OAuth provider's Credentials configuration.
 
-- `debug`
+- `auth-prefix`
 
-  Enable debug mode
+  Prefix used to construct the authorization URL from the domain.
+
+- `session-cookie-name`
+
+  The name of the browser cookie holding the session. Overriding this may be useful when you to segregate a user signing into one instance of traefik-simple-auth vs. any other instances.
+  
+  By default, traefik-simple-auth uses Google as oauth provider and a session cooke called `traefik-simple-auth`.
+  If a second instance, using GitHub oauth, used the same cookie name, then signing in to Google would also allow any flows
+  authenticated by GitHub. If you want to segregate this, use a different `session-cookie-name` for the GitHub instance.  
 
 - `domains`
 
-   A comma-separared list of all domains that should be allowed. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) will be allowed.
+   A comma-separated list of all domains that should be allowed. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) are allowed.
 
 - `expiry`
 
@@ -199,10 +212,6 @@ Usage:
 - `insecure`
 
   Marks the session cookie as insecure so it can be used over HTTP sessions.
-
-- `prom`
-
-  Listener address for Prometheus metrics
 
 - `secret`
 
