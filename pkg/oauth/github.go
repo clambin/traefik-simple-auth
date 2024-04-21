@@ -1,12 +1,10 @@
 package oauth
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
-	"io"
 	"net/http"
 )
 
@@ -23,7 +21,7 @@ func NewGitHubHandler(clientID, clientSecret, authURL string) *GitHubHandler {
 				ClientSecret: clientSecret,
 				Endpoint:     github.Endpoint,
 				RedirectURL:  authURL,
-				Scopes:       []string{"user.email", "emails:read"},
+				Scopes:       []string{ /*"user.email", */ "emails:read"},
 			},
 		},
 	}
@@ -36,7 +34,8 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 		return "", err
 	}
 
-	req, _ := http.NewRequest(http.MethodGet, "https://api.github.com/user", nil)
+	req, _ := http.NewRequest(http.MethodGet, "https://api.github.com/user/emails", nil)
+	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := h.HTTPClient.Do(req)
@@ -49,13 +48,22 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 		return "", fmt.Errorf("failed getting user info: %s", resp.Status)
 	}
 
-	var user struct {
-		Email string `json:"email"`
+	var users []struct {
+		Email   string `json:"email"`
+		Primary bool   `json:"primary"`
 	}
-	var body bytes.Buffer
-	err = json.NewDecoder(io.TeeReader(resp.Body, &body)).Decode(&user)
-	if err == nil && user.Email == "" {
-		return "", fmt.Errorf("failed to parse body: %s", body.String())
+
+	if err = json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return "", fmt.Errorf("failed getting user info: decode: %w", err)
 	}
-	return user.Email, err
+	if len(users) == 0 {
+		return "", fmt.Errorf("failed getting user info: no user email address")
+	}
+	for _, user := range users {
+		if user.Primary {
+			return user.Email, nil
+		}
+	}
+	// fallback in case no primary email: return the first one
+	return users[0].Email, nil
 }
