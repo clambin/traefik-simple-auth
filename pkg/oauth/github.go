@@ -45,15 +45,11 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 }
 
 func (h GitHubHandler) getAddress(token *oauth2.Token) (string, error) {
-	resp, err := h.do("https://api.github.com/user/email", token)
+	resp, err := h.do("https://api.github.com/user/emails", token)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user info: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get user info: %s", resp.Status)
-	}
 
 	var users []struct {
 		Email   string `json:"email"`
@@ -81,10 +77,6 @@ func (h GitHubHandler) getAddress(token *oauth2.Token) (string, error) {
 func (h GitHubHandler) getAddressFromProfile(token *oauth2.Token) (string, error) {
 	resp, err := h.do("https://api.github.com/user", token)
 	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get user info: %s", resp.Status)
-	}
 
 	var user struct {
 		Email string `json:"email"`
