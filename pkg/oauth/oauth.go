@@ -28,12 +28,7 @@ type BaseHandler struct {
 	HTTPClient *http.Client
 }
 
-func (h BaseHandler) getAccessToken(code string) (string, error) {
+func (h BaseHandler) getAccessToken(code string) (*oauth2.Token, error) {
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, h.HTTPClient)
-	var accessToken string
-	token, err := h.Config.Exchange(ctx, code)
-	if err == nil {
-		accessToken = token.AccessToken
-	}
-	return accessToken, err
+	return h.Config.Exchange(ctx, code)
 }

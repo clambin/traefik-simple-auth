@@ -36,7 +36,10 @@ func (h GoogleHandler) GetUserEmailAddress(code string) (string, error) {
 		return "", err
 	}
 
-	response, err := h.HTTPClient.Get(googleUserURL + "?access_token=" + token)
+	req, _ := http.NewRequest(http.MethodGet, googleUserURL, nil)
+	token.SetAuthHeader(req)
+
+	response, err := h.HTTPClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed getting user info: %s", err.Error())
 	}

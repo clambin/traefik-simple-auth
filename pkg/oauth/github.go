@@ -34,9 +34,11 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 		return "", err
 	}
 
-	req, _ := http.NewRequest(http.MethodGet, "https://api.github.com/user/emails", nil)
+	// FIXME: should use the /user/email API but currently giving 404???
+
+	req, _ := http.NewRequest(http.MethodGet, "https://api.github.com/user", nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Authorization", "Bearer "+token)
+	token.SetAuthHeader(req)
 
 	resp, err := h.HTTPClient.Do(req)
 	if err != nil {
@@ -48,22 +50,26 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 		return "", fmt.Errorf("failed to get user info: %s", resp.Status)
 	}
 
-	var users []struct {
+	var user struct {
 		Email   string `json:"email"`
 		Primary bool   `json:"primary"`
 	}
 
-	if err = json.NewDecoder(resp.Body).Decode(&users); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return "", fmt.Errorf("failed to get user info: decode: %w", err)
 	}
-	if len(users) == 0 {
-		return "", fmt.Errorf("failed to get user info: no user email address")
-	}
-	for _, user := range users {
-		if user.Primary {
-			return user.Email, nil
+	return user.Email, nil
+
+	/*
+		if len(users) == 0 {
+			return "", fmt.Errorf("failed to get user info: no user email address")
 		}
-	}
-	// fallback in case no primary email: return the first one
-	return users[0].Email, nil
+		for _, user := range users {
+			if user.Primary {
+				return user.Email, nil
+			}
+		}
+		// fallback in case no primary email: return the first one
+		return users[0].Email, nil
+	*/
 }
