@@ -20,7 +20,7 @@ var (
 	debug             = flag.Bool("debug", false, "Enable debug mode")
 	addr              = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
 	promAddr          = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
-	sessionCookieName = flag.String("session-cookie-name", "traefik_simple_auth", "The cookie name to use for authentication")
+	sessionCookieName = flag.String("session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
 	expiry            = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
 	insecure          = flag.Bool("insecure", false, "Use insecure cookies")
 	authPrefix        = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
