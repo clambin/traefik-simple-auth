@@ -42,12 +42,14 @@ type Config struct {
 func New(config Config, l *slog.Logger) *Server {
 	oauthHandlers := make(map[string]OAuthHandler)
 	for _, domain := range config.Domains {
-		h, err := oauth.NewHandler(config.Provider, config.ClientID, config.ClientSecret, config.AuthPrefix, domain, OAUTHPath)
-		if err != nil {
-			panic(err)
+		switch config.Provider {
+		case "google":
+			oauthHandlers[domain] = oauth.NewGoogleHandler(config.ClientID, config.ClientSecret, config.AuthPrefix, domain, OAUTHPath)
+		case "github":
+			oauthHandlers[domain] = oauth.NewGitHubHandler(config.ClientID, config.ClientSecret, config.AuthPrefix, domain, OAUTHPath)
+		default:
+			panic("unknown provider: " + config.Provider)
 		}
-		h.Logger = l.With("oauthHandler", domain)
-		oauthHandlers[domain] = h
 	}
 	s := Server{
 		Config:        config,
