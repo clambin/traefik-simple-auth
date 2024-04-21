@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -28,6 +29,7 @@ func TestHandler_GetUserEmailAddress(t *testing.T) {
 	h, err := NewHandler("google", "1234", "1234567", "auth", "", "/_oauth")
 	require.NoError(t, err)
 	h.HTTPClient = &http.Client{Transport: oauthServer{}}
+	h.Logger = slog.Default()
 
 	user, err := h.GetUserEmailAddress("abcd1234")
 	require.NoError(t, err)

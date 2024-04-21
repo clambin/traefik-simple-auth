@@ -7,6 +7,8 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
+	"io"
+	"log/slog"
 	"net/http"
 )
 
@@ -14,6 +16,8 @@ type Handler struct {
 	oauth2.Config
 	HTTPClient *http.Client
 	userURL    string
+
+	Logger *slog.Logger
 }
 
 var userURLS = map[string]string{
@@ -86,10 +90,13 @@ func (o Handler) getUserEmailAddress(token string) (string, error) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
+	body, _ := io.ReadAll(response.Body)
+	o.Logger.Debug("getUserEmailAddress", "code", response.StatusCode, "body", string(body))
+
 	var user struct {
 		Email string `json:"email"`
 	}
-	err = json.NewDecoder(response.Body).Decode(&user)
+	err = json.Unmarshal(body, &user)
 	return user.Email, err
 }
 

@@ -46,6 +46,7 @@ func New(config Config, l *slog.Logger) *Server {
 		if err != nil {
 			panic(err)
 		}
+		h.Logger = l.With("oauthHandler", domain)
 		oauthHandlers[domain] = h
 	}
 	s := Server{
