@@ -21,14 +21,14 @@ func NewGitHubHandler(clientID, clientSecret, authURL string) *GitHubHandler {
 				ClientSecret: clientSecret,
 				Endpoint:     github.Endpoint,
 				RedirectURL:  authURL,
-				Scopes:       []string{ /*"user.email", */ "emails:read"},
+				Scopes:       []string{"user.email", "emails:read"},
 			},
 		},
 	}
 }
 
 func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
-	// Use code to get token and get user info from Google.
+	// Use code to get token and get user info from GitHub
 	token, err := h.getAccessToken(code)
 	if err != nil {
 		return "", err
@@ -40,12 +40,12 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 
 	resp, err := h.HTTPClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed getting user info: %s", err.Error())
+		return "", fmt.Errorf("failed to get user info: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed getting user info: %s", resp.Status)
+		return "", fmt.Errorf("failed to get user info: %s", resp.Status)
 	}
 
 	var users []struct {
@@ -54,10 +54,10 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 	}
 
 	if err = json.NewDecoder(resp.Body).Decode(&users); err != nil {
-		return "", fmt.Errorf("failed getting user info: decode: %w", err)
+		return "", fmt.Errorf("failed to get user info: decode: %w", err)
 	}
 	if len(users) == 0 {
-		return "", fmt.Errorf("failed getting user info: no user email address")
+		return "", fmt.Errorf("failed to get user info: no user email address")
 	}
 	for _, user := range users {
 		if user.Primary {

@@ -52,7 +52,7 @@ func New(config Config, l *slog.Logger) *Server {
 			sessions:     cache.New[string, sessionCookie](config.Expiry, time.Minute),
 		},
 		stateHandler: stateHandler{
-			// 5 minutes should be enough for the user to log in to Google
+			// 5 minutes should be enough for the user to log in
 			cache: cache.New[string, string](5*time.Minute, time.Minute),
 		},
 		Whitelist: whitelist.New(config.Users),
@@ -74,7 +74,7 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 
 		c, err := r.Cookie(sessionCookieName)
 		if err != nil || c.Value == "" {
-			// Client doesn't have a valid cookie. Redirect to Google to authenticate the user.
+			// Client doesn't have a valid cookie. Redirect to oauth provider to authenticate the user.
 			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
 			l.Debug("no cookie found, redirecting ...")
 			s.redirectToAuth(w, r, l)
@@ -82,14 +82,14 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 		}
 		session, err := s.getSessionCookie(c)
 		if err != nil {
-			// Client has an invalid cookie. Redirect to Google to authenticate the user.
+			// Client has an invalid cookie. Redirect to oauth provider to authenticate the user.
 			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
 			l.Warn("invalid cookie. redirecting ...", "err", err)
 			s.redirectToAuth(w, r, l)
 			return
 		}
 		if session.expired() {
-			// Client has an expired cookie. Redirect to Google to authenticate the user.
+			// Client has an expired cookie. Redirect to oauth provider to authenticate the user.
 			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
 			l.Debug("expired cookie. redirecting ...")
 			s.redirectToAuth(w, r, l)
@@ -125,7 +125,7 @@ func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.
 		return
 	}
 
-	// Redirect user to Google to select the account to be used to authenticate the request
+	// Redirect user to oauth provider to select the account to be used to authenticate the request
 	authCodeURL := s.oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 	l.Debug("redirecting ...", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
@@ -154,7 +154,7 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		// Use the "code" in the response to determine the user's email address.
 		user, err := s.oauthHandlers[domain].GetUserEmailAddress(r.FormValue("code"))
 		if err != nil {
-			l.Error("failed to log in to google", "err", err)
+			l.Error("failed to log in", "err", err)
 			http.Error(w, "oauth2 failed", http.StatusBadGateway)
 			return
 		}
