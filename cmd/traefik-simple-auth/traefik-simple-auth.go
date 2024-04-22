@@ -14,9 +14,7 @@ import (
 	"os"
 )
 
-var (
-	version string = "change-me"
-)
+var version string = "change-me"
 
 func main() {
 	flag.Parse()
