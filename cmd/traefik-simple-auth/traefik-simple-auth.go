@@ -74,7 +74,7 @@ func getConfiguration() (server.Config, error) {
 	}
 	domainList := strings.Split(*domains, ",")
 	for i := range domainList {
-		if len(domainList[i]) > 0 && domainList[i] != "." {
+		if domainList[i] != "" && domainList[i][0] != '.' {
 			domainList[i] = "." + domainList[i]
 		}
 	}
