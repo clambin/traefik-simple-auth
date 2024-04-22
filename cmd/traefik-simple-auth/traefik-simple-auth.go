@@ -42,45 +42,56 @@ func main() {
 		opts.Level = slog.LevelDebug
 	}
 	l := slog.New(slog.NewJSONHandler(os.Stderr, &opts))
-
 	l.Info("Starting traefik-simple-auth", "version", version)
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		if err := http.ListenAndServe(*promAddr, nil); !errors.Is(err, http.ErrServerClosed) {
-			l.Error("failed to start Prometheus metrics handler", "error", err)
-			panic(err)
+			l.Error("Error starting Prometheus metrics server", "err", err)
+			os.Exit(1)
 		}
 	}()
 
-	m := metrics.New("traefik_simple_auth", "", nil)
+	cfg, err := getConfiguration()
+	if err != nil {
+		l.Error("Error loading configuration", "err", err)
+		os.Exit(1)
+	}
+
+	m := metrics.New("traefik_simple_auth", "", map[string]string{"provider": *provider})
 	prometheus.MustRegister(m)
 
-	s := server.New(getConfiguration(l), l)
-	if err := http.ListenAndServe(*addr, middleware.WithRequestMetrics(m)(s)); !errors.Is(err, http.ErrServerClosed) {
-		panic(err)
+	s := server.New(cfg, l)
+	if err = http.ListenAndServe(*addr, middleware.WithRequestMetrics(m)(s)); !errors.Is(err, http.ErrServerClosed) {
+		l.Error("Error starting server", "err", err)
+		os.Exit(1)
 	}
 }
 
-func getConfiguration(l *slog.Logger) server.Config {
-	if len(*domains) > 0 && (*domains)[0] != '.' {
-		*domains = "." + *domains
+func getConfiguration() (server.Config, error) {
+	if *domains == "" {
+		return server.Config{}, errors.New("must specify at least one domain")
+	}
+	domainList := strings.Split(*domains, ",")
+	for i := range domainList {
+		if len(domainList[i]) > 0 && domainList[i] != "." {
+			domainList[i] = "." + domainList[i]
+		}
 	}
 	secretBytes, err := base64.StdEncoding.DecodeString(*secret)
 	if err != nil {
-		l.Error("Could not decode secret", "err", err)
-		os.Exit(1)
+		return server.Config{}, err
 	}
 	return server.Config{
 		SessionCookieName: *sessionCookieName,
 		Expiry:            *expiry,
 		Secret:            secretBytes,
 		InsecureCookie:    *insecure,
-		Domains:           strings.Split(*domains, ","),
+		Domains:           domainList,
 		Users:             strings.Split(*users, ","),
 		Provider:          *provider,
 		ClientID:          *clientId,
 		ClientSecret:      *clientSecret,
 		AuthPrefix:        *authPrefix,
-	}
+	}, nil
 }
