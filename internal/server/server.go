@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/clambin/go-common/cache"
+	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"golang.org/x/oauth2"
@@ -14,7 +15,7 @@ import (
 const OAUTHPath = "/_oauth"
 
 type Server struct {
-	Config
+	configuration.Configuration
 	oauthHandlers map[string]oauth.Handler
 	sessionCookieHandler
 	stateHandler
@@ -22,20 +23,7 @@ type Server struct {
 	http.Handler
 }
 
-type Config struct {
-	SessionCookieName string
-	Expiry            time.Duration
-	Secret            []byte
-	InsecureCookie    bool
-	Provider          string
-	Domains           Domains
-	Users             []string
-	ClientID          string
-	ClientSecret      string
-	AuthPrefix        string
-}
-
-func New(config Config, l *slog.Logger) *Server {
+func New(config configuration.Configuration, l *slog.Logger) *Server {
 	oauthHandlers := make(map[string]oauth.Handler)
 	for _, domain := range config.Domains {
 		var err error
@@ -44,7 +32,7 @@ func New(config Config, l *slog.Logger) *Server {
 		}
 	}
 	s := Server{
-		Config:        config,
+		Configuration: config,
 		oauthHandlers: oauthHandlers,
 		sessionCookieHandler: sessionCookieHandler{
 			SecureCookie: !config.InsecureCookie,
@@ -98,7 +86,7 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 
 		}
 
-		if _, ok := s.Domains.getDomain(r.URL); !ok {
+		if _, ok := s.Domains.GetDomain(r.URL); !ok {
 			l.Warn("host doesn't match any configured domains", "host", r.URL.Host)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
@@ -119,7 +107,7 @@ func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 
-	domain, ok := s.Domains.getDomain(r.URL)
+	domain, ok := s.Domains.GetDomain(r.URL)
 	if !ok {
 		l.Error("invalid target host", "host", r.URL.Host)
 		http.Error(w, "Invalid target host", http.StatusUnauthorized)
@@ -150,7 +138,7 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		// we already validated the host vs the domain during the redirect
 		// since the state matches, we can trust the request to be valid
 		u, _ := url.Parse(redirectURL)
-		domain, _ := s.Domains.getDomain(u)
+		domain, _ := s.Domains.GetDomain(u)
 
 		// Use the "code" in the response to determine the user's email address.
 		user, err := s.oauthHandlers[domain].GetUserEmailAddress(r.FormValue("code"))
@@ -171,11 +159,11 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
 		sc := sessionCookie{
 			Email:  user,
-			Expiry: time.Now().Add(s.Config.Expiry),
+			Expiry: time.Now().Add(s.Configuration.Expiry),
 		}
 		s.sessionCookieHandler.saveCookie(sc)
 
-		http.SetCookie(w, s.makeCookie(sc.encode(s.Config.Secret), domain))
+		http.SetCookie(w, s.makeCookie(sc.encode(s.Configuration.Secret), domain))
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 	}
@@ -193,7 +181,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// get the domain for the target
-		domain, _ := s.Domains.getDomain(r.URL)
+		domain, _ := s.Domains.GetDomain(r.URL)
 
 		// Write a blank session cookie to override the current valid one.
 		http.SetCookie(w, s.makeCookie("", domain))
