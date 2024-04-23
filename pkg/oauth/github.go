@@ -9,10 +9,14 @@ import (
 	"net/http"
 )
 
+var _ Handler = &GitHubHandler{}
+
+// GitHubHandler performs the OAuth handshake using GitHub as authenticator and get the email address for the authenticated user.
 type GitHubHandler struct {
 	BaseHandler
 }
 
+// NewGitHubHandler returns a new Handler for GitHub.
 func NewGitHubHandler(clientID, clientSecret, authURL string, logger *slog.Logger) *GitHubHandler {
 	return &GitHubHandler{
 		BaseHandler: BaseHandler{
@@ -29,6 +33,7 @@ func NewGitHubHandler(clientID, clientSecret, authURL string, logger *slog.Logge
 	}
 }
 
+// GetUserEmailAddress returns the authenticated user's email address
 func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 	// Use code to get token and get user info from GitHub
 	token, err := h.getAccessToken(code)
@@ -41,6 +46,7 @@ func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
 		return email, nil
 	}
 	h.Logger.Debug("No email address found. Using user public profile instead", "err", err)
+	// this should normally not be needed (and only works if the user made their address public).
 	return h.getAddressFromProfile(token)
 }
 
