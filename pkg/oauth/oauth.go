@@ -8,11 +8,13 @@ import (
 	"net/http"
 )
 
+// A Handler performs the OAuth handshake and get the email address for the authenticated user.
 type Handler interface {
 	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
 	GetUserEmailAddress(code string) (string, error)
 }
 
+// NewHandler returns a new Handler for the selected provider. Currently, google and github are supported.
 func NewHandler(provider, clientID, clientSecret, authURL string, logger *slog.Logger) (Handler, error) {
 	switch provider {
 	case "google":
@@ -24,6 +26,7 @@ func NewHandler(provider, clientID, clientSecret, authURL string, logger *slog.L
 	}
 }
 
+// BaseHandler implements the provider-agnostic part of a Handler.
 type BaseHandler struct {
 	oauth2.Config
 	HTTPClient *http.Client

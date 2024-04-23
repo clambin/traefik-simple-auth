@@ -9,10 +9,14 @@ import (
 	"net/http"
 )
 
+var _ Handler = &GoogleHandler{}
+
+// GoogleHandler performs the OAuth handshake using Google as authenticator and get the email address for the authenticated user.
 type GoogleHandler struct {
 	BaseHandler
 }
 
+// NewGoogleHandler returns a new Handler for Google.
 func NewGoogleHandler(clientID, clientSecret, authURL string, logger *slog.Logger) *GoogleHandler {
 	return &GoogleHandler{
 		BaseHandler: BaseHandler{
@@ -31,6 +35,7 @@ func NewGoogleHandler(clientID, clientSecret, authURL string, logger *slog.Logge
 
 const googleUserURL = "https://openidconnect.googleapis.com/v1/userinfo"
 
+// GetUserEmailAddress returns the authenticated user's email address
 func (h GoogleHandler) GetUserEmailAddress(code string) (string, error) {
 	// Use code to get token and get user info from Google.
 	token, err := h.getAccessToken(code)
