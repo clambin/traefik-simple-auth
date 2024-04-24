@@ -76,12 +76,12 @@ func (s Session) Encode() string {
 }
 
 func (s Session) validate(secret []byte) error {
-	if s.expiration.Before(time.Now()) {
-		return errors.New("session expired")
-	}
 	mac := calculateMAC(secret, []byte(s.Email), binary.BigEndian.AppendUint64(nil, uint64(s.expiration.Unix())))
 	if !bytes.Equal(s.mac, mac) {
 		return errors.New("invalid mac")
+	}
+	if s.expiration.Before(time.Now()) {
+		return errors.New("session expired")
 	}
 	return nil
 }

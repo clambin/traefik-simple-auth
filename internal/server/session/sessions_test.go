@@ -73,8 +73,7 @@ func BenchmarkSessions_Validate(b *testing.B) {
 	})
 
 	for range b.N {
-		_, err := s.Validate(r)
-		if err != nil {
+		if _, err := s.Validate(r); err != nil {
 			b.Fatal(err)
 		}
 	}
