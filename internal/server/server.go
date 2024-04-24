@@ -1,8 +1,10 @@
 package server
 
 import (
+	"errors"
 	"github.com/clambin/go-common/cache"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/server/session"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"golang.org/x/oauth2"
@@ -17,7 +19,7 @@ const OAUTHPath = "/_oauth"
 type Server struct {
 	configuration.Configuration
 	oauthHandlers map[string]oauth.Handler
-	sessionCookieHandler
+	sessions      *session.Sessions
 	stateHandler
 	whitelist.Whitelist
 	http.Handler
@@ -34,12 +36,7 @@ func New(config configuration.Configuration, l *slog.Logger) *Server {
 	s := Server{
 		Configuration: config,
 		oauthHandlers: oauthHandlers,
-		sessionCookieHandler: sessionCookieHandler{
-			SecureCookie: !config.InsecureCookie,
-			Secret:       config.Secret,
-			Expiry:       config.Expiry,
-			sessions:     cache.New[string, sessionCookie](config.Expiry, time.Minute),
-		},
+		sessions:      session.New(config.SessionCookieName, config.Secret, config.Expiry),
 		stateHandler: stateHandler{
 			// 5 minutes should be enough for the user to log in
 			cache: cache.New[string, string](5*time.Minute, time.Minute),
@@ -61,29 +58,13 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
-		c, err := r.Cookie(s.SessionCookieName)
-		if err != nil || c.Value == "" {
-			// Client doesn't have a valid cookie. Redirect to oauth provider to authenticate the user.
-			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
-			l.Debug("no cookie found, redirecting ...")
-			s.redirectToAuth(w, r, l)
-			return
-		}
-		session, err := s.getSessionCookie(c)
+		sess, err := s.sessions.Validate(r)
 		if err != nil {
-			// Client has an invalid cookie. Redirect to oauth provider to authenticate the user.
-			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
-			l.Warn("invalid cookie. redirecting ...", "err", err)
+			if !errors.Is(err, http.ErrNoCookie) {
+				l.Warn("error validating session", "err", err)
+			}
 			s.redirectToAuth(w, r, l)
 			return
-		}
-		if session.expired() {
-			// Client has an expired cookie. Redirect to oauth provider to authenticate the user.
-			// When the user is authenticated, authCallbackHandler generates a new valid cookie.
-			l.Debug("expired cookie. redirecting ...")
-			s.redirectToAuth(w, r, l)
-			return
-
 		}
 
 		if _, ok := s.Domains.GetDomain(r.URL); !ok {
@@ -92,8 +73,8 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		l.Debug("allowing valid request", "email", session.Email)
-		w.Header().Set("X-Forwarded-User", session.Email)
+		l.Debug("allowing valid request", "email", sess.Email)
+		w.Header().Set("X-Forwarded-User", sess.Email)
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -157,13 +138,9 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
-		sc := sessionCookie{
-			Email:  user,
-			Expiry: time.Now().Add(s.Configuration.Expiry),
-		}
-		s.sessionCookieHandler.saveCookie(sc)
+		sess := s.sessions.MakeSession(user)
+		sess.WriteCookie(w, s.Configuration.SessionCookieName, domain)
 
-		http.SetCookie(w, s.makeCookie(sc.encode(s.Configuration.Secret), domain))
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 	}
@@ -176,29 +153,19 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// remove the cached cookie
-		if c, err := r.Cookie(s.SessionCookieName); err == nil {
-			s.deleteSessionCookie(c)
+		if sess, err := s.sessions.Validate(r); err == nil {
+			s.sessions.DeleteSession(sess)
 		}
 
 		// get the domain for the target
 		domain, _ := s.Domains.GetDomain(r.URL)
 
 		// Write a blank session cookie to override the current valid one.
-		http.SetCookie(w, s.makeCookie("", domain))
+		var sess session.Session
+		sess.WriteCookie(w, s.Configuration.SessionCookieName, domain)
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		l.Info("user has been logged out")
-	}
-}
-
-func (s *Server) makeCookie(value, domain string) *http.Cookie {
-	return &http.Cookie{
-		Name:     s.SessionCookieName,
-		Value:    value,
-		Domain:   domain,
-		Path:     "/",
-		Secure:   !s.InsecureCookie,
-		HttpOnly: true,
 	}
 }
 

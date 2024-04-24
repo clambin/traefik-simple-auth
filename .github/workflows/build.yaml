@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - metrics
+      - refactor
 
 jobs:
   test:
