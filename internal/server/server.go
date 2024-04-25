@@ -56,9 +56,9 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 
 	h := http.NewServeMux()
 	h.Handle(OAUTHPath, s.authCallbackHandler(l))
-	h.Handle(OAUTHPath+"/logout", mw(s.logoutHandler(l)))
-	h.Handle("/", mw(s.authHandler(l)))
-	s.Handler = traefikForwardAuthParser()(h)
+	h.Handle(OAUTHPath+"/logout", s.logoutHandler(l))
+	h.Handle("/", s.authHandler(l))
+	s.Handler = traefikForwardAuthParser()(mw(h))
 	return &s
 }
 
