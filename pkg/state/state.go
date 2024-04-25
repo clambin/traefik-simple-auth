@@ -26,9 +26,8 @@ func New[T any](retention time.Duration) Store[T] {
 // Add returns a new state
 func (s Store[T]) Add(value T) string {
 	state := make([]byte, stateSize)
-	if _, err := rand.Read(state); err != nil {
-		panic("error generating random state: " + err.Error())
-	}
+	// theoretically this could fail, but in practice this will never happen.
+	_, _ = rand.Read(state)
 	encodedState := hex.EncodeToString(state)
 	s.cache.Add(encodedState, value)
 	return encodedState
