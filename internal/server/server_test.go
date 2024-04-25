@@ -93,6 +93,15 @@ func TestServer_authHandler(t *testing.T) {
 			user: "foo@example.com",
 		},
 		{
+			name: "valid domain with user info",
+			args: args{
+				host:   "user:password@www.example.com",
+				cookie: s.sessions.Cookie(validSession, "example.com"),
+			},
+			want: http.StatusOK,
+			user: "foo@example.com",
+		},
+		{
 			name: "invalid domain",
 			args: args{
 				host:   "example2.com",
@@ -108,16 +117,6 @@ func TestServer_authHandler(t *testing.T) {
 			},
 			want: http.StatusTemporaryRedirect,
 		},
-		//		{
-		//			name: "valid domain with user info",
-		//			args: args{
-		//				host:   "user:password@www.example.com",
-		//				cookie: s.makeSessionCookie("foo@example.com", Configuration.Secret),
-		//			},
-		//			want: http.StatusOK,
-		//			user: "foo@example.com",
-		//		},
-		//
 	}
 
 	for _, tt := range tests {
@@ -143,8 +142,7 @@ func TestServer_authHandler(t *testing.T) {
 	}
 }
 
-// Benchmark_AuthHandler/without_cache-16            488750              2261 ns/op            1029 B/op         17 allocs/op
-// Benchmark_AuthHandler/with_cache-16               889609              1290 ns/op             421 B/op          9 allocs/op
+// Benchmark_authHandler-16          857482              1298 ns/op             501 B/op         10 allocs/op
 func Benchmark_authHandler(b *testing.B) {
 	config := configuration.Configuration{
 		SessionCookieName: "_traefik_simple_auth",
