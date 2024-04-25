@@ -18,6 +18,24 @@ import (
 	"time"
 )
 
+func TestServer_Panics(t *testing.T) {
+	var panics bool
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				panics = true
+			}
+		}()
+		cfg := configuration.Configuration{
+			Provider: "foobar",
+			Domains:  []string{"example.com"},
+		}
+		l := slog.Default()
+		_ = New(cfg, l)
+	}()
+	assert.True(t, panics)
+}
+
 func TestServer_authHandler(t *testing.T) {
 	type args struct {
 		host    string
