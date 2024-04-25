@@ -22,19 +22,19 @@ func TestMetrics_Measure(t *testing.T) {
 	m := NewMetrics("", "", nil, 1, 2)
 	s := New(config, m, slog.Default())
 
-	r := makeHTTPRequest(http.MethodGet, "example.com", "/")
+	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
 
 	sess := s.sessions.MakeSession("foo@example.com")
-	r = makeHTTPRequest(http.MethodGet, "example.org", "/")
+	r = makeHTTPRequest(http.MethodGet, "example.org", "/foo")
 	r.AddCookie(s.sessions.Cookie(sess, "example.com"))
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
-	r = makeHTTPRequest(http.MethodGet, "example.com", "/")
+	r = makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(s.sessions.Cookie(sess, "example.com"))
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)

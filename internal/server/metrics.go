@@ -48,8 +48,12 @@ func (m Metrics) Measure(req *http.Request, statusCode int, duration time.Durati
 	sess, _ := m.server.sessions.Validate(req)
 	domain, _ := m.server.domains.Domain(req.URL)
 	code := strconv.Itoa(statusCode)
-	m.requestCounter.WithLabelValues(sess.Email, domain, req.URL.Host, req.URL.Path, code).Inc()
-	m.requestDuration.WithLabelValues(sess.Email, domain, req.URL.Host, req.URL.Path, code).Observe(duration.Seconds())
+	path := req.URL.Path
+	if path != OAUTHPath && path != OAUTHPath+"/logout" {
+		path = "/"
+	}
+	m.requestCounter.WithLabelValues(sess.Email, domain, req.URL.Host, path, code).Inc()
+	m.requestDuration.WithLabelValues(sess.Email, domain, req.URL.Host, path, code).Observe(duration.Seconds())
 }
 
 func (m Metrics) Describe(ch chan<- *prometheus.Desc) {

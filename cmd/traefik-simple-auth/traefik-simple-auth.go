@@ -38,7 +38,7 @@ func main() {
 		}
 	}()
 
-	m := server.NewMetrics("traefik_simple_auth_", "", map[string]string{"provider": cfg.Provider})
+	m := server.NewMetrics("traefik_simple_auth", "", map[string]string{"provider": cfg.Provider})
 	prometheus.MustRegister(m)
 
 	s := server.New(cfg, m, l)
