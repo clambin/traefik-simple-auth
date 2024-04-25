@@ -166,11 +166,8 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 			s.sessions.DeleteSession(sess)
 		}
 
-		// get the domain for the target
-		domain, _ := s.domains.Domain(r.URL)
-
 		// Write a blank session cookie to override the current valid one.
-		http.SetCookie(w, s.sessions.Cookie(session.Session{}, domain))
+		http.SetCookie(w, s.sessions.Cookie(session.Session{}, ""))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		l.Info("user has been logged out")
