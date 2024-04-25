@@ -108,19 +108,16 @@ func TestServer_authHandler(t *testing.T) {
 			},
 			want: http.StatusTemporaryRedirect,
 		},
-		/*
-		   //		{
-		   			//			name: "valid domain with user info",
-		   			//			args: args{
-		   			//				host:   "user:password@www.example.com",
-		   			//				cookie: s.makeSessionCookie("foo@example.com", Configuration.Secret),
-		   			//			},
-		   			//			want: http.StatusOK,
-		   			//			user: "foo@example.com",
-		   			//		},
-		   			//
-
-		*/
+		//		{
+		//			name: "valid domain with user info",
+		//			args: args{
+		//				host:   "user:password@www.example.com",
+		//				cookie: s.makeSessionCookie("foo@example.com", Configuration.Secret),
+		//			},
+		//			want: http.StatusOK,
+		//			user: "foo@example.com",
+		//		},
+		//
 	}
 
 	for _, tt := range tests {
