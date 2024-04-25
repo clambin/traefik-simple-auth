@@ -167,6 +167,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// Write a blank session cookie to override the current valid one.
+		// FIXME: this creates a cooke with a domain of the final target???
 		http.SetCookie(w, s.sessions.Cookie(session.Session{}, ""))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
