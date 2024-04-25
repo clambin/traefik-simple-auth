@@ -274,7 +274,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Equal(t, "You have been logged out\n", w.Body.String())
-	assert.Equal(t, "_traefik_simple_auth=; Path=/; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
+	assert.Equal(t, "_traefik_simple_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {
