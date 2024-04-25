@@ -31,7 +31,7 @@ func TestServer_Panics(t *testing.T) {
 			Domains:  []string{"example.com"},
 		}
 		l := slog.Default()
-		_ = New(cfg, l)
+		_ = New(cfg, nil, l)
 	}()
 	assert.True(t, panics)
 }
@@ -89,16 +89,16 @@ func TestServer_authHandler(t *testing.T) {
 			},
 			want: http.StatusUnauthorized,
 		},
-		/*		{
-					name: "valid domain with user info",
-					args: args{
-						host:   "user:password@www.example.com",
-						cookie: s.makeSessionCookie("foo@example.com", Configuration.Secret),
-					},
-					want: http.StatusOK,
-					user: "foo@example.com",
-				},
-		*/
+		//		{
+		//			name: "valid domain with user info",
+		//			args: args{
+		//				host:   "user:password@www.example.com",
+		//				cookie: s.makeSessionCookie("foo@example.com", Configuration.Secret),
+		//			},
+		//			want: http.StatusOK,
+		//			user: "foo@example.com",
+		//		},
+		//
 	}
 
 	config := configuration.Configuration{
@@ -109,7 +109,7 @@ func TestServer_authHandler(t *testing.T) {
 		Users:             []string{"foo@example.com"},
 		Provider:          "google",
 	}
-	s := New(config, slog.Default())
+	s := New(config, nil, slog.Default())
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -146,7 +146,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Provider:          "google",
 		//AuthHost: "https://auth.example.com",
 	}
-	s := New(config, slog.Default())
+	s := New(config, nil, slog.Default())
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	sess := session.NewSession("foo@example.com", time.Hour, config.Secret)
 	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
@@ -170,7 +170,7 @@ func TestServer_authHandler_expiry(t *testing.T) {
 		Users:             []string{"foo@example.com"},
 		Provider:          "google",
 	}
-	s := New(config, slog.Default())
+	s := New(config, nil, slog.Default())
 
 	assert.Eventually(t, func() bool {
 		r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
@@ -215,7 +215,7 @@ func TestServer_redirectToAuth(t *testing.T) {
 		AuthPrefix:   "auth",
 		Provider:     "google",
 	}
-	s := New(config, slog.Default())
+	s := New(config, nil, slog.Default())
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -251,7 +251,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 		Expiry:            time.Hour,
 		Provider:          "google",
 	}
-	s := New(config, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	s := New(config, nil, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	sess := session.NewSession("foo@example.com", config.Expiry, config.Secret)
@@ -313,7 +313,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			t.Parallel()
 
 			l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			s := New(configuration.Configuration{Users: []string{"foo@example.com"}, Domains: domains.Domains{"example.com"}, Provider: "google"}, l)
+			s := New(configuration.Configuration{Users: []string{"foo@example.com"}, Domains: domains.Domains{"example.com"}, Provider: "google"}, nil, l)
 			s.oauthHandlers["example.com"] = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
 
 			state := tt.state

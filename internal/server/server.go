@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/session"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
@@ -26,7 +27,7 @@ type Server struct {
 	http.Handler
 }
 
-func New(config configuration.Configuration, l *slog.Logger) *Server {
+func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server {
 	oauthHandlers := make(map[string]oauth.Handler)
 	for _, d := range config.Domains {
 		var err error
@@ -42,10 +43,21 @@ func New(config configuration.Configuration, l *slog.Logger) *Server {
 		domains:       config.Domains,
 	}
 
+	mw := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+		})
+	}
+	if m != nil {
+		// TODO: ugly!!!
+		m.server = &s
+		mw = middleware.WithRequestMetrics(m)
+	}
+
 	h := http.NewServeMux()
 	h.Handle(OAUTHPath, s.authCallbackHandler(l))
-	h.HandleFunc(OAUTHPath+"/logout", s.logoutHandler(l))
-	h.HandleFunc("/", s.authHandler(l))
+	h.Handle(OAUTHPath+"/logout", mw(s.logoutHandler(l)))
+	h.Handle("/", mw(s.authHandler(l)))
 	s.Handler = traefikForwardAuthParser()(h)
 	return &s
 }
@@ -85,7 +97,6 @@ func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.
 	// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
 	encodedState := s.store.Add(r.URL.String())
 
-	// TODO: do this in authHandler? before we validate the cookie
 	domain, ok := s.domains.Domain(r.URL)
 	if !ok {
 		l.Error("invalid target host", "host", r.URL.Host)

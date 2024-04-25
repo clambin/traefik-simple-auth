@@ -5,7 +5,6 @@ import (
 	"flag"
 	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/metrics"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -39,10 +38,10 @@ func main() {
 		}
 	}()
 
-	m := metrics.New("traefik_simple_auth", "", map[string]string{"provider": cfg.Provider})
+	m := server.NewMetrics("traefik_simple_auth_", "", map[string]string{"provider": cfg.Provider})
 	prometheus.MustRegister(m)
 
-	s := server.New(cfg, l)
+	s := server.New(cfg, m, l)
 	if err = http.ListenAndServe(cfg.Addr, middleware.WithRequestMetrics(m)(s)); !errors.Is(err, http.ErrServerClosed) {
 		l.Error("Error starting server", "err", err)
 		os.Exit(1)
