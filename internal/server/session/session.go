@@ -48,28 +48,7 @@ func newSessionFromCookie(c *http.Cookie) (Session, error) {
 	return Session{Email: value, expiration: time.Unix(int64(binary.BigEndian.Uint64(bin[macSize:])), 0), mac: mac}, nil
 }
 
-func (s Session) WriteCookie(w http.ResponseWriter, cookieName string, domain string) {
-	var value string
-	var expiration time.Time
-
-	if s.Email != "" {
-		value = s.Encode()
-		expiration = s.expiration
-	}
-
-	c := http.Cookie{
-		Name:     cookieName,
-		Value:    value,
-		Path:     "/",
-		Domain:   domain,
-		Expires:  expiration,
-		Secure:   true,
-		HttpOnly: true,
-	}
-	http.SetCookie(w, &c)
-}
-
-func (s Session) Encode() string {
+func (s Session) encode() string {
 	ts := make([]byte, 8)
 	binary.BigEndian.PutUint64(ts, uint64(s.expiration.Unix()))
 	return hex.EncodeToString(s.mac) + hex.EncodeToString(ts) + s.Email

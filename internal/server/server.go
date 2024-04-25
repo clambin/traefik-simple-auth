@@ -139,7 +139,7 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 
 		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
 		sess := s.sessions.MakeSession(user)
-		sess.WriteCookie(w, s.Configuration.SessionCookieName, domain)
+		http.SetCookie(w, s.sessions.Cookie(sess, domain))
 
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
@@ -161,8 +161,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		domain, _ := s.Domains.GetDomain(r.URL)
 
 		// Write a blank session cookie to override the current valid one.
-		var sess session.Session
-		sess.WriteCookie(w, s.Configuration.SessionCookieName, domain)
+		http.SetCookie(w, s.sessions.Cookie(session.Session{}, domain))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		l.Info("user has been logged out")

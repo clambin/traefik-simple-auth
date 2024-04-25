@@ -100,12 +100,7 @@ func TestServer_authHandler(t *testing.T) {
 			r := makeHTTPRequest(http.MethodGet, tt.args.host, "/foo")
 			w := httptest.NewRecorder()
 			if tt.args.session.Email != "" {
-				r.AddCookie(
-					&http.Cookie{
-						Name:  config.SessionCookieName,
-						Value: tt.args.session.Encode(),
-					},
-				)
+				r.AddCookie(s.sessions.Cookie(tt.args.session, config.Domains[0]))
 			}
 
 			s.ServeHTTP(w, r)
@@ -136,7 +131,7 @@ func Benchmark_authHandler(b *testing.B) {
 	s := New(config, slog.Default())
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	sess := session.NewSession("foo@example.com", time.Hour, config.Secret)
-	r.AddCookie(&http.Cookie{Name: config.SessionCookieName, Value: sess.Encode()})
+	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 	w := httptest.NewRecorder()
 
 	b.ResetTimer()
@@ -162,7 +157,7 @@ func TestServer_authHandler_expiry(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 		sess := session.NewSession("foo@example.com", config.Expiry, config.Secret)
-		r.AddCookie(&http.Cookie{Name: config.SessionCookieName, Value: sess.Encode()})
+		r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		return w.Code == http.StatusTemporaryRedirect
@@ -242,13 +237,15 @@ func TestServer_LogoutHandler(t *testing.T) {
 
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	sess := session.NewSession("foo@example.com", config.Expiry, config.Secret)
-	r.AddCookie(&http.Cookie{Name: config.SessionCookieName, Value: sess.Encode()})
+	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
+
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusOK, w.Code)
 
 	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
-	r.AddCookie(&http.Cookie{Name: config.SessionCookieName, Value: sess.Encode()})
+	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
+
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusUnauthorized, w.Code)

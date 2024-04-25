@@ -54,3 +54,23 @@ func (s Sessions) MakeSession(email string) Session {
 func (s Sessions) DeleteSession(session Session) {
 	s.cache.Remove(string(session.mac))
 }
+
+func (s Sessions) Cookie(session Session, domain string) *http.Cookie {
+	var value string
+	var expiration time.Time
+
+	if session.Email != "" {
+		value = session.encode()
+		expiration = session.expiration
+	}
+
+	return &http.Cookie{
+		Name:     s.SessionCookieName,
+		Value:    value,
+		Path:     "/",
+		Domain:   domain,
+		Expires:  expiration,
+		Secure:   true,
+		HttpOnly: true,
+	}
+}

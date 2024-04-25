@@ -3,6 +3,7 @@ package session
 import (
 	"github.com/stretchr/testify/assert"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -17,13 +18,13 @@ func TestSessions_Validate(t *testing.T) {
 	}{
 		{
 			name:      "valid cookie",
-			cookie:    &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", time.Hour, secret).Encode()},
+			cookie:    &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", time.Hour, secret).encode()},
 			wantErr:   assert.NoError,
 			wantEmail: "foo@example.com",
 		},
 		{
 			name:      "valid cookie (cached)",
-			cookie:    &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", time.Hour, secret).Encode()},
+			cookie:    &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", time.Hour, secret).encode()},
 			wantErr:   assert.NoError,
 			wantEmail: "foo@example.com",
 		},
@@ -34,7 +35,7 @@ func TestSessions_Validate(t *testing.T) {
 		},
 		{
 			name:    "expired cookie",
-			cookie:  &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", -time.Hour, secret).Encode()},
+			cookie:  &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", -time.Hour, secret).encode()},
 			wantErr: assert.Error,
 		},
 		{
@@ -69,7 +70,7 @@ func BenchmarkSessions_Validate(b *testing.B) {
 	r, _ := http.NewRequest(http.MethodGet, "/", nil)
 	r.AddCookie(&http.Cookie{
 		Name:  "_name",
-		Value: NewSession("foo@example.com", time.Hour, secret).Encode(),
+		Value: NewSession("foo@example.com", time.Hour, secret).encode(),
 	})
 
 	for range b.N {
@@ -89,4 +90,17 @@ func TestSessions_DeleteSession(t *testing.T) {
 
 	s.DeleteSession(session)
 	assert.Equal(t, 0, s.cache.Len())
+}
+
+func TestSessions_Cookie(t *testing.T) {
+	sessions := New("_name", []byte("secret"), time.Hour)
+	s := Session{Email: "foo@example.com", expiration: time.Date(2024, time.April, 24, 0, 0, 0, 0, time.UTC), mac: []byte("1234")}
+	w := httptest.NewRecorder()
+	http.SetCookie(w, sessions.Cookie(s, "example.com"))
+	assert.Equal(t, "_name=313233340000000066284b80foo@example.com; Path=/; Domain=example.com; Expires=Wed, 24 Apr 2024 00:00:00 GMT; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
+
+	w = httptest.NewRecorder()
+	http.SetCookie(w, sessions.Cookie(Session{}, "example.com"))
+	assert.Equal(t, "_name=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
+
 }
