@@ -1,4 +1,4 @@
-package domain
+package domains
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -96,7 +96,7 @@ func TestDomains(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			u, _ := url.Parse(tt.target)
-			domain, ok := tt.domains.GetDomain(u)
+			domain, ok := tt.domains.Domain(u)
 			tt.wantOK(t, ok)
 			assert.Equal(t, tt.want, domain)
 		})

@@ -5,7 +5,8 @@ import (
 	"net/url"
 )
 
-func traefikParser() func(next http.Handler) http.HandlerFunc {
+// traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
+func traefikForwardAuthParser() func(next http.Handler) http.HandlerFunc {
 	return func(next http.Handler) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			r.URL, _ = url.Parse(getOriginalTarget(r))

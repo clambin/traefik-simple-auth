@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"flag"
-	"github.com/clambin/traefik-simple-auth/pkg/domain"
+	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"strings"
 	"time"
 )
@@ -17,7 +17,7 @@ var (
 	expiry            = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
 	insecure          = flag.Bool("insecure", false, "Use insecure cookies")
 	authPrefix        = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
-	domains           = flag.String("domains", "", "Comma-separated list of domains to allow access")
+	domainsString     = flag.String("domains", "", "Comma-separated list of domains to allow access")
 	users             = flag.String("users", "", "Comma-separated list of usernames to login")
 	provider          = flag.String("provider", "google", "The OAuth2 provider to use")
 	clientId          = flag.String("client-id", "", "OAuth2 Client ID")
@@ -34,7 +34,7 @@ type Configuration struct {
 	Secret            []byte
 	InsecureCookie    bool
 	Provider          string
-	Domains           domain.Domains
+	Domains           domains.Domains
 	Users             []string
 	ClientID          string
 	ClientSecret      string
@@ -42,10 +42,10 @@ type Configuration struct {
 }
 
 func GetConfiguration() (Configuration, error) {
-	if *domains == "" {
+	if *domainsString == "" {
 		return Configuration{}, errors.New("must specify at least one domain")
 	}
-	domainList := strings.Split(*domains, ",")
+	domainList := strings.Split(*domainsString, ",")
 	for i := range domainList {
 		if domainList[i] != "" && domainList[i][0] != '.' {
 			domainList[i] = "." + domainList[i]

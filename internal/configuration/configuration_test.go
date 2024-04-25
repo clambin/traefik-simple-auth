@@ -11,7 +11,7 @@ func TestGetConfiguration(t *testing.T) {
 	_, err := GetConfiguration()
 	assert.Error(t, err)
 
-	*domains = "example.com"
+	*domainsString = "example.com"
 	_, err = GetConfiguration()
 	assert.Error(t, err)
 

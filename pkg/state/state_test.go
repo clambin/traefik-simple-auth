@@ -1,7 +1,6 @@
-package server
+package state
 
 import (
-	"github.com/clambin/go-common/cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -9,19 +8,16 @@ import (
 )
 
 func Test_stateHandler(t *testing.T) {
-	h := stateHandler{
-		cache: cache.New[string, string](100*time.Millisecond, time.Hour),
-	}
+	h := New[string](100 * time.Millisecond)
 
 	url := "https://example.com"
-	key, err := h.add(url)
-	require.NoErrorf(t, err, "failed to add to cache")
+	key := h.Add(url)
 
-	url2, ok := h.get(key)
+	url2, ok := h.Get(key)
 	require.Truef(t, ok && url == url2, "failed to retrieve url from cache")
 
 	assert.Eventuallyf(t, func() bool {
-		_, ok = h.get(key)
+		_, ok = h.Get(key)
 		return !ok
 	}, time.Second, 50*time.Millisecond, "state didn't expire")
 }
