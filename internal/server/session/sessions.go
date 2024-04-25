@@ -25,7 +25,7 @@ func New(cookieName string, secret []byte, expiration time.Duration) *Sessions {
 
 func (s Sessions) Validate(r *http.Request) (Session, error) {
 	c, err := r.Cookie(s.SessionCookieName)
-	if err != nil || c.Value == "" {
+	if err != nil {
 		return Session{}, err
 	}
 	session, err := newSessionFromCookie(c)
