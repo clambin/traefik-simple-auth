@@ -9,9 +9,9 @@ import (
 
 const stateSize = 32
 
-// A Store maintains a (random) state that is associated with a string.  It is used by the Server to protect against CSRF attacks:
+// A Store maintains a (random) state that is associated with a value.  It is used by traefik-simple-auth to protect against CSRF attacks:
 // before redirecting to the oauth provider, we generate a random state. During callback, we then check if the oauth provider
-// sent us back the same state.
+// sent us back the same state. The state is maintained for a limited amount of time to prevent (very unlikely) replay attacks.
 type Store[T any] struct {
 	cache *cache.Cache[string, T]
 }
