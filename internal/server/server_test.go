@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/session"
-	"github.com/clambin/traefik-simple-auth/pkg/domain"
+	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,7 +85,7 @@ func TestServer_authHandler(t *testing.T) {
 
 	config := configuration.Configuration{
 		SessionCookieName: "_traefik_simple_auth",
-		Domains:           domain.Domains{"example.com"},
+		Domains:           domains.Domains{"example.com"},
 		Secret:            []byte("secret"),
 		Expiry:            time.Hour,
 		Users:             []string{"foo@example.com"},
@@ -121,7 +121,7 @@ func TestServer_authHandler(t *testing.T) {
 func Benchmark_authHandler(b *testing.B) {
 	config := configuration.Configuration{
 		SessionCookieName: "_traefik_simple_auth",
-		Domains:           domain.Domains{"example.com"},
+		Domains:           domains.Domains{"example.com"},
 		Secret:            []byte("secret"),
 		Expiry:            time.Hour,
 		Users:             []string{"foo@example.com"},
@@ -193,7 +193,7 @@ func TestServer_redirectToAuth(t *testing.T) {
 	config := configuration.Configuration{
 		ClientID:     "1234",
 		ClientSecret: "secret",
-		Domains:      domain.Domains{"example.com", ".example.org"},
+		Domains:      domains.Domains{"example.com", ".example.org"},
 		AuthPrefix:   "auth",
 		Provider:     "google",
 	}
@@ -218,7 +218,7 @@ func TestServer_redirectToAuth(t *testing.T) {
 
 			state := u.Query().Get("state")
 			require.NotEmpty(t, state)
-			cachedURL, ok := s.stateHandler.cache.Get(state)
+			cachedURL, ok := s.store.Get(state)
 			require.True(t, ok)
 			assert.Equal(t, "https://"+tt.target+"/foo", cachedURL)
 		})
@@ -229,7 +229,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 	config := configuration.Configuration{
 		SessionCookieName: "_traefik_simple_auth",
 		Secret:            []byte("secret"),
-		Domains:           domain.Domains{"example.com"},
+		Domains:           domains.Domains{"example.com"},
 		Expiry:            time.Hour,
 		Provider:          "google",
 	}
@@ -295,12 +295,12 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			t.Parallel()
 
 			l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			s := New(configuration.Configuration{Users: []string{"foo@example.com"}, Domains: domain.Domains{"example.com"}, Provider: "google"}, l)
+			s := New(configuration.Configuration{Users: []string{"foo@example.com"}, Domains: domains.Domains{"example.com"}, Provider: "google"}, l)
 			s.oauthHandlers["example.com"] = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
 
 			state := tt.state
 			if tt.makeState {
-				state, _ = s.stateHandler.add("https://example.com/foo")
+				state = s.store.Add("https://example.com/foo")
 			}
 			path := OAUTHPath
 			if state != "" {

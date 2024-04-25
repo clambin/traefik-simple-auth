@@ -1,4 +1,4 @@
-package domain
+package domains
 
 import (
 	"net/url"
@@ -7,7 +7,7 @@ import (
 
 type Domains []string
 
-func (d Domains) GetDomain(u *url.URL) (string, bool) {
+func (d Domains) Domain(u *url.URL) (string, bool) {
 	for _, _d := range d {
 		if isValidSubdomain(_d, u.Host) {
 			return _d, true
