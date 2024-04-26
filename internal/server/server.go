@@ -43,22 +43,18 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 		domains:       config.Domains,
 	}
 
-	mw := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			next.ServeHTTP(w, r)
-		})
-	}
-	if m != nil {
-		// TODO: ugly!!!
-		m.server = &s
-		mw = middleware.WithRequestMetrics(m)
-	}
-
 	h := http.NewServeMux()
 	h.Handle(OAUTHPath, s.authCallbackHandler(l))
 	h.Handle(OAUTHPath+"/logout", s.logoutHandler(l))
 	h.Handle("/", s.authHandler(l))
-	s.Handler = traefikForwardAuthParser()(mw(h))
+
+	var r http.Handler = h
+	if m != nil {
+		m.server = &s
+		r = middleware.WithRequestMetrics(m)(r)
+	}
+
+	s.Handler = traefikForwardAuthParser()(r)
 	return &s
 }
 
