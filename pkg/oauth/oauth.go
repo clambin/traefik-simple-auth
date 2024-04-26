@@ -26,7 +26,7 @@ func NewHandler(provider, clientID, clientSecret, authURL string, logger *slog.L
 	}
 }
 
-// BaseHandler implements the provider-agnostic part of a Handler.
+// BaseHandler implements the generic part of a Handler.
 type BaseHandler struct {
 	oauth2.Config
 	HTTPClient *http.Client

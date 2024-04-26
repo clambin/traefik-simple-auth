@@ -13,13 +13,13 @@ const stateSize = 32
 // before redirecting to the oauth provider, we generate a random state. During callback, we then check if the oauth provider
 // sent us back the same state. The state is maintained for a limited amount of time to prevent (very unlikely) replay attacks.
 type Store[T any] struct {
-	cache *cache.Cache[string, T]
+	values *cache.Cache[string, T]
 }
 
 // New creates a new state Store
 func New[T any](retention time.Duration) Store[T] {
 	return Store[T]{
-		cache: cache.New[string, T](retention, time.Minute),
+		values: cache.New[string, T](retention, time.Minute),
 	}
 }
 
@@ -29,11 +29,11 @@ func (s Store[T]) Add(value T) string {
 	// theoretically this could fail, but in practice this will never happen.
 	_, _ = rand.Read(state)
 	encodedState := hex.EncodeToString(state)
-	s.cache.Add(encodedState, value)
+	s.values.Add(encodedState, value)
 	return encodedState
 }
 
 // Get checks if the state exists and returns the associated value
 func (s Store[T]) Get(state string) (T, bool) {
-	return s.cache.Get(state)
+	return s.values.Get(state)
 }

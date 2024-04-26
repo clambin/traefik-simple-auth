@@ -19,6 +19,14 @@ func (w Whitelist) Contains(email string) bool {
 	return ok
 }
 
+// Match returns true if the email address is on the whitelist, or if the whitelist is empty
+func (w Whitelist) Match(email string) bool {
+	if len(w) == 0 {
+		return true
+	}
+	return w.Contains(email)
+}
+
 func (w Whitelist) list() []string {
 	list := make([]string, 0, len(w))
 	for email := range w {

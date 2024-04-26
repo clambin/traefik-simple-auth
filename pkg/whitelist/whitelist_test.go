@@ -28,7 +28,8 @@ func Test_whitelist(t *testing.T) {
 		{
 			name:   "empty",
 			emails: []string{},
-			want:   assert.False,
+			email:  "foo@example.com",
+			want:   assert.True,
 		},
 		{
 			name:   "case-insensitive",
@@ -43,7 +44,7 @@ func Test_whitelist(t *testing.T) {
 			t.Parallel()
 
 			list := New(tt.emails)
-			tt.want(t, list.Contains(tt.email))
+			tt.want(t, list.Match(tt.email))
 
 			sortedList := list.list()
 			slices.Sort(sortedList)
