@@ -1,8 +1,6 @@
 package server
 
 import (
-	"errors"
-	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/session"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
@@ -43,18 +41,20 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 		domains:       config.Domains,
 	}
 
-	h := http.NewServeMux()
-	h.Handle(OAUTHPath, s.authCallbackHandler(l))
-	h.Handle(OAUTHPath+"/logout", s.logoutHandler(l))
-	h.Handle("/", s.authHandler(l))
+	r := http.NewServeMux()
+	r.Handle(OAUTHPath, s.authCallbackHandler(l))
+	r.Handle(OAUTHPath+"/logout", s.logoutHandler(l))
+	r.Handle("/", s.authHandler(l))
 
-	var r http.Handler = h
+	var h http.Handler = r
 	if m != nil {
-		m.server = &s
-		r = middleware.WithRequestMetrics(m)(r)
+		h = s.withMetrics(m)(h)
 	}
-
-	s.Handler = traefikForwardAuthParser()(r)
+	s.Handler = traefikForwardAuthParser()(
+		s.sessionExtractor(
+			h,
+		),
+	)
 	return &s
 }
 
@@ -65,11 +65,8 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// validate that the request has a valid session cookie
-		sess, err := s.sessions.Validate(r)
-		if err != nil {
-			if !errors.Is(err, http.ErrNoCookie) {
-				l.Warn("error validating session", "err", err)
-			}
+		sess, ok := r.Context().Value(SessionKey).(session.Session)
+		if !ok {
 			s.redirectToAuth(w, r, l)
 			return
 		}
@@ -158,8 +155,8 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// remove the cached cookie
-		sess, err := s.sessions.Validate(r)
-		if err != nil {
+		sess, ok := r.Context().Value(SessionKey).(session.Session)
+		if !ok {
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return
 		}

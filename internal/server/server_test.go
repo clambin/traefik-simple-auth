@@ -153,8 +153,8 @@ func Benchmark_authHandler(b *testing.B) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
-	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	sess := session.NewSession("foo@example.com", time.Hour, config.Secret)
+	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 	w := httptest.NewRecorder()
 
