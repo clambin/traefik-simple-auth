@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"flag"
-	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,7 +41,7 @@ func main() {
 	prometheus.MustRegister(m)
 
 	s := server.New(cfg, m, l)
-	if err = http.ListenAndServe(cfg.Addr, middleware.WithRequestMetrics(m)(s)); !errors.Is(err, http.ErrServerClosed) {
+	if err = http.ListenAndServe(cfg.Addr, s); !errors.Is(err, http.ErrServerClosed) {
 		l.Error("Error starting server", "err", err)
 		os.Exit(1)
 	}
