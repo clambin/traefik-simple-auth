@@ -151,7 +151,6 @@ func Benchmark_authHandler(b *testing.B) {
 		Expiry:            time.Hour,
 		Users:             []string{"foo@example.com"},
 		Provider:          "google",
-		//AuthHost: "https://auth.example.com",
 	}
 	s := New(config, nil, slog.Default())
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
@@ -243,7 +242,7 @@ func TestServer_redirectToAuth(t *testing.T) {
 
 			state := u.Query().Get("state")
 			require.NotEmpty(t, state)
-			cachedURL, ok := s.store.Get(state)
+			cachedURL, ok := s.states.Get(state)
 			require.True(t, ok)
 			assert.Equal(t, "https://"+tt.target+"/foo", cachedURL)
 		})
@@ -275,6 +274,13 @@ func TestServer_LogoutHandler(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Equal(t, "You have been logged out\n", w.Body.String())
 	assert.Equal(t, "_traefik_simple_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
+
+	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
+	r.AddCookie(s.sessions.Cookie(session.Session{}, config.Domains[0]))
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, "Invalid session\n", w.Body.String())
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {
@@ -325,7 +331,7 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 
 			state := tt.state
 			if tt.makeState {
-				state = s.store.Add("https://example.com/foo")
+				state = s.states.Add("https://example.com/foo")
 			}
 			path := OAUTHPath
 			if state != "" {

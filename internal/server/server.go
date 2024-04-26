@@ -21,7 +21,7 @@ const OAUTHPath = "/_oauth"
 type Server struct {
 	oauthHandlers map[string]oauth.Handler
 	sessions      *session.Sessions
-	store         state.Store[string]
+	states        state.Store[string]
 	whitelist     whitelist.Whitelist
 	domains       domains.Domains
 	http.Handler
@@ -38,7 +38,7 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 	s := Server{
 		oauthHandlers: oauthHandlers,
 		sessions:      session.New(config.SessionCookieName, config.Secret, config.Expiry),
-		store:         state.New[string](5 * time.Minute),
+		states:        state.New[string](5 * time.Minute),
 		whitelist:     whitelist.New(config.Users),
 		domains:       config.Domains,
 	}
@@ -95,7 +95,7 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
 	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 	// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
-	encodedState := s.store.Add(r.URL.String())
+	encodedState := s.states.Add(r.URL.String())
 
 	domain, ok := s.domains.Domain(r.URL)
 	if !ok {
@@ -118,7 +118,7 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 
 		// Look up the (random) state to find the final destination.
 		encodedState := r.URL.Query().Get("state")
-		redirectURL, ok := s.store.Get(encodedState)
+		redirectURL, ok := s.states.Get(encodedState)
 		if !ok {
 			l.Warn("invalid state. Dropping request ...")
 			http.Error(w, "Invalid state", http.StatusBadRequest)
@@ -162,16 +162,19 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// remove the cached cookie
-		if sess, err := s.sessions.Validate(r); err == nil {
-			s.sessions.DeleteSession(sess)
+		sess, err := s.sessions.Validate(r)
+		if err != nil {
+			http.Error(w, "Invalid session", http.StatusUnauthorized)
+			return
 		}
+		s.sessions.DeleteSession(sess)
 
 		// Write a blank session cookie to override the current valid one.
 		domain, _ := s.domains.Domain(r.URL)
 		http.SetCookie(w, s.sessions.Cookie(session.Session{}, domain))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
-		l.Info("user has been logged out")
+		l.Info("user has been logged out", "user", sess.Email)
 	}
 }
 
