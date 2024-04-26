@@ -31,17 +31,28 @@ func TestServer_Panics(t *testing.T) {
 			Domains:  []string{"example.com"},
 		}
 		l := slog.Default()
-		_ = New(cfg, l)
+		_ = New(cfg, nil, l)
 	}()
 	assert.True(t, panics)
 }
 
 func TestServer_authHandler(t *testing.T) {
-	type args struct {
-		host    string
-		session session.Session
+	config := configuration.Configuration{
+		SessionCookieName: "_traefik_simple_auth",
+		Domains:           domains.Domains{"example.com"},
+		Secret:            []byte("secret"),
+		Expiry:            time.Hour,
+		Users:             []string{"foo@example.com"},
+		Provider:          "google",
 	}
-	secret := []byte("secret")
+	s := New(config, nil, slog.Default())
+	validSession := s.sessions.MakeSession("foo@example.com")
+	expiredSession := session.NewSession("bar@example.com", -config.Expiry, config.Secret)
+
+	type args struct {
+		host   string
+		cookie *http.Cookie
+	}
 	tests := []struct {
 		name string
 		args args
@@ -58,8 +69,8 @@ func TestServer_authHandler(t *testing.T) {
 		{
 			name: "valid cookie",
 			args: args{
-				host:    "example.com",
-				session: session.NewSession("foo@example.com", time.Hour, secret),
+				host:   "example.com",
+				cookie: s.sessions.Cookie(validSession, "example.com"),
 			},
 			want: http.StatusOK,
 			user: "foo@example.com",
@@ -67,16 +78,25 @@ func TestServer_authHandler(t *testing.T) {
 		{
 			name: "expired cookie",
 			args: args{
-				host:    "example.com",
-				session: session.NewSession("foo@example.com", -time.Hour, secret),
+				host:   "example.com",
+				cookie: s.sessions.Cookie(expiredSession, "example.com"),
 			},
 			want: http.StatusTemporaryRedirect,
 		},
 		{
 			name: "valid subdomain",
 			args: args{
-				host:    "www.example.com",
-				session: session.NewSession("foo@example.com", time.Hour, secret),
+				host:   "www.example.com",
+				cookie: s.sessions.Cookie(validSession, "example.com"),
+			},
+			want: http.StatusOK,
+			user: "foo@example.com",
+		},
+		{
+			name: "valid domain with user info",
+			args: args{
+				host:   "user:password@www.example.com",
+				cookie: s.sessions.Cookie(validSession, "example.com"),
 			},
 			want: http.StatusOK,
 			user: "foo@example.com",
@@ -84,32 +104,20 @@ func TestServer_authHandler(t *testing.T) {
 		{
 			name: "invalid domain",
 			args: args{
-				host:    "example2.com",
-				session: session.NewSession("foo@example.com", time.Hour, secret),
+				host:   "example2.com",
+				cookie: s.sessions.Cookie(validSession, "example.com"),
 			},
 			want: http.StatusUnauthorized,
 		},
-		/*		{
-					name: "valid domain with user info",
-					args: args{
-						host:   "user:password@www.example.com",
-						cookie: s.makeSessionCookie("foo@example.com", Configuration.Secret),
-					},
-					want: http.StatusOK,
-					user: "foo@example.com",
-				},
-		*/
+		{
+			name: "blank cookie",
+			args: args{
+				host:   "example.com",
+				cookie: &http.Cookie{Name: config.SessionCookieName, Value: ""},
+			},
+			want: http.StatusTemporaryRedirect,
+		},
 	}
-
-	config := configuration.Configuration{
-		SessionCookieName: "_traefik_simple_auth",
-		Domains:           domains.Domains{"example.com"},
-		Secret:            []byte("secret"),
-		Expiry:            time.Hour,
-		Users:             []string{"foo@example.com"},
-		Provider:          "google",
-	}
-	s := New(config, slog.Default())
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -117,8 +125,8 @@ func TestServer_authHandler(t *testing.T) {
 
 			r := makeHTTPRequest(http.MethodGet, tt.args.host, "/foo")
 			w := httptest.NewRecorder()
-			if tt.args.session.Email != "" {
-				r.AddCookie(s.sessions.Cookie(tt.args.session, config.Domains[0]))
+			if tt.args.cookie != nil {
+				r.AddCookie(tt.args.cookie)
 			}
 
 			s.ServeHTTP(w, r)
@@ -134,8 +142,7 @@ func TestServer_authHandler(t *testing.T) {
 	}
 }
 
-// Benchmark_AuthHandler/without_cache-16            488750              2261 ns/op            1029 B/op         17 allocs/op
-// Benchmark_AuthHandler/with_cache-16               889609              1290 ns/op             421 B/op          9 allocs/op
+// Benchmark_authHandler-16          857482              1298 ns/op             501 B/op         10 allocs/op
 func Benchmark_authHandler(b *testing.B) {
 	config := configuration.Configuration{
 		SessionCookieName: "_traefik_simple_auth",
@@ -144,11 +151,10 @@ func Benchmark_authHandler(b *testing.B) {
 		Expiry:            time.Hour,
 		Users:             []string{"foo@example.com"},
 		Provider:          "google",
-		//AuthHost: "https://auth.example.com",
 	}
-	s := New(config, slog.Default())
-	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
+	s := New(config, nil, slog.Default())
 	sess := session.NewSession("foo@example.com", time.Hour, config.Secret)
+	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 	w := httptest.NewRecorder()
 
@@ -170,7 +176,7 @@ func TestServer_authHandler_expiry(t *testing.T) {
 		Users:             []string{"foo@example.com"},
 		Provider:          "google",
 	}
-	s := New(config, slog.Default())
+	s := New(config, nil, slog.Default())
 
 	assert.Eventually(t, func() bool {
 		r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
@@ -215,7 +221,7 @@ func TestServer_redirectToAuth(t *testing.T) {
 		AuthPrefix:   "auth",
 		Provider:     "google",
 	}
-	s := New(config, slog.Default())
+	s := New(config, nil, slog.Default())
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -236,7 +242,7 @@ func TestServer_redirectToAuth(t *testing.T) {
 
 			state := u.Query().Get("state")
 			require.NotEmpty(t, state)
-			cachedURL, ok := s.store.Get(state)
+			cachedURL, ok := s.states.Get(state)
 			require.True(t, ok)
 			assert.Equal(t, "https://"+tt.target+"/foo", cachedURL)
 		})
@@ -251,7 +257,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 		Expiry:            time.Hour,
 		Provider:          "google",
 	}
-	s := New(config, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	s := New(config, nil, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	sess := session.NewSession("foo@example.com", config.Expiry, config.Secret)
@@ -263,11 +269,18 @@ func TestServer_LogoutHandler(t *testing.T) {
 
 	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
 	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
-
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Equal(t, "You have been logged out\n", w.Body.String())
+	assert.Equal(t, "_traefik_simple_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
+
+	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
+	r.AddCookie(s.sessions.Cookie(session.Session{}, config.Domains[0]))
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, "Invalid session\n", w.Body.String())
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {
@@ -313,12 +326,12 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 			t.Parallel()
 
 			l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			s := New(configuration.Configuration{Users: []string{"foo@example.com"}, Domains: domains.Domains{"example.com"}, Provider: "google"}, l)
+			s := New(configuration.Configuration{Users: []string{"foo@example.com"}, Domains: domains.Domains{"example.com"}, Provider: "google"}, nil, l)
 			s.oauthHandlers["example.com"] = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
 
 			state := tt.state
 			if tt.makeState {
-				state = s.store.Add("https://example.com/foo")
+				state = s.states.Add("https://example.com/foo")
 			}
 			path := OAUTHPath
 			if state != "" {

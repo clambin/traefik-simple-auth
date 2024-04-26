@@ -1,13 +1,35 @@
-package metrics
+package server
 
 import (
+	"context"
 	"github.com/clambin/go-common/http/metrics"
-	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/clambin/go-common/http/middleware"
+	"github.com/clambin/traefik-simple-auth/internal/server/session"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+type sessionKeyCtx string
+
+var SessionKey sessionKeyCtx = "sessionKey"
+
+func (s *Server) sessionExtractor(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if userSession, err := s.sessions.Validate(r); err == nil {
+			ctx := context.WithValue(r.Context(), SessionKey, userSession)
+			r = r.WithContext(ctx)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////
+
+func (s *Server) withMetrics(m *Metrics) func(next http.Handler) http.Handler {
+	return middleware.WithRequestMetrics(m)
+}
 
 var _ metrics.RequestMetrics = &Metrics{}
 
@@ -16,7 +38,7 @@ type Metrics struct {
 	requestCounter  *prometheus.CounterVec
 }
 
-func New(namespace, subsystem string, constLabels map[string]string, buckets ...float64) *Metrics {
+func NewMetrics(namespace, subsystem string, constLabels map[string]string, buckets ...float64) *Metrics {
 	if len(buckets) == 0 {
 		buckets = []float64{0.0001, 0.0005, 0.001, .005, .01, .05, .1, .5, 1}
 	}
@@ -28,7 +50,7 @@ func New(namespace, subsystem string, constLabels map[string]string, buckets ...
 			Help:        "total number of http requests",
 			ConstLabels: constLabels,
 		},
-			[]string{"host", "path", "code"},
+			[]string{"user", "host", "path", "code"},
 		),
 		requestDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace:   namespace,
@@ -38,20 +60,20 @@ func New(namespace, subsystem string, constLabels map[string]string, buckets ...
 			ConstLabels: constLabels,
 			Buckets:     buckets,
 		},
-			[]string{"host", "path", "code"},
+			[]string{"user", "host", "path", "code"},
 		),
 	}
 }
 
 func (m Metrics) Measure(req *http.Request, statusCode int, duration time.Duration) {
+	sess, _ := req.Context().Value(SessionKey).(session.Session)
 	code := strconv.Itoa(statusCode)
-	path := "/"
-	if req.URL != nil && (req.URL.Path == server.OAUTHPath || req.URL.Path == server.OAUTHPath+"/logout") {
-		path = req.URL.Path
+	path := req.URL.Path
+	if path != OAUTHPath && path != OAUTHPath+"/logout" {
+		path = "/"
 	}
-	host := req.Header.Get("X-Forwarded-Host")
-	m.requestCounter.WithLabelValues(host, path, code).Inc()
-	m.requestDuration.WithLabelValues(host, path, code).Observe(duration.Seconds())
+	m.requestCounter.WithLabelValues(sess.Email, req.URL.Host, path, code).Inc()
+	m.requestDuration.WithLabelValues(sess.Email, req.URL.Host, path, code).Observe(duration.Seconds())
 }
 
 func (m Metrics) Describe(ch chan<- *prometheus.Desc) {

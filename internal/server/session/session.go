@@ -42,7 +42,6 @@ func newSessionFromCookie(c *http.Cookie) (Session, error) {
 	}
 
 	value = value[encodedMACSize+encodedTimeSize:]
-
 	mac := bin[:macSize]
 
 	return Session{Email: value, expiration: time.Unix(int64(binary.BigEndian.Uint64(bin[macSize:])), 0), mac: mac}, nil
