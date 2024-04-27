@@ -1,4 +1,4 @@
-package session
+package sessions
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ type Session struct {
 	mac        []byte
 }
 
-func NewSession(email string, expiration time.Duration, secret []byte) Session {
+func newSession(email string, expiration time.Duration, secret []byte) Session {
 	expiry := time.Now().Add(expiration)
 	return Session{
 		Email:      email,
@@ -25,7 +25,7 @@ func NewSession(email string, expiration time.Duration, secret []byte) Session {
 		mac:        calculateMAC(secret, []byte(email), binary.BigEndian.AppendUint64(nil, uint64(expiry.Unix()))),
 	}
 }
-func newSessionFromCookie(c *http.Cookie) (Session, error) {
+func sessionFromCookie(c *http.Cookie) (Session, error) {
 	const macSize = 32                   // 256 bits
 	const timeSize = 8                   // 64 bits
 	const encodedMACSize = 2 * macSize   // 2 * 256 bits

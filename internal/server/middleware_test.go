@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/server/session"
+	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,8 +54,8 @@ func TestServer_sessionExtractor(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 
-			h := s.sessionExtractor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				ctx, ok := r.Context().Value(SessionKey).(session.Session)
+			h := s.sessionExtractor(slog.Default())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx, ok := r.Context().Value(SessionKey).(sessions.Session)
 				tt.wantOK(t, ok)
 				if !ok {
 					return
@@ -76,7 +76,7 @@ func TestServer_withMetrics(t *testing.T) {
 		Domains:           []string{"example.com"},
 		Provider:          "google",
 	}
-	m := NewMetrics("", "", map[string]string{"provider": "foo"}, 1, 2)
+	m := NewMetrics("", "", map[string]string{"provider": "foo"})
 	s := New(config, m, slog.Default())
 
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
@@ -111,4 +111,6 @@ http_requests_total{code="400",host="example.com",path="/_oauth",provider="foo",
 http_requests_total{code="401",host="example.org",path="/",provider="foo",user="foo@example.com"} 1
 
 `), "http_requests_total"))
+
+	assert.Equal(t, 4, testutil.CollectAndCount(m, "http_request_duration_seconds"))
 }

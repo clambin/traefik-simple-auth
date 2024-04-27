@@ -1,4 +1,4 @@
-package session
+package sessions
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -18,13 +18,13 @@ func TestSessions_Validate(t *testing.T) {
 	}{
 		{
 			name:      "valid cookie",
-			cookie:    &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", time.Hour, secret).encode()},
+			cookie:    &http.Cookie{Name: "_name", Value: newSession("foo@example.com", time.Hour, secret).encode()},
 			wantErr:   assert.NoError,
 			wantEmail: "foo@example.com",
 		},
 		{
 			name:      "valid cookie (cached)",
-			cookie:    &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", time.Hour, secret).encode()},
+			cookie:    &http.Cookie{Name: "_name", Value: newSession("foo@example.com", time.Hour, secret).encode()},
 			wantErr:   assert.NoError,
 			wantEmail: "foo@example.com",
 		},
@@ -35,7 +35,7 @@ func TestSessions_Validate(t *testing.T) {
 		},
 		{
 			name:    "expired cookie",
-			cookie:  &http.Cookie{Name: "_name", Value: NewSession("foo@example.com", -time.Hour, secret).encode()},
+			cookie:  &http.Cookie{Name: "_name", Value: newSession("foo@example.com", -time.Hour, secret).encode()},
 			wantErr: assert.Error,
 		},
 		{
@@ -70,7 +70,7 @@ func BenchmarkSessions_Validate(b *testing.B) {
 	r, _ := http.NewRequest(http.MethodGet, "/", nil)
 	r.AddCookie(&http.Cookie{
 		Name:  "_name",
-		Value: NewSession("foo@example.com", time.Hour, secret).encode(),
+		Value: newSession("foo@example.com", time.Hour, secret).encode(),
 	})
 
 	for range b.N {
@@ -86,10 +86,10 @@ func TestSessions_DeleteSession(t *testing.T) {
 
 	session := s.MakeSession("foo@example.com")
 	assert.NoError(t, session.validate(secret))
-	assert.Equal(t, 1, s.cache.Len())
+	assert.Equal(t, 1, s.sessions.Len())
 
 	s.DeleteSession(session)
-	assert.Equal(t, 0, s.cache.Len())
+	assert.Equal(t, 0, s.sessions.Len())
 }
 
 func TestSessions_Cookie(t *testing.T) {

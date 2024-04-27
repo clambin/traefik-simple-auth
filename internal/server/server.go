@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/server/session"
+	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
@@ -18,7 +18,7 @@ const OAUTHPath = "/_oauth"
 
 type Server struct {
 	oauthHandlers map[string]oauth.Handler
-	sessions      *session.Sessions
+	sessions      *sessions.Sessions
 	states        state.Store[string]
 	whitelist     whitelist.Whitelist
 	domains       domains.Domains
@@ -35,7 +35,7 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 	}
 	s := Server{
 		oauthHandlers: oauthHandlers,
-		sessions:      session.New(config.SessionCookieName, config.Secret, config.Expiry),
+		sessions:      sessions.New(config.SessionCookieName, config.Secret, config.Expiry),
 		states:        state.New[string](5 * time.Minute),
 		whitelist:     whitelist.New(config.Users),
 		domains:       config.Domains,
@@ -51,7 +51,7 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 		h = s.withMetrics(m)(h)
 	}
 	s.Handler = traefikForwardAuthParser()(
-		s.sessionExtractor(
+		s.sessionExtractor(l)(
 			h,
 		),
 	)
@@ -65,7 +65,7 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// validate that the request has a valid session cookie
-		sess, ok := r.Context().Value(SessionKey).(session.Session)
+		sess, ok := r.Context().Value(SessionKey).(sessions.Session)
 		if !ok {
 			s.redirectToAuth(w, r, l)
 			return
@@ -155,7 +155,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// remove the cached cookie
-		sess, ok := r.Context().Value(SessionKey).(session.Session)
+		sess, ok := r.Context().Value(SessionKey).(sessions.Session)
 		if !ok {
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return
@@ -164,7 +164,7 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 
 		// Write a blank session cookie to override the current valid one.
 		domain, _ := s.domains.Domain(r.URL)
-		http.SetCookie(w, s.sessions.Cookie(session.Session{}, domain))
+		http.SetCookie(w, s.sessions.Cookie(sessions.Session{}, domain))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		l.Info("user has been logged out", "user", sess.Email)

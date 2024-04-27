@@ -1,4 +1,4 @@
-package session
+package sessions
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -10,11 +10,11 @@ import (
 
 func TestSession_newSessionFromCookie(t *testing.T) {
 	secret := []byte("secret")
-	s := NewSession("foo@example.com", time.Hour, secret)
+	s := newSession("foo@example.com", time.Hour, secret)
 
 	c := &http.Cookie{Value: s.encode()}
 
-	s2, err := newSessionFromCookie(c)
+	s2, err := sessionFromCookie(c)
 	require.NoError(t, err)
 	assert.Equal(t, s.encode(), s2.encode())
 
@@ -26,19 +26,19 @@ func TestSession_newSessionFromCookie(t *testing.T) {
 	}{
 		{
 			name:            "valid cookie",
-			value:           NewSession("foo@example.com", time.Hour, secret).encode(),
+			value:           newSession("foo@example.com", time.Hour, secret).encode(),
 			wantNewErr:      assert.NoError,
 			wantValidateErr: assert.NoError,
 		},
 		{
 			name:            "expired cookie",
-			value:           NewSession("foo@example.com", -time.Hour, secret).encode(),
+			value:           newSession("foo@example.com", -time.Hour, secret).encode(),
 			wantNewErr:      assert.NoError,
 			wantValidateErr: assert.Error,
 		},
 		{
 			name:            "mac mismatch",
-			value:           "0000" + NewSession("foo@example.com", time.Hour, secret).encode()[4:],
+			value:           "0000" + newSession("foo@example.com", time.Hour, secret).encode()[4:],
 			wantNewErr:      assert.NoError,
 			wantValidateErr: assert.Error,
 		},
@@ -60,7 +60,7 @@ func TestSession_newSessionFromCookie(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s, err := newSessionFromCookie(&http.Cookie{Value: tt.value})
+			s, err := sessionFromCookie(&http.Cookie{Value: tt.value})
 			tt.wantNewErr(t, err)
 			tt.wantValidateErr(t, s.validate(secret))
 		})
