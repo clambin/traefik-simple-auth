@@ -2,27 +2,32 @@ package server
 
 import (
 	"context"
+	"errors"
 	"github.com/clambin/go-common/http/metrics"
 	"github.com/clambin/go-common/http/middleware"
-	"github.com/clambin/traefik-simple-auth/internal/server/session"
+	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/prometheus/client_golang/prometheus"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-type sessionKeyCtx string
+type ctxSessionKey string
 
-var SessionKey sessionKeyCtx = "sessionKey"
+var sessionKey ctxSessionKey = "sessionKey"
 
-func (s *Server) sessionExtractor(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if userSession, err := s.sessions.Validate(r); err == nil {
-			ctx := context.WithValue(r.Context(), SessionKey, userSession)
-			r = r.WithContext(ctx)
-		}
-		next.ServeHTTP(w, r)
-	})
+func (s *Server) sessionExtractor(logger *slog.Logger) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if userSession, err := s.sessions.Validate(r); err == nil {
+				r = r.WithContext(context.WithValue(r.Context(), sessionKey, userSession))
+			} else if !errors.Is(err, http.ErrNoCookie) {
+				logger.Warn("received invalid session cookie", "err", err)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -66,7 +71,7 @@ func NewMetrics(namespace, subsystem string, constLabels map[string]string, buck
 }
 
 func (m Metrics) Measure(req *http.Request, statusCode int, duration time.Duration) {
-	sess, _ := req.Context().Value(SessionKey).(session.Session)
+	sess, _ := req.Context().Value(sessionKey).(sessions.Session)
 	code := strconv.Itoa(statusCode)
 	path := req.URL.Path
 	if path != OAUTHPath && path != OAUTHPath+"/logout" {

@@ -3,7 +3,7 @@ package server
 import (
 	"errors"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/server/session"
+	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/stretchr/testify/assert"
@@ -46,8 +46,8 @@ func TestServer_authHandler(t *testing.T) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
-	validSession := s.sessions.MakeSession("foo@example.com")
-	expiredSession := session.NewSession("bar@example.com", -config.Expiry, config.Secret)
+	validSession := s.sessions.Session("foo@example.com")
+	expiredSession := s.sessions.SessionWithExpiration("bar@example.com", -config.Expiry)
 
 	type args struct {
 		host   string
@@ -76,7 +76,7 @@ func TestServer_authHandler(t *testing.T) {
 			user: "foo@example.com",
 		},
 		{
-			name: "expired cookie",
+			name: "expired session",
 			args: args{
 				host:   "example.com",
 				cookie: s.sessions.Cookie(expiredSession, "example.com"),
@@ -121,7 +121,7 @@ func TestServer_authHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 
 			r := makeHTTPRequest(http.MethodGet, tt.args.host, "/foo")
 			w := httptest.NewRecorder()
@@ -153,7 +153,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
-	sess := session.NewSession("foo@example.com", time.Hour, config.Secret)
+	sess := s.sessions.SessionWithExpiration("foo@example.com", time.Hour)
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 	w := httptest.NewRecorder()
@@ -177,10 +177,10 @@ func TestServer_authHandler_expiry(t *testing.T) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
+	sess := s.sessions.Session("foo@example.com")
 
 	assert.Eventually(t, func() bool {
 		r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
-		sess := session.NewSession("foo@example.com", config.Expiry, config.Secret)
 		r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
@@ -258,9 +258,9 @@ func TestServer_LogoutHandler(t *testing.T) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	sess := s.sessions.Session("foo@example.com")
 
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
-	sess := session.NewSession("foo@example.com", config.Expiry, config.Secret)
 	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 
 	w := httptest.NewRecorder()
@@ -276,7 +276,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 	assert.Equal(t, "_traefik_simple_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
 
 	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
-	r.AddCookie(s.sessions.Cookie(session.Session{}, config.Domains[0]))
+	r.AddCookie(s.sessions.Cookie(sessions.Session{}, config.Domains[0]))
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	require.Equal(t, http.StatusUnauthorized, w.Code)

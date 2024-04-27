@@ -1,4 +1,4 @@
-package session
+package sessions
 
 import (
 	"bytes"
@@ -11,13 +11,19 @@ import (
 	"time"
 )
 
+var (
+	ErrInvalidCookie  = errors.New("cookie contains invalid session")
+	ErrInvalidMAC     = errors.New("invalid MAC")
+	ErrSessionExpired = errors.New("session expired")
+)
+
 type Session struct {
 	Email      string
 	expiration time.Time
 	mac        []byte
 }
 
-func NewSession(email string, expiration time.Duration, secret []byte) Session {
+func newSession(email string, expiration time.Duration, secret []byte) Session {
 	expiry := time.Now().Add(expiration)
 	return Session{
 		Email:      email,
@@ -25,7 +31,7 @@ func NewSession(email string, expiration time.Duration, secret []byte) Session {
 		mac:        calculateMAC(secret, []byte(email), binary.BigEndian.AppendUint64(nil, uint64(expiry.Unix()))),
 	}
 }
-func newSessionFromCookie(c *http.Cookie) (Session, error) {
+func sessionFromCookie(c *http.Cookie) (Session, error) {
 	const macSize = 32                   // 256 bits
 	const timeSize = 8                   // 64 bits
 	const encodedMACSize = 2 * macSize   // 2 * 256 bits
@@ -33,12 +39,12 @@ func newSessionFromCookie(c *http.Cookie) (Session, error) {
 
 	value := c.Value
 	if len(value) < encodedMACSize+encodedTimeSize {
-		return Session{}, errors.New("invalid structure")
+		return Session{}, ErrInvalidCookie
 	}
 
 	bin, err := hex.DecodeString(value[:encodedMACSize+encodedTimeSize])
 	if err != nil {
-		return Session{}, errors.New("invalid structure")
+		return Session{}, ErrInvalidCookie
 	}
 
 	value = value[encodedMACSize+encodedTimeSize:]
@@ -56,10 +62,10 @@ func (s Session) encode() string {
 func (s Session) validate(secret []byte) error {
 	mac := calculateMAC(secret, []byte(s.Email), binary.BigEndian.AppendUint64(nil, uint64(s.expiration.Unix())))
 	if !bytes.Equal(s.mac, mac) {
-		return errors.New("invalid mac")
+		return ErrInvalidMAC
 	}
 	if s.expiration.Before(time.Now()) {
-		return errors.New("session expired")
+		return ErrSessionExpired
 	}
 	return nil
 }
