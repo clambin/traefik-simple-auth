@@ -84,7 +84,7 @@ func TestSessions_DeleteSession(t *testing.T) {
 	secret := []byte("secret")
 	s := New("_name", secret, time.Hour)
 
-	session := s.MakeSession("foo@example.com")
+	session := s.Session("foo@example.com")
 	assert.NoError(t, session.validate(secret))
 	assert.Equal(t, 1, s.sessions.Len())
 

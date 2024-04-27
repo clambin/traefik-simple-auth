@@ -2,7 +2,6 @@ package sessions
 
 import (
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 	"time"
@@ -10,49 +9,25 @@ import (
 
 func TestSession_newSessionFromCookie(t *testing.T) {
 	secret := []byte("secret")
-	s := newSession("foo@example.com", time.Hour, secret)
-
-	c := &http.Cookie{Value: s.encode()}
-
-	s2, err := sessionFromCookie(c)
-	require.NoError(t, err)
-	assert.Equal(t, s.encode(), s2.encode())
-
 	tests := []struct {
-		name            string
-		value           string
-		wantNewErr      assert.ErrorAssertionFunc
-		wantValidateErr assert.ErrorAssertionFunc
+		name          string
+		value         string
+		wantCookieErr error
 	}{
 		{
-			name:            "valid cookie",
-			value:           newSession("foo@example.com", time.Hour, secret).encode(),
-			wantNewErr:      assert.NoError,
-			wantValidateErr: assert.NoError,
+			name:          "valid cookie",
+			value:         newSession("foo@example.com", time.Hour, secret).encode(),
+			wantCookieErr: nil,
 		},
 		{
-			name:            "expired cookie",
-			value:           newSession("foo@example.com", -time.Hour, secret).encode(),
-			wantNewErr:      assert.NoError,
-			wantValidateErr: assert.Error,
+			name:          "invalid cookie",
+			value:         "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+			wantCookieErr: ErrInvalidCookie,
 		},
 		{
-			name:            "mac mismatch",
-			value:           "0000" + newSession("foo@example.com", time.Hour, secret).encode()[4:],
-			wantNewErr:      assert.NoError,
-			wantValidateErr: assert.Error,
-		},
-		{
-			name:            "invalid cookie",
-			value:           "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
-			wantNewErr:      assert.Error,
-			wantValidateErr: assert.Error,
-		},
-		{
-			name:            "empty cookie",
-			value:           "",
-			wantNewErr:      assert.Error,
-			wantValidateErr: assert.Error,
+			name:          "empty cookie",
+			value:         "",
+			wantCookieErr: ErrInvalidCookie,
 		},
 	}
 
@@ -61,8 +36,48 @@ func TestSession_newSessionFromCookie(t *testing.T) {
 			t.Parallel()
 
 			s, err := sessionFromCookie(&http.Cookie{Value: tt.value})
-			tt.wantNewErr(t, err)
-			tt.wantValidateErr(t, s.validate(secret))
+			assert.ErrorIs(t, err, tt.wantCookieErr)
+			if err == nil {
+				assert.NoError(t, s.validate(secret))
+			}
+		})
+	}
+}
+
+func TestSession_validate(t *testing.T) {
+	secret := []byte("secret")
+	validSession := newSession("foo@example.com", time.Hour, secret)
+	tests := []struct {
+		name    string
+		session Session
+		wantErr error
+	}{
+		{
+			name:    "valid",
+			session: validSession,
+			wantErr: nil,
+		},
+		{
+			name:    "expired session",
+			session: newSession("foo@example.com", -time.Hour, secret),
+			wantErr: ErrSessionExpired,
+		},
+		{
+			name: "invalid mac",
+			session: Session{
+				Email:      validSession.Email,
+				expiration: validSession.expiration,
+				mac:        append([]byte("0000"), validSession.mac[4:]...),
+			},
+			wantErr: ErrInvalidMAC,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.ErrorIs(t, tt.session.validate(secret), tt.wantErr)
 		})
 	}
 }

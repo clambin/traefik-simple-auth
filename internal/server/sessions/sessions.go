@@ -22,40 +22,40 @@ func New(cookieName string, secret []byte, expiration time.Duration) *Sessions {
 	}
 }
 
+func (s Sessions) Session(email string) Session {
+	return s.SessionWithExpiration(email, s.Expiration)
+}
+
+func (s Sessions) SessionWithExpiration(email string, expiration time.Duration) Session {
+	var userSession Session
+	if email != "" {
+		userSession = newSession(email, expiration, s.Secret)
+	}
+	s.sessions.AddWithExpiry(string(userSession.mac), userSession, expiration)
+	return userSession
+}
+
+func (s Sessions) DeleteSession(session Session) {
+	s.sessions.Remove(string(session.mac))
+}
+
 func (s Sessions) Validate(r *http.Request) (Session, error) {
 	c, err := r.Cookie(s.SessionCookieName)
 	if err != nil {
 		return Session{}, err
 	}
-	session, err := sessionFromCookie(c)
+	userSession, err := sessionFromCookie(c)
 	if err != nil {
 		return Session{}, err
 	}
-	if sess, ok := s.sessions.Get(string(session.mac)); ok {
-		return sess, nil
+	if cachedSession, ok := s.sessions.Get(string(userSession.mac)); ok {
+		return cachedSession, nil
 	}
-	if err = session.validate(s.Secret); err != nil {
+	if err = userSession.validate(s.Secret); err != nil {
 		return Session{}, err
 	}
-	s.sessions.AddWithExpiry(string(session.mac), session, time.Until(session.expiration))
-	return session, nil
-}
-
-func (s Sessions) MakeSession(email string) Session {
-	return s.MakeSessionWithExpiration(email, s.Expiration)
-}
-
-func (s Sessions) MakeSessionWithExpiration(email string, expiration time.Duration) Session {
-	var sess Session
-	if email != "" {
-		sess = newSession(email, expiration, s.Secret)
-	}
-	s.sessions.AddWithExpiry(string(sess.mac), sess, expiration)
-	return sess
-}
-
-func (s Sessions) DeleteSession(session Session) {
-	s.sessions.Remove(string(session.mac))
+	s.sessions.AddWithExpiry(string(userSession.mac), userSession, time.Until(userSession.expiration))
+	return userSession, nil
 }
 
 func (s Sessions) Cookie(session Session, domain string) *http.Cookie {

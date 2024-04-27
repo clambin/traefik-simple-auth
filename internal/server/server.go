@@ -65,7 +65,7 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// validate that the request has a valid session cookie
-		sess, ok := r.Context().Value(SessionKey).(sessions.Session)
+		sess, ok := r.Context().Value(sessionKey).(sessions.Session)
 		if !ok {
 			s.redirectToAuth(w, r, l)
 			return
@@ -140,8 +140,8 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
-		sess := s.sessions.MakeSession(user)
-		http.SetCookie(w, s.sessions.Cookie(sess, domain))
+		session := s.sessions.Session(user)
+		http.SetCookie(w, s.sessions.Cookie(session, domain))
 
 		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
 		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
@@ -155,19 +155,19 @@ func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("request received", "request", loggedRequest{r: r})
 
 		// remove the cached cookie
-		sess, ok := r.Context().Value(SessionKey).(sessions.Session)
+		session, ok := r.Context().Value(sessionKey).(sessions.Session)
 		if !ok {
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return
 		}
-		s.sessions.DeleteSession(sess)
+		s.sessions.DeleteSession(session)
 
 		// Write a blank session cookie to override the current valid one.
 		domain, _ := s.domains.Domain(r.URL)
 		http.SetCookie(w, s.sessions.Cookie(sessions.Session{}, domain))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
-		l.Info("user has been logged out", "user", sess.Email)
+		l.Info("user has been logged out", "user", session.Email)
 	}
 }
 

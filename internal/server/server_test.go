@@ -46,8 +46,8 @@ func TestServer_authHandler(t *testing.T) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
-	validSession := s.sessions.MakeSession("foo@example.com")
-	expiredSession := s.sessions.MakeSessionWithExpiration("bar@example.com", -config.Expiry)
+	validSession := s.sessions.Session("foo@example.com")
+	expiredSession := s.sessions.SessionWithExpiration("bar@example.com", -config.Expiry)
 
 	type args struct {
 		host   string
@@ -153,7 +153,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
-	sess := s.sessions.MakeSessionWithExpiration("foo@example.com", time.Hour)
+	sess := s.sessions.SessionWithExpiration("foo@example.com", time.Hour)
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 	w := httptest.NewRecorder()
@@ -177,7 +177,7 @@ func TestServer_authHandler_expiry(t *testing.T) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
-	sess := s.sessions.MakeSession("foo@example.com")
+	sess := s.sessions.Session("foo@example.com")
 
 	assert.Eventually(t, func() bool {
 		r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
@@ -258,7 +258,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
-	sess := s.sessions.MakeSession("foo@example.com")
+	sess := s.sessions.Session("foo@example.com")
 
 	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))

@@ -20,7 +20,7 @@ func TestServer_sessionExtractor(t *testing.T) {
 	}
 	l := slog.Default()
 	s := New(cfg, nil, l)
-	sess := s.sessions.MakeSession("foo@example.com")
+	sess := s.sessions.Session("foo@example.com")
 
 	tests := []struct {
 		name      string
@@ -55,7 +55,7 @@ func TestServer_sessionExtractor(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			h := s.sessionExtractor(slog.Default())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				ctx, ok := r.Context().Value(SessionKey).(sessions.Session)
+				ctx, ok := r.Context().Value(sessionKey).(sessions.Session)
 				tt.wantOK(t, ok)
 				if !ok {
 					return
@@ -89,7 +89,7 @@ func TestServer_withMetrics(t *testing.T) {
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	sess := s.sessions.MakeSession("foo@example.com")
+	sess := s.sessions.Session("foo@example.com")
 	r = makeHTTPRequest(http.MethodGet, "example.org", "/foo")
 	r.AddCookie(s.sessions.Cookie(sess, "example.com"))
 	w = httptest.NewRecorder()
