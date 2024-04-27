@@ -41,7 +41,7 @@ For traefik-simple-auth, a valid cookie:
 If an incoming request does not contain a valid session cookie, the user needs to be authenticated:
 
 * We forward the user to the auth provider's login page, so the user can be authenticated;
-* When the user has logged in, the provider sends the request back to traefik-simple-auth, specifically to the address `<auth-host>/_oauth`;
+* When the user has logged in, the provider sends the request back to traefik-simple-auth, specifically to the address `<auth-prefix>.<domain>/_oauth`;
 * This routes the request to traefik-simple-auth's authCallback handler;
 * The handler uses the request to retrieve the authenticated user's email address and see if it is part of the `users` whitelist; 
 * If so, it creates a new session cookie, and redirects the user to the original destination, with the session cookie;
