@@ -49,6 +49,7 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 	var h http.Handler = r
 	if m != nil {
 		h = s.withMetrics(m)(h)
+		go s.monitorSessions(m, 20*time.Second)
 	}
 	s.Handler = traefikForwardAuthParser()(
 		s.sessionExtractor(l)(

@@ -102,5 +102,13 @@ func TestSessions_Cookie(t *testing.T) {
 	w = httptest.NewRecorder()
 	http.SetCookie(w, sessions.Cookie(Session{}, "example.com"))
 	assert.Equal(t, "_name=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
+}
 
+func TestSessions_ActiveUsers(t *testing.T) {
+	sessions := New("_name", []byte("secret"), time.Hour)
+	_ = sessions.Session("foo@example.com")
+	_ = sessions.SessionWithExpiration("foo@example.com", 30*time.Minute)
+	_ = sessions.SessionWithExpiration("bar@example.com", -time.Hour)
+
+	assert.Equal(t, map[string]int{"foo@example.com": 2}, sessions.ActiveUsers())
 }

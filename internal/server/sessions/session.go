@@ -64,10 +64,14 @@ func (s Session) validate(secret []byte) error {
 	if !bytes.Equal(s.mac, mac) {
 		return ErrInvalidMAC
 	}
-	if s.expiration.Before(time.Now()) {
+	if s.expired() {
 		return ErrSessionExpired
 	}
 	return nil
+}
+
+func (s Session) expired() bool {
+	return s.expiration.Before(time.Now())
 }
 
 func calculateMAC(secret []byte, parts ...[]byte) []byte {

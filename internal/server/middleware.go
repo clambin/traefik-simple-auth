@@ -36,11 +36,21 @@ func (s *Server) withMetrics(m *Metrics) func(next http.Handler) http.Handler {
 	return middleware.WithRequestMetrics(m)
 }
 
+func (s *Server) monitorSessions(m *Metrics, interval time.Duration) {
+	for {
+		for user, count := range s.sessions.ActiveUsers() {
+			m.activeUsers.WithLabelValues(user).Set(float64(count))
+		}
+		time.Sleep(interval)
+	}
+}
+
 var _ metrics.RequestMetrics = &Metrics{}
 
 type Metrics struct {
 	requestDuration *prometheus.HistogramVec
 	requestCounter  *prometheus.CounterVec
+	activeUsers     *prometheus.GaugeVec
 }
 
 func NewMetrics(namespace, subsystem string, constLabels map[string]string, buckets ...float64) *Metrics {
@@ -67,6 +77,14 @@ func NewMetrics(namespace, subsystem string, constLabels map[string]string, buck
 		},
 			[]string{"user", "host", "path", "code"},
 		),
+		activeUsers: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace:   namespace,
+			Subsystem:   subsystem,
+			Name:        "active_users",
+			ConstLabels: constLabels,
+		},
+			[]string{"user"},
+		),
 	}
 }
 
@@ -84,9 +102,11 @@ func (m Metrics) Measure(req *http.Request, statusCode int, duration time.Durati
 func (m Metrics) Describe(ch chan<- *prometheus.Desc) {
 	m.requestCounter.Describe(ch)
 	m.requestDuration.Describe(ch)
+	m.activeUsers.Describe(ch)
 }
 
 func (m Metrics) Collect(ch chan<- prometheus.Metric) {
 	m.requestCounter.Collect(ch)
 	m.requestDuration.Collect(ch)
+	m.activeUsers.Collect(ch)
 }
