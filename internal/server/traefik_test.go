@@ -33,6 +33,7 @@ func Test_getOriginalTarget(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.Header = tt.headers
 			assert.Equal(t, tt.want, getOriginalTarget(r))

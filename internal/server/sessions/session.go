@@ -38,6 +38,10 @@ func sessionFromCookie(c *http.Cookie) (Session, error) {
 	const encodedTimeSize = 2 * timeSize // 2 * 64 bits
 
 	value := c.Value
+	if value == "" {
+		return Session{}, http.ErrNoCookie
+	}
+
 	if len(value) < encodedMACSize+encodedTimeSize {
 		return Session{}, ErrInvalidCookie
 	}
