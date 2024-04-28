@@ -81,6 +81,7 @@ func NewMetrics(namespace, subsystem string, constLabels map[string]string, buck
 			Namespace:   namespace,
 			Subsystem:   subsystem,
 			Name:        "active_users",
+			Help:        "number of active users",
 			ConstLabels: constLabels,
 		},
 			[]string{"user"},

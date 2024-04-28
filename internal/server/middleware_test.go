@@ -136,11 +136,13 @@ func TestMetrics_Collect_ActiveUsers(t *testing.T) {
 	go s.monitorSessions(m, 100*time.Millisecond)
 
 	assert.Eventually(t, func() bool {
-		return nil == testutil.CollectAndCompare(m, strings.NewReader(`
+		return testutil.CollectAndCount(m) > 0
+	}, time.Second, time.Millisecond)
+
+	assert.NoError(t, testutil.CollectAndCompare(m, strings.NewReader(`
+# HELP active_users number of active users
 # TYPE active_users gauge
 active_users{provider="foo",user="bar@example.com"} 1
 active_users{provider="foo",user="foo@example.com"} 2
-`), "active_users")
-	}, time.Second, time.Millisecond)
-
+`), "active_users"))
 }

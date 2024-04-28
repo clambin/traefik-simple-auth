@@ -225,10 +225,11 @@ Usage:
 
 traefik-simple-auth exports the following metrics:
 
-| metric | type | labels                           | help |
-| --- | --- |----------------------------------| --- |
-| traefik_simple_auth_http_request_duration_seconds | HISTOGRAM | code, host, path, provider, user     |duration of http requests |
-| traefik_simple_auth_http_requests_total | COUNTER | code, host, path, provider, user |total number of http requests |
+| metric | type |  labels | help                          |
+| --- | --- |  --- |-------------------------------|
+| traefik_simple_auth_active_users | GAUGE | provider, user| number of active users        |
+| traefik_simple_auth_http_request_duration_seconds | HISTOGRAM | code, host, path, provider, user| duration of http requests     |
+| traefik_simple_auth_http_requests_total | COUNTER | code, host, path, provider, user| total number of http requests |
 
 ## Authors
 
