@@ -37,7 +37,7 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 		oauthHandlers: oauthHandlers,
 		sessions:      sessions.New(config.SessionCookieName, config.Secret, config.Expiry),
 		states:        state.New[string](5 * time.Minute),
-		whitelist:     whitelist.New(config.Users),
+		whitelist:     config.Whitelist,
 		domains:       config.Domains,
 	}
 
@@ -134,7 +134,7 @@ func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
 		l.Debug("user authenticated", "user", user)
 
 		// Check that the user's email address is in the whitelist.
-		if !s.whitelist.Contains(user) {
+		if !s.whitelist.Match(user) {
 			l.Warn("not a valid user. rejecting ...", "user", user)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return

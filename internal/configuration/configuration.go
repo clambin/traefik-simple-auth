@@ -4,7 +4,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
+	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"strings"
 	"time"
 )
@@ -32,24 +34,25 @@ type Configuration struct {
 	SessionCookieName string
 	Expiry            time.Duration
 	Secret            []byte
-	InsecureCookie    bool
 	Provider          string
 	Domains           domains.Domains
-	Users             []string
+	Whitelist         whitelist.Whitelist
 	ClientID          string
 	ClientSecret      string
 	AuthPrefix        string
 }
 
 func GetConfiguration() (Configuration, error) {
-	if *domainsString == "" {
-		return Configuration{}, errors.New("must specify at least one domain")
+	domainList, err := domains.GetDomains(strings.Split(*domainsString, ","))
+	if err != nil {
+		return Configuration{}, fmt.Errorf("invalid domain list: %w", err)
 	}
-	domainList := strings.Split(*domainsString, ",")
-	for i := range domainList {
-		if domainList[i] != "" && domainList[i][0] != '.' {
-			domainList[i] = "." + domainList[i]
-		}
+	if len(domainList) == 0 {
+		return Configuration{}, errors.New("no valid domains")
+	}
+	whiteList, err := whitelist.New(strings.Split(*users, ","))
+	if err != nil {
+		return Configuration{}, fmt.Errorf("invalid whitelist: %w", err)
 	}
 	secretBytes, err := base64.StdEncoding.DecodeString(*secret)
 	if err != nil {
@@ -58,9 +61,6 @@ func GetConfiguration() (Configuration, error) {
 	if *clientId == "" || *clientSecret == "" {
 		return Configuration{}, errors.New("must specify both client-id and client-secret")
 	}
-	if *users == "" {
-		return Configuration{}, errors.New("must specify at least one user")
-	}
 	return Configuration{
 		Debug:             *debug,
 		Addr:              *addr,
@@ -68,9 +68,8 @@ func GetConfiguration() (Configuration, error) {
 		SessionCookieName: *sessionCookieName,
 		Expiry:            *expiry,
 		Secret:            secretBytes,
-		InsecureCookie:    *insecure,
 		Domains:           domainList,
-		Users:             strings.Split(*users, ","),
+		Whitelist:         whiteList,
 		Provider:          *provider,
 		ClientID:          *clientId,
 		ClientSecret:      *clientSecret,
