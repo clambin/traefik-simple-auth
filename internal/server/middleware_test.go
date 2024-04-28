@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestServer_sessionExtractor(t *testing.T) {
@@ -55,6 +56,7 @@ func TestServer_sessionExtractor(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			h := s.sessionExtractor(slog.Default())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				t.Helper()
 				ctx, ok := r.Context().Value(sessionKey).(sessions.Session)
 				tt.wantOK(t, ok)
 				if !ok {
@@ -113,4 +115,34 @@ http_requests_total{code="401",host="example.org",path="/",provider="foo",user="
 `), "http_requests_total"))
 
 	assert.Equal(t, 4, testutil.CollectAndCount(m, "http_request_duration_seconds"))
+}
+
+func TestMetrics_Collect_ActiveUsers(t *testing.T) {
+	config := configuration.Configuration{
+		SessionCookieName: "_auth",
+		Secret:            []byte("secret"),
+		Users:             []string{"foo@example.com"},
+		Domains:           []string{"example.com"},
+		Provider:          "google",
+		Expiry:            time.Hour,
+	}
+	m := NewMetrics("", "", map[string]string{"provider": "foo"})
+	s := New(config, m, slog.Default())
+
+	s.sessions.Session("foo@example.com")
+	s.sessions.SessionWithExpiration("foo@example.com", 30*time.Minute)
+	s.sessions.Session("bar@example.com")
+
+	go s.monitorSessions(m, 100*time.Millisecond)
+
+	assert.Eventually(t, func() bool {
+		return testutil.CollectAndCount(m) > 0
+	}, time.Second, time.Millisecond)
+
+	assert.NoError(t, testutil.CollectAndCompare(m, strings.NewReader(`
+# HELP active_users number of active users
+# TYPE active_users gauge
+active_users{provider="foo",user="bar@example.com"} 1
+active_users{provider="foo",user="foo@example.com"} 2
+`), "active_users"))
 }

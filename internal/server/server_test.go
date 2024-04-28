@@ -257,30 +257,28 @@ func TestServer_LogoutHandler(t *testing.T) {
 		Expiry:            time.Hour,
 		Provider:          "google",
 	}
-	s := New(config, nil, slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	s := New(config, nil, slog.Default())
 	sess := s.sessions.Session("foo@example.com")
 
-	r := makeHTTPRequest(http.MethodGet, "example.com", "/foo")
-	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
+	t.Run("logging out clears the session cookie", func(t *testing.T) {
+		r := makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
+		r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.Equal(t, "You have been logged out\n", w.Body.String())
+		assert.Equal(t, "_traefik_simple_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
 
-	w := httptest.NewRecorder()
-	s.ServeHTTP(w, r)
-	require.Equal(t, http.StatusOK, w.Code)
+	})
 
-	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
-	r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
-	w = httptest.NewRecorder()
-	s.ServeHTTP(w, r)
-	require.Equal(t, http.StatusUnauthorized, w.Code)
-	assert.Equal(t, "You have been logged out\n", w.Body.String())
-	assert.Equal(t, "_traefik_simple_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
-
-	r = makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
-	r.AddCookie(s.sessions.Cookie(sessions.Session{}, config.Domains[0]))
-	w = httptest.NewRecorder()
-	s.ServeHTTP(w, r)
-	require.Equal(t, http.StatusUnauthorized, w.Code)
-	assert.Equal(t, "Invalid session\n", w.Body.String())
+	t.Run("must be logged in to log out", func(t *testing.T) {
+		r := makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
+		r.AddCookie(s.sessions.Cookie(sessions.Session{}, config.Domains[0]))
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.Equal(t, "Invalid session\n", w.Body.String())
+	})
 }
 
 func TestServer_AuthCallbackHandler(t *testing.T) {

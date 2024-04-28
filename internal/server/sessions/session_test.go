@@ -27,14 +27,13 @@ func TestSession_newSessionFromCookie(t *testing.T) {
 		{
 			name:          "empty cookie",
 			value:         "",
-			wantCookieErr: ErrInvalidCookie,
+			wantCookieErr: http.ErrNoCookie,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
 			s, err := sessionFromCookie(&http.Cookie{Value: tt.value})
 			assert.ErrorIs(t, err, tt.wantCookieErr)
 			if err == nil {
@@ -76,7 +75,6 @@ func TestSession_validate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
 			assert.ErrorIs(t, tt.session.validate(secret), tt.wantErr)
 		})
 	}

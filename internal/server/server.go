@@ -49,6 +49,7 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 	var h http.Handler = r
 	if m != nil {
 		h = s.withMetrics(m)(h)
+		go s.monitorSessions(m, 10*time.Second)
 	}
 	s.Handler = traefikForwardAuthParser()(
 		s.sessionExtractor(l)(
@@ -72,7 +73,7 @@ func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
 		}
 
 		// check that the request is for one of the configured domains
-		if _, ok := s.domains.Domain(r.URL); !ok {
+		if _, ok = s.domains.Domain(r.URL); !ok {
 			l.Warn("host doesn't match any configured domains", "host", r.URL.Host)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
