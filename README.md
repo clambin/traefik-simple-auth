@@ -16,6 +16,7 @@ A simple, up-to-date, re-implementation of traefik-forward-auth.
 - [Configuration](#configuration)
   - [Using Google as auth provider](#using-google-as-auth-provider)
   - [Traefik](#traefik)
+  - [Authenticating access to an ingress](#authenticating-access-to-an-ingress)
   - [Running traefik-simple-auth](#running-traefik-simple-auth)
 - [Metrics](#metrics)
 - [Authors](#authors)
@@ -125,6 +126,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: traefik-simple-auth
+  namespace: traefik
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.middlewares: traefik-traefik-simple-auth@kubernetescrd
@@ -143,6 +145,30 @@ spec:
 ```
 
 This forwards the request to traefik-simple-auth. 
+
+### Authenticating access to an ingress
+
+To enable traefik-simple-auth to authenticate access to an ingress, add the middleware to its Ingress:
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-external
+  namespace: monitoring
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-traefik-simple-auth@kubernetescrd
+spec:
+  rules:
+    [...]
+```
+
+Each access to the ingress causes traefik to first forward the request to the middleware.  If the middleware responds
+with an HTTP 2xx code (meaning the request has a valid session cookie), traefik honours the request.
+
+Note: traefik prepends the namespace to the name of middleware defined via a kubernetes resource. So, the middleware
+`traefik-simple-auth` that was created in the `traefik` namespace becomes `traefik-traefik-simple-auth`.
 
 ### Running traefik-simple-auth
 
