@@ -149,14 +149,12 @@ Usage:
         Comma-separated list of domains to allow access
   -expiry duration
         How long a session remains valid (default 720h0m0s)
-  -insecure
-        Use insecure cookies
   -prom string
         The address to listen on for Prometheus scrape requests (default ":9090")
   -provider string
         The OAuth2 provider to use (default "google")
   -secret string
-        Secret to use for authentication
+        Secret to use for authentication (base64-encoded)
   -session-cookie-name string
         The cookie name to use for authentication (default "traefik-simple-auth")
   -users string
@@ -209,13 +207,9 @@ Usage:
 
   Lifetime of the session cookie, i.e. how long before a user must log back into Google.
 
-- `insecure`
-
-  Marks the session cookie as insecure so it can be used over HTTP sessions.
-
 - `secret`
 
-  A (hex-encoded) 256-bit secret used to protect the session cookie.
+  A (base64-encoded) secret used to protect the session cookie.
 
 - `users`
 
