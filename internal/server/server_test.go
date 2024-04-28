@@ -260,7 +260,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 	s := New(config, nil, slog.Default())
 	sess := s.sessions.Session("foo@example.com")
 
-	t.Run("logging out clear the session cookie", func(t *testing.T) {
+	t.Run("logging out clears the session cookie", func(t *testing.T) {
 		r := makeHTTPRequest(http.MethodGet, "example.com", "/_oauth/logout")
 		r.AddCookie(s.sessions.Cookie(sess, config.Domains[0]))
 		w := httptest.NewRecorder()
