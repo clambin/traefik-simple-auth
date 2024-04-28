@@ -56,6 +56,7 @@ func TestServer_sessionExtractor(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			h := s.sessionExtractor(slog.Default())(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				t.Helper()
 				ctx, ok := r.Context().Value(sessionKey).(sessions.Session)
 				tt.wantOK(t, ok)
 				if !ok {
@@ -130,14 +131,16 @@ func TestMetrics_Collect_ActiveUsers(t *testing.T) {
 
 	s.sessions.Session("foo@example.com")
 	s.sessions.SessionWithExpiration("foo@example.com", 30*time.Minute)
+	s.sessions.Session("bar@example.com")
 
-	go s.monitorSessions(m, time.Minute)
+	go s.monitorSessions(m, 100*time.Millisecond)
 
-	time.Sleep(time.Second)
-
-	assert.NoError(t, testutil.CollectAndCompare(m, strings.NewReader(`
+	assert.Eventually(t, func() bool {
+		return nil == testutil.CollectAndCompare(m, strings.NewReader(`
 # TYPE active_users gauge
+active_users{provider="foo",user="bar@example.com"} 1
 active_users{provider="foo",user="foo@example.com"} 2
-`), "active_users"))
+`), "active_users")
+	}, time.Second, time.Millisecond)
 
 }
