@@ -8,10 +8,23 @@
 
 A simple, up-to-date, re-implementation of traefik-forward-auth.
 
+## Contents
+
+- [Goals](#goals)
+- [Design](#design)
+- [Installation](#installation)
+- [Configuration](#configuration)
+  - [Using Google as auth provider](#using-google-as-auth-provider)
+  - [Traefik](#traefik)
+  - [Running traefik-simple-auth](#running-traefik-simple-auth)
+- [Metrics](#metrics)
+- [Authors](#authors)
+- [License](#license)
+
 ## Goals
 
 traefik-simple-auth provides an implementation of Traefik's forwardAuth middleware. Most people typically use Thom Seddon's 
-[!traefik-forward-auth](https://github.com/thomseddon/traefik-forward-auth?tab=readme-ov-file#configuration), or one of its
+[traefik-forward-auth](https://github.com/thomseddon/traefik-forward-auth), or one of its
 many forks. However, that implementation hasn't been updated in over 3 years. I wrote traefik-simple-auth with the following goals:
 
 * to learn about Traefik's forwardAuth middleware and the oauth approach that traefik-forward-auth uses;
@@ -56,7 +69,7 @@ received from the auth provider, to protect against cross-site request forgery (
 
 ## Installation
 
-Container images are available on [ghcr.io](https://ghcr.io/clambin/traefik-simple-auth).
+Container images are available on [ghcr.io](https://ghcr.io/clambin/traefik-simple-auth). Images are available for linux/amd64, linux/arm and linux/arm64.
 
 ## Configuration
 ### Using Google as auth provider
@@ -99,7 +112,9 @@ spec:
 This created a new middleware `traefik-simple-auth` that forwards incoming requests to `http://traefik-simple-auth:8080`
 (the service pointing to traefik-simple-auth) for authentication. 
 
-#### Ingress
+traefik-simple-auth will add the email address of the authenticated used in the X-Forwarded-User header.
+
+#### Ingress for Authentication
 
 To authenticate a user, traefik-simple-auth redirects the user to the auth provider's login page. Upon successful login,
 the provider forwards the request to the redirectURL (as configured in section `Using Google as auth provider`). 
