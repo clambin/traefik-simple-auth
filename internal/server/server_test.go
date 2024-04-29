@@ -42,7 +42,7 @@ func TestServer_authHandler(t *testing.T) {
 		Domains:           domains.Domains{"example.com"},
 		Secret:            []byte("secret"),
 		Expiry:            time.Hour,
-		Users:             []string{"foo@example.com"},
+		Whitelist:         map[string]struct{}{"foo@example.com": {}},
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
@@ -149,7 +149,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Domains:           domains.Domains{"example.com"},
 		Secret:            []byte("secret"),
 		Expiry:            time.Hour,
-		Users:             []string{"foo@example.com"},
+		Whitelist:         map[string]struct{}{"foo@example.com": {}},
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
@@ -173,7 +173,7 @@ func TestServer_authHandler_expiry(t *testing.T) {
 		Expiry:            500 * time.Millisecond,
 		Secret:            []byte("secret"),
 		Domains:           []string{"example.com"},
-		Users:             []string{"foo@example.com"},
+		Whitelist:         map[string]struct{}{"foo@example.com": {}},
 		Provider:          "google",
 	}
 	s := New(config, nil, slog.Default())
@@ -323,8 +323,13 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			cfg := configuration.Configuration{
+				Whitelist: map[string]struct{}{"foo@example.com": {}},
+				Domains:   domains.Domains{"example.com"},
+				Provider:  "google",
+			}
 			l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-			s := New(configuration.Configuration{Users: []string{"foo@example.com"}, Domains: domains.Domains{"example.com"}, Provider: "google"}, nil, l)
+			s := New(cfg, nil, l)
 			s.oauthHandlers["example.com"] = &fakeOauthHandler{email: tt.oauthUser, err: tt.oauthErr}
 
 			state := tt.state

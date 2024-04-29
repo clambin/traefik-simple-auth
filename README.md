@@ -8,10 +8,24 @@
 
 A simple, up-to-date, re-implementation of traefik-forward-auth.
 
+## Contents
+
+- [Goals](#goals)
+- [Design](#design)
+- [Installation](#installation)
+- [Configuration](#configuration)
+  - [Using Google as auth provider](#using-google-as-auth-provider)
+  - [Traefik](#traefik)
+  - [Authenticating access to an ingress](#authenticating-access-to-an-ingress)
+  - [Running traefik-simple-auth](#running-traefik-simple-auth)
+- [Metrics](#metrics)
+- [Authors](#authors)
+- [License](#license)
+
 ## Goals
 
 traefik-simple-auth provides an implementation of Traefik's forwardAuth middleware. Most people typically use Thom Seddon's 
-[!traefik-forward-auth](https://github.com/thomseddon/traefik-forward-auth?tab=readme-ov-file#configuration), or one of its
+[traefik-forward-auth](https://github.com/thomseddon/traefik-forward-auth), or one of its
 many forks. However, that implementation hasn't been updated in over 3 years. I wrote traefik-simple-auth with the following goals:
 
 * to learn about Traefik's forwardAuth middleware and the oauth approach that traefik-forward-auth uses;
@@ -56,7 +70,7 @@ received from the auth provider, to protect against cross-site request forgery (
 
 ## Installation
 
-Container images are available on [ghcr.io](https://ghcr.io/clambin/traefik-simple-auth).
+Container images are available on [ghcr.io](https://ghcr.io/clambin/traefik-simple-auth). Images are available for linux/amd64, linux/arm and linux/arm64.
 
 ## Configuration
 ### Using Google as auth provider
@@ -99,7 +113,9 @@ spec:
 This created a new middleware `traefik-simple-auth` that forwards incoming requests to `http://traefik-simple-auth:8080`
 (the service pointing to traefik-simple-auth) for authentication. 
 
-#### Ingress
+traefik-simple-auth will add the email address of the authenticated used in the X-Forwarded-User header.
+
+#### Ingress for Authentication
 
 To authenticate a user, traefik-simple-auth redirects the user to the auth provider's login page. Upon successful login,
 the provider forwards the request to the redirectURL (as configured in section `Using Google as auth provider`). 
@@ -110,6 +126,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: traefik-simple-auth
+  namespace: traefik
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.middlewares: traefik-traefik-simple-auth@kubernetescrd
@@ -128,6 +145,30 @@ spec:
 ```
 
 This forwards the request to traefik-simple-auth. 
+
+### Authenticating access to an ingress
+
+To enable traefik-simple-auth to authenticate access to an ingress, add the middleware to its Ingress:
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-external
+  namespace: monitoring
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: traefik-traefik-simple-auth@kubernetescrd
+spec:
+  rules:
+    [...]
+```
+
+Each access to the ingress causes traefik to first forward the request to the middleware.  If the middleware responds
+with an HTTP 2xx code (meaning the request has a valid session cookie), traefik honours the request.
+
+Note: traefik prepends the namespace to the name of middleware defined via a kubernetes resource. So, the middleware
+`traefik-simple-auth` that was created in the `traefik` namespace becomes `traefik-traefik-simple-auth`.
 
 ### Running traefik-simple-auth
 
@@ -149,14 +190,12 @@ Usage:
         Comma-separated list of domains to allow access
   -expiry duration
         How long a session remains valid (default 720h0m0s)
-  -insecure
-        Use insecure cookies
   -prom string
         The address to listen on for Prometheus scrape requests (default ":9090")
   -provider string
         The OAuth2 provider to use (default "google")
   -secret string
-        Secret to use for authentication
+        Secret to use for authentication (base64-encoded)
   -session-cookie-name string
         The cookie name to use for authentication (default "traefik-simple-auth")
   -users string
@@ -209,13 +248,9 @@ Usage:
 
   Lifetime of the session cookie, i.e. how long before a user must log back into Google.
 
-- `insecure`
-
-  Marks the session cookie as insecure so it can be used over HTTP sessions.
-
 - `secret`
 
-  A (hex-encoded) 256-bit secret used to protect the session cookie.
+  A (base64-encoded) secret used to protect the session cookie.
 
 - `users`
 

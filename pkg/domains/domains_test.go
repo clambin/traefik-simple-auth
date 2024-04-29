@@ -3,54 +3,85 @@ package domains
 import (
 	"github.com/stretchr/testify/assert"
 	"net/url"
+	"slices"
+	"strings"
 	"testing"
 )
 
-func Test_isSubdomain(t *testing.T) {
+func TestGetDomains(t *testing.T) {
 	tests := []struct {
-		name   string
-		domain string
-		input  string
-		want   assert.BoolAssertionFunc
+		name    string
+		input   []string
+		wantErr assert.ErrorAssertionFunc
+		want    Domains
 	}{
 		{
-			name:   "equal",
-			domain: ".example.com",
-			input:  "example.com",
-			want:   assert.True,
+			name:    "single domain, no dot",
+			input:   []string{"example.com"},
+			wantErr: assert.NoError,
+			want:    Domains([]string{".example.com"}),
 		},
 		{
-			name:   "valid subdomain",
-			domain: ".example.com",
-			input:  "www.example.com",
-			want:   assert.True,
+			name:    "single domain, dot",
+			input:   []string{".example.com"},
+			wantErr: assert.NoError,
+			want:    Domains([]string{".example.com"}),
 		},
 		{
-			name:   "don't match on overlap",
-			domain: ".example.com",
-			input:  "bad-example.com",
-			want:   assert.False,
+			name:    "multiple domains",
+			input:   []string{".example.com", "example.org"},
+			wantErr: assert.NoError,
+			want:    Domains([]string{".example.com", ".example.org"}),
 		},
 		{
-			name:   "mismatch",
-			domain: ".example.com",
-			input:  "www.example2.com",
-			want:   assert.False,
+			name:    "blank entries are removed",
+			input:   []string{".example.com", "", "example.org"},
+			wantErr: assert.NoError,
+			want:    Domains([]string{".example.com", ".example.org"}),
 		},
 		{
-			name:  "empty subdomain",
-			input: "example.com",
-			want:  assert.False,
+			name:    "invalid entry",
+			input:   []string{". example.com"},
+			wantErr: assert.Error,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.want(t, isValidSubdomain(tt.domain, tt.input))
+			t.Parallel()
+
+			result, err := GetDomains(tt.input)
+			tt.wantErr(t, err)
+			if err != nil {
+				return
+			}
+
+			slices.Sort(result)
+			assert.Equal(t, tt.want, result)
 		})
 	}
 }
 
-func TestDomains(t *testing.T) {
+func FuzzGetDomains(f *testing.F) {
+	testcases := []string{"example.com", ".example.com", "example.com,example.org", ".example.com,.example.org"}
+	for _, tc := range testcases {
+		f.Add(tc)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		if domains, err := GetDomains(strings.Split(s, ",")); err == nil {
+			for _, domain := range domains {
+				if _, err = url.Parse("https://www" + domain); err != nil {
+					t.Errorf("invalid URL: %v", err)
+				}
+				if domain[0] != '.' {
+					t.Errorf("domain does not start with '.', got %q", domain)
+				}
+			}
+		}
+	})
+}
+
+func TestDomains_Domain(t *testing.T) {
 	tests := []struct {
 		name    string
 		domains Domains
@@ -99,6 +130,50 @@ func TestDomains(t *testing.T) {
 			domain, ok := tt.domains.Domain(u)
 			tt.wantOK(t, ok)
 			assert.Equal(t, tt.want, domain)
+		})
+	}
+}
+
+func Test_isSubdomain(t *testing.T) {
+	tests := []struct {
+		name   string
+		domain string
+		input  string
+		want   assert.BoolAssertionFunc
+	}{
+		{
+			name:   "equal",
+			domain: ".example.com",
+			input:  "example.com",
+			want:   assert.True,
+		},
+		{
+			name:   "valid subdomain",
+			domain: ".example.com",
+			input:  "www.example.com",
+			want:   assert.True,
+		},
+		{
+			name:   "don't match on overlap",
+			domain: ".example.com",
+			input:  "bad-example.com",
+			want:   assert.False,
+		},
+		{
+			name:   "mismatch",
+			domain: ".example.com",
+			input:  "www.example2.com",
+			want:   assert.False,
+		},
+		{
+			name:  "empty subdomain",
+			input: "example.com",
+			want:  assert.False,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.want(t, isValidSubdomain(tt.domain, tt.input))
 		})
 	}
 }

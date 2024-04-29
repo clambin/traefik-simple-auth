@@ -74,7 +74,7 @@ func TestServer_withMetrics(t *testing.T) {
 	config := configuration.Configuration{
 		SessionCookieName: "_auth",
 		Secret:            []byte("secret"),
-		Users:             []string{"foo@example.com"},
+		Whitelist:         map[string]struct{}{"foo@example.com": {}},
 		Domains:           []string{"example.com"},
 		Provider:          "google",
 	}
@@ -121,7 +121,7 @@ func TestMetrics_Collect_ActiveUsers(t *testing.T) {
 	config := configuration.Configuration{
 		SessionCookieName: "_auth",
 		Secret:            []byte("secret"),
-		Users:             []string{"foo@example.com"},
+		Whitelist:         map[string]struct{}{"foo@example.com": {}},
 		Domains:           []string{"example.com"},
 		Provider:          "google",
 		Expiry:            time.Hour,
