@@ -176,7 +176,7 @@ traefik-simple-auth supports the following command-line arguments:
 
 ```
 Usage:
-   -addr string
+  -addr string
         The address to listen on for HTTP requests (default ":8080")
   -auth-prefix string
         prefix to construct the authRedirect URL from the domain (default "auth")
@@ -185,7 +185,7 @@ Usage:
   -client-secret string
         OAuth2 Client Secret
   -debug
-        Enable debug mode
+        Log debug messages
   -domains string
         Comma-separated list of domains to allow access
   -expiry duration
@@ -195,9 +195,9 @@ Usage:
   -provider string
         The OAuth2 provider to use (default "google")
   -secret string
-        Secret to use for authentication (base64-encoded)
+        Secret to use for authentication (base64 encoded)
   -session-cookie-name string
-        The cookie name to use for authentication (default "traefik-simple-auth")
+        The cookie name to use for authentication (default "_traefik_simple_auth")
   -users string
         Comma-separated list of usernames to login
 ```
@@ -206,7 +206,7 @@ Usage:
 
 - `debug`
 
-  Enable debug mode
+  Log debug messages
 
 - `addr`
 
@@ -242,7 +242,7 @@ Usage:
 
 - `domains`
 
-   A comma-separated list of all domains that should be allowed. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) are allowed.
+   A comma-separated list of all allowed domains. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) are allowed.
 
 - `expiry`
 
@@ -254,7 +254,7 @@ Usage:
 
 - `users`
 
-  A comma-separated list of email addresses that should be allowed to use traefik-simple-auth.
+  A comma-separated list of email addresses that should be allowed to use traefik-simple-auth. If the list is blank, then any email address will be allowed.
 
 ## Metrics
 

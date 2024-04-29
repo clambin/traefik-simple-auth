@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	debug             = flag.Bool("debug", false, "Enable debug mode")
+	debug             = flag.Bool("debug", false, "Log debug messages")
 	addr              = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
 	promAddr          = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
 	sessionCookieName = flag.String("session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
@@ -23,7 +23,7 @@ var (
 	provider          = flag.String("provider", "google", "The OAuth2 provider to use")
 	clientId          = flag.String("client-id", "", "OAuth2 Client ID")
 	clientSecret      = flag.String("client-secret", "", "OAuth2 Client Secret")
-	secret            = flag.String("secret", "", "Secret to use for authentication")
+	secret            = flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
 )
 
 type Configuration struct {
@@ -42,36 +42,35 @@ type Configuration struct {
 }
 
 func GetConfiguration() (Configuration, error) {
-	domainList, err := domains.GetDomains(strings.Split(*domainsString, ","))
-	if err != nil {
-		return Configuration{}, fmt.Errorf("invalid domain list: %w", err)
-	}
-	if len(domainList) == 0 {
-		return Configuration{}, errors.New("no valid domains")
-	}
-	whiteList, err := whitelist.New(strings.Split(*users, ","))
-	if err != nil {
-		return Configuration{}, fmt.Errorf("invalid whitelist: %w", err)
-	}
-	secretBytes, err := base64.StdEncoding.DecodeString(*secret)
-	if err != nil {
-		return Configuration{}, err
-	}
-	if *clientId == "" || *clientSecret == "" {
-		return Configuration{}, errors.New("must specify both client-id and client-secret")
-	}
-	return Configuration{
+	cfg := Configuration{
 		Debug:             *debug,
 		Addr:              *addr,
 		PromAddr:          *promAddr,
 		SessionCookieName: *sessionCookieName,
 		Expiry:            *expiry,
-		Secret:            secretBytes,
-		Domains:           domainList,
-		Whitelist:         whiteList,
 		Provider:          *provider,
 		ClientID:          *clientId,
 		ClientSecret:      *clientSecret,
 		AuthPrefix:        *authPrefix,
-	}, nil
+	}
+	var err error
+	cfg.Domains, err = domains.GetDomains(strings.Split(*domainsString, ","))
+	if err != nil {
+		return Configuration{}, fmt.Errorf("invalid domain list: %w", err)
+	}
+	if len(cfg.Domains) == 0 {
+		return Configuration{}, errors.New("no valid domains")
+	}
+	cfg.Whitelist, err = whitelist.New(strings.Split(*users, ","))
+	if err != nil {
+		return Configuration{}, fmt.Errorf("invalid whitelist: %w", err)
+	}
+	cfg.Secret, err = base64.StdEncoding.DecodeString(*secret)
+	if err != nil {
+		return Configuration{}, fmt.Errorf("failed to decode secret: %w", err)
+	}
+	if cfg.ClientID == "" || cfg.ClientSecret == "" {
+		return Configuration{}, errors.New("must specify both client-id and client-secret")
+	}
+	return cfg, nil
 }
