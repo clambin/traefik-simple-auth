@@ -63,14 +63,19 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 		go s.monitorSessions(m, 10*time.Second)
 	}
 
-	authMiddleware := func(next http.HandlerFunc) http.Handler {
-		return traefikForwardAuthParser()(handlers.SessionExtractor(s.cbHandler.Sessions, l)(withMetrics(next)))
-	}
+	forwardAuthHandler := http.NewServeMux()
+	forwardAuthHandler.HandleFunc(OAUTHPath+"/logout", s.authHandler.LogOut)
+	forwardAuthHandler.HandleFunc("/", s.authHandler.Authenticate)
 
 	r := http.NewServeMux()
-	r.Handle("/", authMiddleware(s.authHandler.Authenticate))
-	r.Handle(OAUTHPath+"/logout", authMiddleware(s.authHandler.LogOut))
 	r.Handle(OAUTHPath, withMetrics(&s.cbHandler))
+	r.Handle("/", traefikForwardAuthParser()(
+		handlers.SessionExtractor(s.cbHandler.Sessions, l)(
+			withMetrics(
+				forwardAuthHandler,
+			),
+		),
+	))
 
 	s.Handler = r
 	return &s

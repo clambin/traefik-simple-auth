@@ -2,7 +2,9 @@ package server
 
 import (
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
+	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"log/slog"
@@ -269,6 +271,61 @@ func TestServer_AuthCallbackHandler(t *testing.T) {
 
 
 */
+
+func TestServer(t *testing.T) {
+	config := configuration.Configuration{
+		Debug:             false,
+		SessionCookieName: "_traefik_simple_auth",
+		Expiry:            time.Hour,
+		Secret:            []byte("secret"),
+		Provider:          "google",
+		Domains:           domains.Domains{"example.com"},
+		Whitelist:         whitelist.Whitelist{},
+		ClientID:          "123",
+		ClientSecret:      "1234",
+		AuthPrefix:        "auth",
+	}
+	s := New(config, nil, slog.Default())
+
+	t.Run("forwardAuth requests without cookie get redirected", func(t *testing.T) {
+		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
+	})
+
+	t.Run("forwardAuth requests with valid cookie are accepted", func(t *testing.T) {
+		validSession := s.sessions.Session("foo@example.com")
+		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+		r.AddCookie(s.sessions.Cookie(validSession, "example.com"))
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		assert.Equal(t, http.StatusOK, w.Code)
+		count, _ := s.sessions.ActiveUsers()["foo@example.com"]
+		assert.Equal(t, 1, count)
+	})
+
+	t.Run("forwardAuth requests with valid cookie for logout handler are accepted", func(t *testing.T) {
+		validSession := s.sessions.Session("foo@example.com")
+		r := makeForwardAuthRequest(http.MethodGet, "example.com", OAUTHPath+"/logout")
+		r.AddCookie(s.sessions.Cookie(validSession, "example.com"))
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		count, _ := s.sessions.ActiveUsers()["foo@example.com"]
+		assert.Zero(t, count)
+	})
+
+	t.Run("oauth callback", func(t *testing.T) {
+		s.cbHandler.OAuthHandlers["example.com"] = testutils.FakeOauthHandler{Email: "foo@example.com"}
+		state := s.states.Add("https://example.com")
+		r, _ := http.NewRequest(http.MethodGet, "https://traefik"+OAUTHPath+"?state="+state, nil)
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
+		assert.Equal(t, "https://example.com", w.Header().Get("Location"))
+	})
+}
 
 func makeForwardAuthRequest(method, host, uri string) *http.Request {
 	req, _ := http.NewRequest(http.MethodPut, "https://traefik/", nil)

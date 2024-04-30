@@ -33,7 +33,7 @@ many forks. However, that implementation hasn't been updated in over 3 years. I 
 * provide more operational observability into how forwardAuth is used;
 * fun!
 
-traefik-forward-auth offers many features that I wasn't necessarily interested in: support for openID, rules, etc. 
+traefik-forward-auth offers many features that I wasn't necessarily interested in: support for openID, overlay mode, rules, etc. 
 Those are not implemented in the current version of traefik-simple-auth. That may change in the future. 
 
 ## Design
