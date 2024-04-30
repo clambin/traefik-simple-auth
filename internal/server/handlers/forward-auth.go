@@ -30,7 +30,7 @@ func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request
 	// check that the request is for one of the configured domains
 	domain, ok := h.Domains.Domain(r.URL)
 	if !ok {
-		h.Logger.Warn("host doesn't match any configured domains", "host", r.URL.Host)
+		h.Logger.Warn("host doesn't match any configured domains", slog.String("host", r.URL.Host))
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
@@ -43,7 +43,7 @@ func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request
 	}
 
 	// all good. tell traefik to forward the request
-	h.Logger.Debug("allowing valid request", "email", sess.Email)
+	h.Logger.Debug("allowing valid request", slog.String("email", sess.Email))
 	w.Header().Set("X-Forwarded-User", sess.Email)
 	w.WriteHeader(http.StatusOK)
 }

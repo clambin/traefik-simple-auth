@@ -84,31 +84,6 @@ func TestServer_Panics(t *testing.T) {
 	assert.True(t, panics)
 }
 
-// Benchmark_authHandler-16          857482              1298 ns/op             501 B/op         10 allocs/op
-func Benchmark_authHandler(b *testing.B) {
-	config := configuration.Configuration{
-		SessionCookieName: "_traefik_simple_auth",
-		Domains:           domains.Domains{"example.com"},
-		Secret:            []byte("secret"),
-		Expiry:            time.Hour,
-		Whitelist:         map[string]struct{}{"foo@example.com": {}},
-		Provider:          "google",
-	}
-	s := New(config, nil, slog.Default())
-	sess := s.sessions.SessionWithExpiration("foo@example.com", time.Hour)
-	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
-	r.AddCookie(s.cbHandler.Sessions.Cookie(sess, config.Domains[0]))
-	w := httptest.NewRecorder()
-
-	b.ResetTimer()
-	for range b.N {
-		s.ServeHTTP(w, r)
-		if w.Code != http.StatusOK {
-			b.Fatal("unexpected status code", w.Code)
-		}
-	}
-}
-
 func makeForwardAuthRequest(method, host, uri string) *http.Request {
 	req, _ := http.NewRequest(http.MethodPut, "https://traefik/", nil)
 	req.Header.Set("X-Forwarded-Method", method)
@@ -135,6 +110,15 @@ func Test_getOriginalTarget(t *testing.T) {
 			want: "http://example.com/foo",
 		},
 		{
+			name: "with parameters",
+			headers: http.Header{
+				"X-Forwarded-Proto": []string{"http"},
+				"X-Forwarded-Host":  []string{"example.com"},
+				"X-Forwarded-Uri":   []string{"/foo?arg1=foo&arg2=bar"},
+			},
+			want: "http://example.com/foo?arg1=foo&arg2=bar",
+		},
+		{
 			name: "default scheme is https",
 			headers: http.Header{
 				"X-Forwarded-Host": []string{"example.com"},
@@ -148,7 +132,55 @@ func Test_getOriginalTarget(t *testing.T) {
 			t.Parallel()
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.Header = tt.headers
-			assert.Equal(t, tt.want, getOriginalTarget(r))
+			assert.Equal(t, tt.want, getOriginalTarget(r).String())
+			assert.Equal(t, tt.want, getOriginalTarget(r).String())
 		})
 	}
+}
+
+// before:
+// Benchmark_authHandler-16                  678607              1617 ns/op             994 B/op         18 allocs/op
+// after:
+// Benchmark_authHandler-16                  706188              1587 ns/op             978 B/op         17 allocs/op
+func Benchmark_authHandler(b *testing.B) {
+	config := configuration.Configuration{
+		SessionCookieName: "_traefik_simple_auth",
+		Domains:           domains.Domains{"example.com"},
+		Secret:            []byte("secret"),
+		Expiry:            time.Hour,
+		Whitelist:         map[string]struct{}{"foo@example.com": {}},
+		Provider:          "google",
+	}
+	s := New(config, nil, slog.Default())
+	sess := s.sessions.SessionWithExpiration("foo@example.com", time.Hour)
+	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	r.AddCookie(s.cbHandler.Sessions.Cookie(sess, config.Domains[0]))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for range b.N {
+		s.ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			b.Fatal("unexpected status code", w.Code)
+		}
+	}
+}
+
+// Before:
+// Benchmark_getOriginalTarget/new-16               6495480               183.6 ns/op           160 B/op          2 allocs/op
+// After:
+// Benchmark_getOriginalTarget/new-16               7860783               153.6 ns/op           144 B/op          1 allocs/op
+func Benchmark_getOriginalTarget(b *testing.B) {
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.Header = http.Header{
+		"X-Forwarded-Host":  []string{"example.com"},
+		"X-Forwarded-Uri":   []string{"/foo"},
+		"X-Forwarded-Proto": []string{"https"},
+	}
+
+	b.Run("old", func(b *testing.B) {
+		for range b.N {
+			_ = getOriginalTarget(r)
+		}
+	})
 }

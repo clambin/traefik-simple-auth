@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -113,17 +114,28 @@ func makeAuthURL(authPrefix string, domain domains.Domain, OAUTHPath string) str
 func traefikForwardAuthParser() func(next http.Handler) http.HandlerFunc {
 	return func(next http.Handler) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			r.URL, _ = url.Parse(getOriginalTarget(r))
+			r.URL = getOriginalTarget(r)
 			next.ServeHTTP(w, r)
 		}
 	}
 }
 
-func getOriginalTarget(r *http.Request) string {
+func getOriginalTarget(r *http.Request) *url.URL {
 	proto := r.Header.Get("X-Forwarded-Proto")
 	if proto == "" {
 		// TODO: why is this sometimes not set?
 		proto = "https"
 	}
-	return proto + "://" + r.Header.Get("X-Forwarded-Host") + r.Header.Get("X-Forwarded-Uri")
+	u := url.URL{
+		Scheme: proto,
+		Host:   r.Header.Get("X-Forwarded-Host"),
+	}
+	uri := r.Header.Get("X-Forwarded-Uri")
+	if n := strings.Index(uri, "?"); n == -1 {
+		u.Path = uri
+	} else {
+		u.Path = uri[:n]
+		u.RawQuery = uri[n+1:]
+	}
+	return &u
 }
