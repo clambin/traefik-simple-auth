@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
+	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"log/slog"
@@ -17,7 +18,7 @@ func TestServer_withMetrics(t *testing.T) {
 		SessionCookieName: "_auth",
 		Secret:            []byte("secret"),
 		Whitelist:         map[string]struct{}{"foo@example.com": {}},
-		Domains:           []string{"example.com"},
+		Domains:           domains.Domains{"example.com"},
 		Provider:          "google",
 	}
 	m := NewMetrics("", "", map[string]string{"provider": "foo"})
@@ -64,7 +65,7 @@ func TestMetrics_Collect_ActiveUsers(t *testing.T) {
 		SessionCookieName: "_auth",
 		Secret:            []byte("secret"),
 		Whitelist:         map[string]struct{}{"foo@example.com": {}},
-		Domains:           []string{"example.com"},
+		Domains:           domains.Domains{"example.com"},
 		Provider:          "google",
 		Expiry:            time.Hour,
 	}

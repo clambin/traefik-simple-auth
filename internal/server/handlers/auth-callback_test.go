@@ -62,7 +62,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 				Logger:        slog.Default(),
 				States:        &store,
 				Domains:       domains.Domains{"example.com"},
-				OAuthHandlers: map[string]oauth.Handler{"example.com": &testutils.FakeOauthHandler{Email: tt.oauthUser, Err: tt.oauthErr}},
+				OAuthHandlers: map[domains.Domain]oauth.Handler{"example.com": &testutils.FakeOauthHandler{Email: tt.oauthUser, Err: tt.oauthErr}},
 				Whitelist:     map[string]struct{}{"foo@example.com": {}},
 				Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
 			}

@@ -5,6 +5,7 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/handlers"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
+	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"log/slog"
@@ -24,10 +25,10 @@ type Server struct {
 }
 
 func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server {
-	oauthHandlers := make(map[string]oauth.Handler)
-	for _, d := range config.Domains {
+	oauthHandlers := make(map[domains.Domain]oauth.Handler)
+	for _, domain := range config.Domains {
 		var err error
-		if oauthHandlers[d], err = oauth.NewHandler(config.Provider, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, d, OAUTHPath), l.With("oauth", config.Provider)); err != nil {
+		if oauthHandlers[domain], err = oauth.NewHandler(config.Provider, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath), l.With("oauth", config.Provider)); err != nil {
 			panic("unknown provider: " + config.Provider)
 		}
 	}
@@ -64,19 +65,24 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 		go s.monitorSessions(m, 10*time.Second)
 	}
 
+	// create the server router
+	r := http.NewServeMux()
+	// oauth flow is sent directly to the server
+	r.Handle(OAUTHPath, withMetrics(&s.cbHandler))
+
+	// forwardAuth & logout flows come in via forwardAuth middleware
 	forwardAuthHandler := http.NewServeMux()
 	forwardAuthHandler.HandleFunc(OAUTHPath+"/logout", s.authHandler.LogOut)
 	forwardAuthHandler.HandleFunc("/", s.authHandler.Authenticate)
-
-	r := http.NewServeMux()
-	r.Handle(OAUTHPath, withMetrics(&s.cbHandler))
-	r.Handle("/", traefikForwardAuthParser()(
-		handlers.SessionExtractor(s.cbHandler.Sessions, l)(
-			withMetrics(
-				forwardAuthHandler,
+	r.Handle("/",
+		traefikForwardAuthParser()( // convert the forwardAuth request to a regular http request
+			handlers.SessionExtractor(s.cbHandler.Sessions, l)( // extract & validate the session cookie from the request
+				withMetrics( // add metrics
+					forwardAuthHandler, // authenticate or logout
+				),
 			),
 		),
-	))
+	)
 
 	s.Handler = r
 	return &s
@@ -92,12 +98,12 @@ func (s Server) monitorSessions(m *Metrics, interval time.Duration) {
 }
 
 // makeAuthURL returns the auth URL for a given domain
-func makeAuthURL(authPrefix, domain, OAUTHPath string) string {
+func makeAuthURL(authPrefix string, domain domains.Domain, OAUTHPath string) string {
 	var dot string
 	if domain != "" && domain[0] != '.' {
 		dot = "."
 	}
-	return "https://" + authPrefix + dot + domain + OAUTHPath
+	return "https://" + authPrefix + dot + string(domain) + OAUTHPath
 }
 
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.

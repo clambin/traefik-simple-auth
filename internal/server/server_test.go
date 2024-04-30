@@ -78,7 +78,7 @@ func TestServer_Panics(t *testing.T) {
 		}()
 		cfg := configuration.Configuration{
 			Provider: "foobar",
-			Domains:  []string{"example.com"},
+			Domains:  domains.Domains{"example.com"},
 		}
 		l := slog.Default()
 		_ = New(cfg, nil, l)

@@ -16,7 +16,7 @@ type ForwardAuthHandler struct {
 	Domains       domains.Domains
 	States        *state.Store[string]
 	Sessions      *sessions.Sessions
-	OAuthHandlers map[string]oauth.Handler
+	OAuthHandlers map[domains.Domain]oauth.Handler
 }
 
 func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +43,7 @@ func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *ForwardAuthHandler) redirectToAuth(w http.ResponseWriter, r *http.Request, domain string) {
+func (h *ForwardAuthHandler) redirectToAuth(w http.ResponseWriter, r *http.Request, domain domains.Domain) {
 	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 	// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
 	encodedState := h.States.Add(r.URL.String())

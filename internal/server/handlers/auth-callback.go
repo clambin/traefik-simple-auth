@@ -16,7 +16,7 @@ type AuthCallbackHandler struct {
 	Logger        *slog.Logger
 	States        *state.Store[string]
 	Domains       domains.Domains
-	OAuthHandlers map[string]oauth.Handler
+	OAuthHandlers map[domains.Domain]oauth.Handler
 	Whitelist     whitelist.Whitelist
 	Sessions      *sessions.Sessions
 }

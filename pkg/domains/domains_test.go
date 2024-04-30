@@ -19,25 +19,25 @@ func TestGetDomains(t *testing.T) {
 			name:    "single domain, no dot",
 			input:   []string{"example.com"},
 			wantErr: assert.NoError,
-			want:    Domains([]string{".example.com"}),
+			want:    Domains{".example.com"},
 		},
 		{
 			name:    "single domain, dot",
 			input:   []string{".example.com"},
 			wantErr: assert.NoError,
-			want:    Domains([]string{".example.com"}),
+			want:    Domains{".example.com"},
 		},
 		{
 			name:    "multiple domains",
 			input:   []string{".example.com", "example.org"},
 			wantErr: assert.NoError,
-			want:    Domains([]string{".example.com", ".example.org"}),
+			want:    Domains{".example.com", ".example.org"},
 		},
 		{
 			name:    "blank entries are removed",
 			input:   []string{".example.com", "", "example.org"},
 			wantErr: assert.NoError,
-			want:    Domains([]string{".example.com", ".example.org"}),
+			want:    Domains{".example.com", ".example.org"},
 		},
 		{
 			name:    "invalid entry",
@@ -70,7 +70,7 @@ func FuzzGetDomains(f *testing.F) {
 	f.Fuzz(func(t *testing.T, s string) {
 		if domains, err := GetDomains(strings.Split(s, ",")); err == nil {
 			for _, domain := range domains {
-				if _, err = url.Parse("https://www" + domain); err != nil {
+				if _, err = url.Parse("https://www" + string(domain)); err != nil {
 					t.Errorf("invalid URL: %v", err)
 				}
 				if domain[0] != '.' {
@@ -87,7 +87,7 @@ func TestDomains_Domain(t *testing.T) {
 		domains Domains
 		target  string
 		wantOK  assert.BoolAssertionFunc
-		want    string
+		want    Domain
 	}{
 		{
 			name:    "match single domain",
@@ -137,7 +137,7 @@ func TestDomains_Domain(t *testing.T) {
 func Test_isSubdomain(t *testing.T) {
 	tests := []struct {
 		name   string
-		domain string
+		domain Domain
 		input  string
 		want   assert.BoolAssertionFunc
 	}{

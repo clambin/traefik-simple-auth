@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"github.com/clambin/go-common/cache"
+	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"net/http"
 	"time"
 )
@@ -58,7 +59,7 @@ func (s Sessions) Validate(r *http.Request) (Session, error) {
 	return userSession, nil
 }
 
-func (s Sessions) Cookie(session Session, domain string) *http.Cookie {
+func (s Sessions) Cookie(session Session, domain domains.Domain) *http.Cookie {
 	var value string
 	var expiration time.Time
 
@@ -71,7 +72,7 @@ func (s Sessions) Cookie(session Session, domain string) *http.Cookie {
 		Name:     s.SessionCookieName,
 		Value:    value,
 		Path:     "/",
-		Domain:   domain,
+		Domain:   string(domain),
 		Expires:  expiration,
 		Secure:   true,
 		HttpOnly: true,
