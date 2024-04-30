@@ -12,6 +12,7 @@ type ctxSessionKey string
 
 var sessionKey ctxSessionKey = "sessionKey"
 
+// SessionExtractor validates the session cookie from the request and, if valid, adds the session to the request's context.
 func SessionExtractor(sessions *sessions.Sessions, logger *slog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +26,7 @@ func SessionExtractor(sessions *sessions.Sessions, logger *slog.Logger) func(nex
 	}
 }
 
+// GetSession returns the session from the request's context, if it exists.
 func GetSession(r *http.Request) (sessions.Session, bool) {
 	userSession, ok := r.Context().Value(sessionKey).(sessions.Session)
 	return userSession, ok

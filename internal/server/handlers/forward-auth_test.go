@@ -102,7 +102,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 		session := h.Sessions.Session("foo@example.com")
 		r = r.WithContext(context.WithValue(r.Context(), sessionKey, session))
 		w := httptest.NewRecorder()
-		h.LogOut(w, r)
+		h.Logout(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "You have been logged out\n", w.Body.String())
 		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
@@ -112,7 +112,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 	t.Run("must be logged in to log out", func(t *testing.T) {
 		r, _ := http.NewRequest(http.MethodGet, "/", nil)
 		w := httptest.NewRecorder()
-		h.LogOut(w, r)
+		h.Logout(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "Invalid session\n", w.Body.String())
 	})

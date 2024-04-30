@@ -12,6 +12,10 @@ import (
 	"net/url"
 )
 
+// The AuthCallbackHandler implements the oauth callback, initiated by ForwardAuthHandler's redirectToAuth method.
+// It validates that the request came from us (by checking the state parameter), determines the user's email address,
+// checks that that user is on the whitelist, creates a session Cookie for the user and redirects the user to the
+// target that originally initiated the oauth flow.
 type AuthCallbackHandler struct {
 	Logger        *slog.Logger
 	States        *state.Store[string]
@@ -21,6 +25,7 @@ type AuthCallbackHandler struct {
 	Sessions      *sessions.Sessions
 }
 
+// ServeHTTP handles the oauth callback
 func (h *AuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
 

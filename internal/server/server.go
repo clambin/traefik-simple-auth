@@ -25,6 +25,8 @@ type Server struct {
 }
 
 func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server {
+	l = l.With("provider", config.Provider)
+
 	oauthHandlers := make(map[domains.Domain]oauth.Handler)
 	for _, domain := range config.Domains {
 		var err error
@@ -33,26 +35,27 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 		}
 	}
 
+	sessionStore := sessions.New(config.SessionCookieName, config.Secret, config.Expiry)
+	stateStore := state.New[string](5 * time.Minute)
+
 	s := Server{
-		sessions: sessions.New(config.SessionCookieName, config.Secret, config.Expiry),
-		states:   state.New[string](5 * time.Minute),
-	}
-
-	s.cbHandler = handlers.AuthCallbackHandler{
-		Logger:        l.With("handler", "authCallback"),
-		States:        &s.states,
-		Domains:       config.Domains,
-		OAuthHandlers: oauthHandlers,
-		Whitelist:     config.Whitelist,
-		Sessions:      s.sessions,
-	}
-
-	s.authHandler = handlers.ForwardAuthHandler{
-		Logger:        l.With("handler", "forwardAuth"),
-		Domains:       config.Domains,
-		States:        &s.states,
-		Sessions:      s.sessions,
-		OAuthHandlers: oauthHandlers,
+		sessions: sessionStore,
+		states:   stateStore,
+		cbHandler: handlers.AuthCallbackHandler{
+			Logger:        l.With("handler", "authCallback"),
+			States:        &stateStore,
+			Domains:       config.Domains,
+			OAuthHandlers: oauthHandlers,
+			Whitelist:     config.Whitelist,
+			Sessions:      sessionStore,
+		},
+		authHandler: handlers.ForwardAuthHandler{
+			Logger:        l.With("handler", "forwardAuth"),
+			Domains:       config.Domains,
+			States:        &stateStore,
+			Sessions:      sessionStore,
+			OAuthHandlers: oauthHandlers,
+		},
 	}
 
 	withMetrics := func(next http.Handler) http.Handler {
@@ -72,7 +75,7 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 
 	// forwardAuth & logout flows come in via forwardAuth middleware
 	forwardAuthHandler := http.NewServeMux()
-	forwardAuthHandler.HandleFunc(OAUTHPath+"/logout", s.authHandler.LogOut)
+	forwardAuthHandler.HandleFunc(OAUTHPath+"/logout", s.authHandler.Logout)
 	forwardAuthHandler.HandleFunc("/", s.authHandler.Authenticate)
 	r.Handle("/",
 		traefikForwardAuthParser()( // convert the forwardAuth request to a regular http request

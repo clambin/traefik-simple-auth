@@ -11,6 +11,7 @@ import (
 	"net/http"
 )
 
+// The ForwardAuthHandler handles all requests coming in from traefik's forwardAuth middleware
 type ForwardAuthHandler struct {
 	Logger        *slog.Logger
 	Domains       domains.Domains
@@ -19,6 +20,10 @@ type ForwardAuthHandler struct {
 	OAuthHandlers map[domains.Domain]oauth.Handler
 }
 
+// Authenticate implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
+// has a valid session (stored in a http.Cookie). If so, it returns http.StatusOK.   If not, it redirects the requesr
+// to the configured oauth provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
+// forwards the request to the originally requested destination.
 func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
 
@@ -43,6 +48,7 @@ func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+// redirectToAuth redirects the user to the configured oauth provider to log in
 func (h *ForwardAuthHandler) redirectToAuth(w http.ResponseWriter, r *http.Request, domain domains.Domain) {
 	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 	// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
@@ -54,7 +60,9 @@ func (h *ForwardAuthHandler) redirectToAuth(w http.ResponseWriter, r *http.Reque
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
-func (h *ForwardAuthHandler) LogOut(w http.ResponseWriter, r *http.Request) {
+// Logout logs out the user. It removes the session from the session store and sends an empty Cookie to the user.
+// This means that the user's next request has an invalid cookie, triggering a new oauth flow.
+func (h *ForwardAuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
 
 	// remove the cached cookie
