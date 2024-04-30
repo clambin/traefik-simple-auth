@@ -42,8 +42,7 @@ func TestServer(t *testing.T) {
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		assert.Equal(t, http.StatusOK, w.Code)
-		count, _ := s.sessions.ActiveUsers()["foo@example.com"]
-		assert.Equal(t, 1, count)
+		assert.Equal(t, 1, s.sessions.ActiveUsers()["foo@example.com"])
 	})
 
 	t.Run("forwardAuth requests with valid cookie for logout handler are accepted", func(t *testing.T) {
@@ -53,8 +52,7 @@ func TestServer(t *testing.T) {
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
-		count, _ := s.sessions.ActiveUsers()["foo@example.com"]
-		assert.Zero(t, count)
+		assert.Zero(t, s.sessions.ActiveUsers()["foo@example.com"])
 	})
 
 	t.Run("oauth callback", func(t *testing.T) {
