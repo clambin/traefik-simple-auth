@@ -1,4 +1,4 @@
 ignore:
   - "**/mocks/*.go"
   - "cmd/**/*.go"
-  - "internal/testutils/*.go"
+  - "internal/server/testutils/*.go"

@@ -139,8 +139,6 @@ func Test_getOriginalTarget(t *testing.T) {
 }
 
 // before:
-// Benchmark_authHandler-16                  706188              1587 ns/op             978 B/op         17 allocs/op
-// after:
 // Benchmark_authHandler-16                  758744              1468 ns/op             978 B/op         17 allocs/op
 func Benchmark_authHandler(b *testing.B) {
 	config := configuration.Configuration{
@@ -166,9 +164,7 @@ func Benchmark_authHandler(b *testing.B) {
 	}
 }
 
-// Before:
-// Benchmark_getOriginalTarget/old-16               7898454               151.3 ns/op           144 B/op          1 allocs/op
-// After:
+// before:
 // Benchmark_getOriginalTarget/new-16              20134730                58.27 ns/op          144 B/op          1 allocs/op
 func Benchmark_getOriginalTarget(b *testing.B) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
