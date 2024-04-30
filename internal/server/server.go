@@ -1,27 +1,24 @@
 package server
 
 import (
+	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/server/handlers"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
-	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
-	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
-	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"time"
 )
 
 const OAUTHPath = "/_oauth"
 
 type Server struct {
-	oauthHandlers map[string]oauth.Handler
-	sessions      *sessions.Sessions
-	states        state.Store[string]
-	whitelist     whitelist.Whitelist
-	domains       domains.Domains
+	sessions    *sessions.Sessions
+	states      state.Store[string]
+	cbHandler   handlers.AuthCallbackHandler
+	authHandler handlers.ForwardAuthHandler
 	http.Handler
 }
 
@@ -33,142 +30,58 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 			panic("unknown provider: " + config.Provider)
 		}
 	}
+
 	s := Server{
-		oauthHandlers: oauthHandlers,
-		sessions:      sessions.New(config.SessionCookieName, config.Secret, config.Expiry),
-		states:        state.New[string](5 * time.Minute),
-		whitelist:     config.Whitelist,
-		domains:       config.Domains,
+		sessions: sessions.New(config.SessionCookieName, config.Secret, config.Expiry),
+		states:   state.New[string](5 * time.Minute),
+	}
+
+	s.cbHandler = handlers.AuthCallbackHandler{
+		Logger:        l.With("handler", "authCallback"),
+		States:        &s.states,
+		Domains:       config.Domains,
+		OAuthHandlers: oauthHandlers,
+		Whitelist:     config.Whitelist,
+		Sessions:      s.sessions,
+	}
+
+	s.authHandler = handlers.ForwardAuthHandler{
+		Logger:        l.With("handler", "forwardAuth"),
+		Domains:       config.Domains,
+		States:        &s.states,
+		Sessions:      s.sessions,
+		OAuthHandlers: oauthHandlers,
+	}
+
+	withMetrics := func(next http.Handler) http.Handler {
+		return next
+	}
+	if m != nil {
+		withMetrics = func(next http.Handler) http.Handler {
+			return middleware.WithRequestMetrics(m)(next)
+		}
+		go s.monitorSessions(m, 10*time.Second)
+	}
+
+	authMiddleware := func(next http.HandlerFunc) http.Handler {
+		return traefikForwardAuthParser()(handlers.SessionExtractor(s.cbHandler.Sessions, l)(withMetrics(next)))
 	}
 
 	r := http.NewServeMux()
-	r.Handle(OAUTHPath, s.authCallbackHandler(l))
-	r.Handle(OAUTHPath+"/logout", s.logoutHandler(l))
-	r.Handle("/", s.authHandler(l))
+	r.Handle("/", authMiddleware(s.authHandler.Authenticate))
+	r.Handle(OAUTHPath+"/logout", authMiddleware(s.authHandler.LogOut))
+	r.Handle(OAUTHPath, withMetrics(&s.cbHandler))
 
-	var h http.Handler = r
-	if m != nil {
-		h = s.withMetrics(m)(h)
-		go s.monitorSessions(m, 10*time.Second)
-	}
-	s.Handler = traefikForwardAuthParser()(
-		s.sessionExtractor(l)(
-			h,
-		),
-	)
+	s.Handler = r
 	return &s
 }
 
-func (s *Server) authHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "authHandler")
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		l.Debug("request received", "request", loggedRequest{r: r})
-
-		// validate that the request has a valid session cookie
-		sess, ok := r.Context().Value(sessionKey).(sessions.Session)
-		if !ok {
-			s.redirectToAuth(w, r, l)
-			return
+func (s Server) monitorSessions(m *Metrics, interval time.Duration) {
+	for {
+		for user, count := range s.sessions.ActiveUsers() {
+			m.activeUsers.WithLabelValues(user).Set(float64(count))
 		}
-
-		// check that the request is for one of the configured domains
-		if _, ok = s.domains.Domain(r.URL); !ok {
-			l.Warn("host doesn't match any configured domains", "host", r.URL.Host)
-			http.Error(w, "Not authorized", http.StatusUnauthorized)
-			return
-		}
-
-		// all good. tell traefik to forward the request
-		l.Debug("allowing valid request", "email", sess.Email)
-		w.Header().Set("X-Forwarded-User", sess.Email)
-		w.WriteHeader(http.StatusOK)
-	}
-}
-
-func (s *Server) redirectToAuth(w http.ResponseWriter, r *http.Request, l *slog.Logger) {
-	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
-	// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
-	encodedState := s.states.Add(r.URL.String())
-
-	domain, ok := s.domains.Domain(r.URL)
-	if !ok {
-		l.Error("invalid target host", "host", r.URL.Host)
-		http.Error(w, "Invalid target host", http.StatusUnauthorized)
-		return
-	}
-
-	// Redirect user to oauth provider to select the account to be used to authenticate the request
-	authCodeURL := s.oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
-	l.Debug("redirecting ...", "authCodeURL", authCodeURL)
-	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
-}
-
-func (s *Server) authCallbackHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "authCallbackHandler")
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		l.Debug("request received", "request", loggedRequest{r: r})
-
-		// Look up the (random) state to find the final destination.
-		encodedState := r.URL.Query().Get("state")
-		redirectURL, ok := s.states.Get(encodedState)
-		if !ok {
-			l.Warn("invalid state. Dropping request ...")
-			http.Error(w, "Invalid state", http.StatusBadRequest)
-			return
-		}
-
-		// we already validated the host vs the domain during the redirect.
-		// since the state matches, we can trust the request to be valid.
-		u, _ := url.Parse(redirectURL)
-		domain, _ := s.domains.Domain(u)
-
-		// Use the "code" in the response to determine the user's email address.
-		user, err := s.oauthHandlers[domain].GetUserEmailAddress(r.FormValue("code"))
-		if err != nil {
-			l.Error("failed to log in", "err", err)
-			http.Error(w, "oauth2 failed", http.StatusBadGateway)
-			return
-		}
-		l.Debug("user authenticated", "user", user)
-
-		// Check that the user's email address is in the whitelist.
-		if !s.whitelist.Match(user) {
-			l.Warn("not a valid user. rejecting ...", "user", user)
-			http.Error(w, "Not authorized", http.StatusUnauthorized)
-			return
-		}
-
-		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
-		session := s.sessions.Session(user)
-		http.SetCookie(w, s.sessions.Cookie(session, domain))
-
-		l.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
-		http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
-	}
-}
-
-func (s *Server) logoutHandler(l *slog.Logger) http.HandlerFunc {
-	l = l.With("handler", "logoutHandler")
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		l.Debug("request received", "request", loggedRequest{r: r})
-
-		// remove the cached cookie
-		session, ok := r.Context().Value(sessionKey).(sessions.Session)
-		if !ok {
-			http.Error(w, "Invalid session", http.StatusUnauthorized)
-			return
-		}
-		s.sessions.DeleteSession(session)
-
-		// Write a blank session cookie to override the current valid one.
-		domain, _ := s.domains.Domain(r.URL)
-		http.SetCookie(w, s.sessions.Cookie(sessions.Session{}, domain))
-
-		http.Error(w, "You have been logged out", http.StatusUnauthorized)
-		l.Info("user has been logged out", "user", session.Email)
+		time.Sleep(interval)
 	}
 }
 
