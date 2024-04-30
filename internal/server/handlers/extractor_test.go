@@ -14,7 +14,7 @@ import (
 func TestSessionExtractor(t *testing.T) {
 	s := sessions.New("_auth", []byte("secret"), time.Hour)
 	l := slog.Default()
-	h := SessionExtractor(s, l)
+	extractor := SessionExtractor(s, l)
 	validSession := s.Session("foo@example.com")
 	expiredSession := s.SessionWithExpiration("foo@example.com", -time.Hour)
 
@@ -57,7 +57,7 @@ func TestSessionExtractor(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 
-			h := h(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h := extractor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Helper()
 				userSession, ok := GetSession(r)
 				tt.wantOK(t, ok)

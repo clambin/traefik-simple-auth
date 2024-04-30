@@ -26,7 +26,7 @@ func (h *AuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	// Look up the (random) state to find the final destination.
 	encodedState := r.URL.Query().Get("state")
-	redirectURL, ok := h.States.Get(encodedState)
+	targetURL, ok := h.States.Get(encodedState)
 	if !ok {
 		h.Logger.Warn("invalid state. Dropping request ...")
 		http.Error(w, "Invalid state", http.StatusBadRequest)
@@ -35,7 +35,7 @@ func (h *AuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	// we already validated the host vs the domain during the redirect.
 	// since the state matches, we can trust the request to be valid.
-	u, _ := url.Parse(redirectURL)
+	u, _ := url.Parse(targetURL)
 	domain, _ := h.Domains.Domain(u)
 
 	// Use the "code" in the response to determine the user's email address.
@@ -58,6 +58,6 @@ func (h *AuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	session := h.Sessions.Session(user)
 	http.SetCookie(w, h.Sessions.Cookie(session, domain))
 
-	h.Logger.Info("user logged in. redirecting ...", "user", user, "url", redirectURL)
-	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
+	h.Logger.Info("user logged in. redirecting ...", "user", user, "url", targetURL)
+	http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
 }

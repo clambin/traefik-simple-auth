@@ -31,7 +31,7 @@ func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request
 	}
 
 	// validate that the request has a valid session cookie
-	sess, ok := r.Context().Value(sessionKey).(sessions.Session)
+	sess, ok := GetSession(r)
 	if !ok {
 		h.redirectToAuth(w, r, domain)
 		return
@@ -58,11 +58,13 @@ func (h *ForwardAuthHandler) LogOut(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
 
 	// remove the cached cookie
-	session, ok := r.Context().Value(sessionKey).(sessions.Session)
+	session, ok := GetSession(r)
 	if !ok {
 		http.Error(w, "Invalid session", http.StatusUnauthorized)
 		return
 	}
+
+	// delete the session
 	h.Sessions.DeleteSession(session)
 
 	// Write a blank session cookie to override the current valid one.
