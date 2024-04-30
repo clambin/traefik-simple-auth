@@ -121,21 +121,25 @@ func traefikForwardAuthParser() func(next http.Handler) http.HandlerFunc {
 }
 
 func getOriginalTarget(r *http.Request) *url.URL {
-	proto := r.Header.Get("X-Forwarded-Proto")
-	if proto == "" {
-		// TODO: why is this sometimes not set?
-		proto = "https"
+	hdr := r.Header
+	path := getHeaderValue(hdr, "X-Forwarded-Uri", "/")
+	var rawQuery string
+	if n := strings.Index(path, "?"); n > 0 {
+		rawQuery = path[n+1:]
+		path = path[:n]
 	}
-	u := url.URL{
-		Scheme: proto,
-		Host:   r.Header.Get("X-Forwarded-Host"),
+	return &url.URL{
+		Scheme:   getHeaderValue(hdr, "X-Forwarded-Proto", "https"),
+		Host:     getHeaderValue(hdr, "X-Forwarded-Host", ""),
+		Path:     path,
+		RawQuery: rawQuery,
 	}
-	uri := r.Header.Get("X-Forwarded-Uri")
-	if n := strings.Index(uri, "?"); n == -1 {
-		u.Path = uri
-	} else {
-		u.Path = uri[:n]
-		u.RawQuery = uri[n+1:]
+}
+
+func getHeaderValue(h map[string][]string, key string, defaultValue string) string {
+	val, ok := h[key]
+	if !ok || len(val) == 0 {
+		return defaultValue
 	}
-	return &u
+	return val[0]
 }

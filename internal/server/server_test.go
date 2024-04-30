@@ -133,15 +133,15 @@ func Test_getOriginalTarget(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.Header = tt.headers
 			assert.Equal(t, tt.want, getOriginalTarget(r).String())
-			assert.Equal(t, tt.want, getOriginalTarget(r).String())
+			//assert.Equal(t, tt.want, altGetOriginalTarget(r).String())
 		})
 	}
 }
 
 // before:
-// Benchmark_authHandler-16                  678607              1617 ns/op             994 B/op         18 allocs/op
-// after:
 // Benchmark_authHandler-16                  706188              1587 ns/op             978 B/op         17 allocs/op
+// after:
+// Benchmark_authHandler-16                  758744              1468 ns/op             978 B/op         17 allocs/op
 func Benchmark_authHandler(b *testing.B) {
 	config := configuration.Configuration{
 		SessionCookieName: "_traefik_simple_auth",
@@ -167,15 +167,15 @@ func Benchmark_authHandler(b *testing.B) {
 }
 
 // Before:
-// Benchmark_getOriginalTarget/new-16               6495480               183.6 ns/op           160 B/op          2 allocs/op
+// Benchmark_getOriginalTarget/old-16               7898454               151.3 ns/op           144 B/op          1 allocs/op
 // After:
-// Benchmark_getOriginalTarget/new-16               7860783               153.6 ns/op           144 B/op          1 allocs/op
+// Benchmark_getOriginalTarget/new-16              20134730                58.27 ns/op          144 B/op          1 allocs/op
 func Benchmark_getOriginalTarget(b *testing.B) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header = http.Header{
-		"X-Forwarded-Host":  []string{"example.com"},
-		"X-Forwarded-Uri":   []string{"/foo"},
 		"X-Forwarded-Proto": []string{"https"},
+		"X-Forwarded-Host":  []string{"example.com"},
+		"X-Forwarded-Uri":   []string{"/foo?arg1=bar"},
 	}
 
 	b.Run("old", func(b *testing.B) {
