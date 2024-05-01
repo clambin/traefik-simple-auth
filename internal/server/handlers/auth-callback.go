@@ -27,7 +27,7 @@ type AuthCallbackHandler struct {
 
 // ServeHTTP handles the oauth callback
 func (h *AuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
+	h.Logger.Debug("request received", "request", logging.Request(r))
 
 	// Look up the (random) state to find the final destination.
 	encodedState := r.URL.Query().Get("state")

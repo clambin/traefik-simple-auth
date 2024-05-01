@@ -35,7 +35,7 @@ func (h *ForwardAuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // to the configured oauth provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
 // forwards the request to the originally requested destination.
 func (h *ForwardAuthHandler) authenticate(w http.ResponseWriter, r *http.Request) {
-	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
+	h.Logger.Debug("request received", slog.Any("request", logging.Request(r)))
 
 	// check that the request is for one of the configured domains
 	domain, ok := h.Domains.Domain(r.URL)
@@ -45,16 +45,12 @@ func (h *ForwardAuthHandler) authenticate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	h.Logger.Debug("request has valid domain")
-
 	// validate that the request has a valid session cookie
 	sess, ok := GetSession(r)
 	if !ok {
 		h.redirectToAuth(w, r, domain)
 		return
 	}
-
-	h.Logger.Debug("request has valid session")
 
 	// all good. tell traefik to forward the request
 	h.Logger.Debug("allowing valid request", slog.String("email", sess.Email))
@@ -77,7 +73,7 @@ func (h *ForwardAuthHandler) redirectToAuth(w http.ResponseWriter, r *http.Reque
 // logout logs out the user: it removes the session from the session store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
 func (h *ForwardAuthHandler) logout(w http.ResponseWriter, r *http.Request) {
-	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
+	h.Logger.Debug("request received", "request", logging.Request(r))
 
 	// remove the cached cookie
 	session, ok := GetSession(r)
