@@ -74,6 +74,10 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 	r := http.NewServeMux()
 	// oauth flow is sent directly to the server
 	r.Handle(OAUTHPath, withMetrics(&s.cbHandler))
+	// forwardAuth & logout flow are sent by forwardAuth
+	//
+	// both metrics and authHandler need the session (stored in a cookie), so we use SessionExtractor to extract it once
+	// and store it in the request's context.
 	r.Handle("/", traefikForwardAuthParser()( // convert the forwardAuth request to a regular http request
 		handlers.SessionExtractor(s.cbHandler.Sessions, l)( // extract & validate the session cookie from the request
 			withMetrics( // add metrics

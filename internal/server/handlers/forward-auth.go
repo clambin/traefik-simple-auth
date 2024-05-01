@@ -24,17 +24,17 @@ type ForwardAuthHandler struct {
 func (h *ForwardAuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case h.OAUTHPath + "/logout":
-		h.Logout(w, r)
+		h.logout(w, r)
 	default:
-		h.Authenticate(w, r)
+		h.authenticate(w, r)
 	}
 }
 
-// Authenticate implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
+// authenticate implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
 // has a valid session (stored in a http.Cookie). If so, it returns http.StatusOK.   If not, it redirects the requesr
 // to the configured oauth provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
 // forwards the request to the originally requested destination.
-func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request) {
+func (h *ForwardAuthHandler) authenticate(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
 
 	// check that the request is for one of the configured domains
@@ -45,12 +45,16 @@ func (h *ForwardAuthHandler) Authenticate(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	h.Logger.Debug("request has valid domain")
+
 	// validate that the request has a valid session cookie
 	sess, ok := GetSession(r)
 	if !ok {
 		h.redirectToAuth(w, r, domain)
 		return
 	}
+
+	h.Logger.Debug("request has valid session")
 
 	// all good. tell traefik to forward the request
 	h.Logger.Debug("allowing valid request", slog.String("email", sess.Email))
@@ -70,9 +74,9 @@ func (h *ForwardAuthHandler) redirectToAuth(w http.ResponseWriter, r *http.Reque
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 }
 
-// Logout logs out the user. It removes the session from the session store and sends an empty Cookie to the user.
+// logout logs out the user: it removes the session from the session store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
-func (h *ForwardAuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+func (h *ForwardAuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 	h.Logger.Debug("request received", "request", logging.LoggedRequest{Request: r})
 
 	// remove the cached cookie

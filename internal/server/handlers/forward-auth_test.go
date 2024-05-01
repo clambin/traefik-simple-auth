@@ -25,6 +25,7 @@ func TestServer_Authenticate(t *testing.T) {
 		States:        &store,
 		Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
 		OAuthHandlers: map[domains.Domain]oauth.Handler{"example.com": oauth.NewGoogleHandler("123", "1234", "https://auth.example.com/_oauth", l)},
+		OAUTHPath:     "/oauth",
 	}
 
 	validSession := h.Sessions.Session("foo@example.com")
@@ -74,7 +75,7 @@ func TestServer_Authenticate(t *testing.T) {
 				r = r.WithContext(context.WithValue(r.Context(), sessionKey, *tt.args.session))
 			}
 
-			h.Authenticate(w, r)
+			h.ServeHTTP(w, r)
 			require.Equal(t, tt.want, w.Code)
 
 			switch w.Code {
@@ -95,14 +96,15 @@ func TestServer_LogoutHandler(t *testing.T) {
 		States:        &store,
 		Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
 		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": &testutils.FakeOauthHandler{}},
+		OAUTHPath:     "/_oauth",
 	}
 
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
-		r, _ := http.NewRequest(http.MethodGet, "https://example.com", nil)
+		r, _ := http.NewRequest(http.MethodGet, "https://example.com/_oauth/logout", nil)
 		session := h.Sessions.Session("foo@example.com")
 		r = r.WithContext(context.WithValue(r.Context(), sessionKey, session))
 		w := httptest.NewRecorder()
-		h.Logout(w, r)
+		h.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "You have been logged out\n", w.Body.String())
 		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
@@ -110,9 +112,9 @@ func TestServer_LogoutHandler(t *testing.T) {
 	})
 
 	t.Run("must be logged in to log out", func(t *testing.T) {
-		r, _ := http.NewRequest(http.MethodGet, "/", nil)
+		r, _ := http.NewRequest(http.MethodGet, "https://example.com/_oauth/logout", nil)
 		w := httptest.NewRecorder()
-		h.Logout(w, r)
+		h.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "Invalid session\n", w.Body.String())
 	})
