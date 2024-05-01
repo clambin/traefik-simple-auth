@@ -21,10 +21,10 @@ func TestServer_Authenticate(t *testing.T) {
 	l := slog.Default()
 	h := ForwardAuthHandler{
 		Logger:        l,
-		Domains:       domains.Domains{"example.com"},
+		Domains:       domains.Domains{".example.com"},
 		States:        &store,
 		Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
-		OAuthHandlers: map[domains.Domain]oauth.Handler{"example.com": oauth.NewGoogleHandler("123", "1234", "https://auth.example.com/_oauth", l)},
+		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": oauth.NewGoogleHandler("123", "1234", "https://auth.example.com/_oauth", l)},
 		OAUTHPath:     "/oauth",
 	}
 
@@ -92,7 +92,7 @@ func TestServer_LogoutHandler(t *testing.T) {
 	store := state.New[string](time.Minute)
 	h := ForwardAuthHandler{
 		Logger:        slog.Default(),
-		Domains:       domains.Domains{"example.com"},
+		Domains:       domains.Domains{".example.com"},
 		States:        &store,
 		Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
 		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": &testutils.FakeOauthHandler{}},

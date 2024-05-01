@@ -18,7 +18,7 @@ func TestServer_withMetrics(t *testing.T) {
 		SessionCookieName: "_auth",
 		Secret:            []byte("secret"),
 		Whitelist:         map[string]struct{}{"foo@example.com": {}},
-		Domains:           domains.Domains{"example.com"},
+		Domains:           domains.Domains{".example.com"},
 		Provider:          "google",
 	}
 	m := NewMetrics("", "", map[string]string{"provider": "foo"})

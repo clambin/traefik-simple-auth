@@ -20,7 +20,7 @@ func TestServer(t *testing.T) {
 		Expiry:            time.Hour,
 		Secret:            []byte("secret"),
 		Provider:          "google",
-		Domains:           domains.Domains{"example.com"},
+		Domains:           domains.Domains{".example.com"},
 		Whitelist:         whitelist.Whitelist{},
 		ClientID:          "123",
 		ClientSecret:      "1234",
@@ -56,7 +56,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("oauth callback", func(t *testing.T) {
-		s.cbHandler.OAuthHandlers["example.com"] = testutils.FakeOauthHandler{Email: "foo@example.com"}
+		s.cbHandler.OAuthHandlers[".example.com"] = testutils.FakeOauthHandler{Email: "foo@example.com"}
 		state := s.states.Add("https://example.com")
 		r, _ := http.NewRequest(http.MethodGet, "https://traefik"+OAUTHPath+"?state="+state, nil)
 		w := httptest.NewRecorder()
