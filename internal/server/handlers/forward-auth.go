@@ -18,6 +18,16 @@ type ForwardAuthHandler struct {
 	States        *state.Store[string]
 	Sessions      *sessions.Sessions
 	OAuthHandlers map[domains.Domain]oauth.Handler
+	OAUTHPath     string
+}
+
+func (h *ForwardAuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case h.OAUTHPath + "/logout":
+		h.Logout(w, r)
+	default:
+		h.Authenticate(w, r)
+	}
 }
 
 // Authenticate implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request

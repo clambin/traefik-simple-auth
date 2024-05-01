@@ -140,6 +140,8 @@ func Test_getOriginalTarget(t *testing.T) {
 
 // before:
 // Benchmark_authHandler-16                  758744              1468 ns/op             978 B/op         17 allocs/op
+// after:
+// Benchmark_authHandler-16                  927531              1194 ns/op             941 B/op         14 allocs/op
 func Benchmark_authHandler(b *testing.B) {
 	config := configuration.Configuration{
 		SessionCookieName: "_traefik_simple_auth",

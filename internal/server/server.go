@@ -56,6 +56,7 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 			States:        &stateStore,
 			Sessions:      sessionStore,
 			OAuthHandlers: oauthHandlers,
+			OAUTHPath:     OAUTHPath,
 		},
 	}
 
@@ -73,20 +74,13 @@ func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server
 	r := http.NewServeMux()
 	// oauth flow is sent directly to the server
 	r.Handle(OAUTHPath, withMetrics(&s.cbHandler))
-
-	// forwardAuth & logout flows come in via forwardAuth middleware
-	forwardAuthHandler := http.NewServeMux()
-	forwardAuthHandler.HandleFunc(OAUTHPath+"/logout", s.authHandler.Logout)
-	forwardAuthHandler.HandleFunc("/", s.authHandler.Authenticate)
-	r.Handle("/",
-		traefikForwardAuthParser()( // convert the forwardAuth request to a regular http request
-			handlers.SessionExtractor(s.cbHandler.Sessions, l)( // extract & validate the session cookie from the request
-				withMetrics( // add metrics
-					forwardAuthHandler, // authenticate or logout
-				),
+	r.Handle("/", traefikForwardAuthParser()( // convert the forwardAuth request to a regular http request
+		handlers.SessionExtractor(s.cbHandler.Sessions, l)( // extract & validate the session cookie from the request
+			withMetrics( // add metrics
+				&s.authHandler, // authenticate or logout
 			),
 		),
-	)
+	))
 
 	s.Handler = r
 	return &s
