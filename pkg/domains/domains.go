@@ -24,15 +24,16 @@ func New(entries []string) (Domains, error) {
 		if _, err := url.Parse("https://www" + domain); err != nil {
 			return nil, fmt.Errorf("invalid domain %q: %w", domain, err)
 		}
-		results = append(results, Domain(domain))
+		results = append(results, Domain(strings.ToLower(domain)))
 	}
 	return results, nil
 }
 
 // Domain returns the domain that the host in the URL is part of. Returns false if the URL is not part of any domain.
 func (d Domains) Domain(u *url.URL) (Domain, bool) {
+	host := strings.ToLower(u.Host)
 	for _, domain := range d {
-		if isValidSubdomain(domain, u.Host) {
+		if isValidSubdomain(domain, host) {
 			return domain, true
 		}
 	}

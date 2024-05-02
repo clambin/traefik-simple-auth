@@ -96,6 +96,13 @@ func TestDomains_Domain(t *testing.T) {
 			want:    ".example.com",
 		},
 		{
+			name:    "match should be case-insensitive",
+			domains: []string{"Example.com"},
+			target:  "https://example.Com/foo",
+			wantOK:  assert.True,
+			want:    ".example.com",
+		},
+		{
 			name:    "match multiple domains",
 			domains: []string{"example.com", "example.org"},
 			target:  "https://www.example.org/foo",
@@ -141,9 +148,9 @@ func TestDomains_Domain(t *testing.T) {
 }
 
 // before:
-// BenchmarkDomains_Domain-16      38363563                31.01 ns/op            0 B/op          0 allocs/op
-// after:
 // BenchmarkDomains_Domain-16      217555663                5.487 ns/op           0 B/op          0 allocs/op
+// after (case-insensitive):
+// BenchmarkDomains_Domain-16      65392693                18.35 ns/op            0 B/op          0 allocs/op
 func BenchmarkDomains_Domain(b *testing.B) {
 	domains, _ := New([]string{"example.com"})
 	for range b.N {
