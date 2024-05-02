@@ -11,7 +11,8 @@ type Domain string
 // Domains validates if the host in a URL is part of a list of domains.
 type Domains []Domain
 
-func GetDomains(entries []string) (Domains, error) {
+// New builds a new Domains group from the provided entries. If an entry is not a valid domain, an error is returned.
+func New(entries []string) (Domains, error) {
 	var results Domains
 	for _, domain := range entries {
 		if domain == "" {

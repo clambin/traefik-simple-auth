@@ -48,7 +48,7 @@ func (h GoogleHandler) GetUserEmailAddress(code string) (string, error) {
 
 	response, err := h.HTTPClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed getting user info: %s", err.Error())
+		return "", fmt.Errorf("failed getting user info: %w", err)
 	}
 	defer func() { _ = response.Body.Close() }()
 

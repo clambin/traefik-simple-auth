@@ -49,7 +49,7 @@ func TestGetDomains(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result, err := GetDomains(tt.input)
+			result, err := New(tt.input)
 			tt.wantErr(t, err)
 			if err != nil {
 				return
@@ -67,7 +67,7 @@ func FuzzGetDomains(f *testing.F) {
 		f.Add(tc)
 	}
 	f.Fuzz(func(t *testing.T, s string) {
-		if domains, err := GetDomains(strings.Split(s, ",")); err == nil {
+		if domains, err := New(strings.Split(s, ",")); err == nil {
 			for _, domain := range domains {
 				if _, err = url.Parse("https://www" + string(domain)); err != nil {
 					t.Errorf("invalid URL: %v", err)
@@ -132,7 +132,7 @@ func TestDomains_Domain(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			u, _ := url.Parse(tt.target)
-			domains, _ := GetDomains(tt.domains)
+			domains, _ := New(tt.domains)
 			domain, ok := domains.Domain(u)
 			tt.wantOK(t, ok)
 			assert.Equal(t, tt.want, domain)
@@ -145,7 +145,7 @@ func TestDomains_Domain(t *testing.T) {
 // after:
 // BenchmarkDomains_Domain-16      217555663                5.487 ns/op           0 B/op          0 allocs/op
 func BenchmarkDomains_Domain(b *testing.B) {
-	domains, _ := GetDomains([]string{"example.com"})
+	domains, _ := New([]string{"example.com"})
 	for range b.N {
 		_, _ = domains.Domain(&url.URL{Host: "www.example.com"})
 	}

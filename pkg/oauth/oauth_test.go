@@ -10,8 +10,40 @@ import (
 	"testing"
 )
 
+func TestNewHandler(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		wantErr  assert.ErrorAssertionFunc
+	}{
+		{
+			name:     "google",
+			provider: "google",
+			wantErr:  assert.NoError,
+		},
+		{
+			name:     "github",
+			provider: "github",
+			wantErr:  assert.NoError,
+		},
+		{
+			name:     "invalid",
+			provider: "invalid",
+			wantErr:  assert.Error,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := NewHandler(tt.provider, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
+			tt.wantErr(t, err)
+		})
+	}
+}
+
 func TestHandler_AuthCodeURL(t *testing.T) {
-	h, _ := NewHandler("google", "CLIENT_ID", "CLIENT_SECRET", "https://auth/example.com/_oauth", slog.Default())
+	h, _ := NewHandler("google", "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
 
 	u, err := url.Parse(h.AuthCodeURL("state", oauth2.SetAuthURLParam("prompt", "select_profile")))
 	require.NoError(t, err)

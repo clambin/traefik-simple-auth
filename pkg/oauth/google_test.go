@@ -38,7 +38,7 @@ func TestGoogleHandler_GetUserEmailAddress(t *testing.T) {
 	assert.Equal(t, "foo@example.com", user)
 }
 
-func TestHandler_userInfoEndpoint(t *testing.T) {
+func TestGoogleHandler_userInfoEndpoint(t *testing.T) {
 	resp, err := http.Get("https://accounts.google.com/.well-known/openid-configuration")
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()

@@ -54,7 +54,7 @@ func GetConfiguration() (Configuration, error) {
 		AuthPrefix:        *authPrefix,
 	}
 	var err error
-	cfg.Domains, err = domains.GetDomains(strings.Split(*domainsString, ","))
+	cfg.Domains, err = domains.New(strings.Split(*domainsString, ","))
 	if err != nil {
 		return Configuration{}, fmt.Errorf("invalid domain list: %w", err)
 	}
