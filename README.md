@@ -33,7 +33,7 @@ many forks. However, that implementation hasn't been updated in over 3 years. I 
 * provide more operational observability into how forwardAuth is used;
 * fun!
 
-traefik-forward-auth offers many features that I wasn't necessarily interested in: support for openID, rules, etc. 
+traefik-forward-auth offers many features that I wasn't necessarily interested in: support for openID, overlay mode, rules, etc. 
 Those are not implemented in the current version of traefik-simple-auth. That may change in the future. 
 
 ## Design
@@ -129,7 +129,6 @@ metadata:
   namespace: traefik
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
-    traefik.ingress.kubernetes.io/router.middlewares: traefik-traefik-simple-auth@kubernetescrd
 spec:
   rules:
     - host: auth.example.com
@@ -146,9 +145,12 @@ spec:
 
 This forwards the request to traefik-simple-auth. 
 
+Note: unlike with traefik-forward-auth, the ingress for the authentication callback flow does not need the forwardAuth middleware
+(i.e. it does not include a `traefik.ingress.kubernetes.io/router.middlewares: <traefik-simple-auth>` annotation).
+
 ### Authenticating access to an ingress
 
-To enable traefik-simple-auth to authenticate access to an ingress, add the middleware to its Ingress:
+To enable traefik-simple-auth to authenticate access to an ingress, add the middleware as an annotation:
 
 ```
 apiVersion: networking.k8s.io/v1
