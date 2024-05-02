@@ -1,3 +1,5 @@
+// Package whitelist maintains a list of whitelisted email addresses. It is used by traefik-simple-auth to validate that
+// requests for an authenticated user should be allowed.
 package whitelist
 
 import (
@@ -8,7 +10,7 @@ import (
 
 type Whitelist map[string]struct{}
 
-// New creates a new Whitelist for the provided email addresses
+// New creates a new Whitelist for the provided email addresses.
 func New(emails []string) (Whitelist, error) {
 	list := make(map[string]struct{}, len(emails))
 	for _, email := range emails {
@@ -20,7 +22,7 @@ func New(emails []string) (Whitelist, error) {
 	return list, nil
 }
 
-// Match returns true if the email address is on the whitelist, or if the whitelist is empty
+// Match returns true if the email address is on the whitelist, or if the whitelist is empty.
 func (w Whitelist) Match(email string) bool {
 	if len(w) == 0 {
 		return true

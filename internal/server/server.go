@@ -19,7 +19,7 @@ const OAUTHPath = "/_oauth"
 
 type Server struct {
 	sessions    *sessions.Sessions
-	states      state.Store[string]
+	states      state.States[string]
 	cbHandler   handlers.AuthCallbackHandler
 	authHandler handlers.ForwardAuthHandler
 	http.Handler

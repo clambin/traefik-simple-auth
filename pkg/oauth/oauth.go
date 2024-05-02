@@ -1,3 +1,7 @@
+// Package oauth implements handlers for traefik-simple-auth to authenticate a user.  It implements the oauth2 handshake,
+// as well as a means to get the email address of the authenticated users.
+//
+// Currently, Google and GitHub are supported as oauth2 providers.
 package oauth
 
 import (
@@ -10,11 +14,13 @@ import (
 
 // A Handler performs the OAuth handshake and get the email address for the authenticated user.
 type Handler interface {
+	// AuthCodeURL generates the URL to use in the oauth2 handshake.
 	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
+	// GetUserEmailAddress returns the email address of the authenticated user.
 	GetUserEmailAddress(code string) (string, error)
 }
 
-// NewHandler returns a new Handler for the selected provider. Currently, google and github are supported.
+// NewHandler returns a new Handler for the selected provider. Currently, Google and GitHub are supported.
 func NewHandler(provider, clientID, clientSecret, authURL string, logger *slog.Logger) (Handler, error) {
 	switch provider {
 	case "google":

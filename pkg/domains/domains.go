@@ -1,3 +1,4 @@
+// Package domains provides a means of testing if the host in a URL is part of a list of domains.
 package domains
 
 import (

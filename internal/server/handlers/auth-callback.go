@@ -18,7 +18,7 @@ import (
 // target that originally initiated the oauth flow.
 type AuthCallbackHandler struct {
 	Logger        *slog.Logger
-	States        *state.Store[string]
+	States        *state.States[string]
 	Domains       domains.Domains
 	OAuthHandlers map[domains.Domain]oauth.Handler
 	Whitelist     whitelist.Whitelist

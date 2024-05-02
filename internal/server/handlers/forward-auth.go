@@ -15,7 +15,7 @@ import (
 type ForwardAuthHandler struct {
 	Logger        *slog.Logger
 	Domains       domains.Domains
-	States        *state.Store[string]
+	States        *state.States[string]
 	Sessions      *sessions.Sessions
 	OAuthHandlers map[domains.Domain]oauth.Handler
 	OAUTHPath     string
@@ -62,9 +62,14 @@ func (h *ForwardAuthHandler) authenticate(w http.ResponseWriter, r *http.Request
 func (h *ForwardAuthHandler) redirectToAuth(w http.ResponseWriter, r *http.Request, domain domains.Domain) {
 	// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 	// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
+	//
+	// Note: since the state is kept in memory, this does limit traefik-simple-auth to a single instance, as in a multi-inatance setup,
+	// the callback may be routed to a different instance than the one that generate the state.
+	// However, considered traefik-simple-auth responds in less than 100 µs (i.e. 10,000 tps in a worst case scenario),
+	// this doesn't present a real problem (yet).
 	encodedState := h.States.Add(r.URL.String())
 
-	// Redirect user to oauth provider to select the account to be used to authenticate the request
+	// Redirect the user to the oauth2 provider to select the account to authenticate the request.
 	authCodeURL := h.OAuthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 	h.Logger.Debug("redirecting ...", "authCodeURL", authCodeURL)
 	http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
