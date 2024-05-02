@@ -15,9 +15,9 @@ A simple, up-to-date, re-implementation of traefik-forward-auth.
 - [Installation](#installation)
 - [Configuration](#configuration)
   - [Using Google as auth provider](#using-google-as-auth-provider)
-  - [Traefik](#traefik)
-  - [Authenticating access to an ingress](#authenticating-access-to-an-ingress)
-  - [Running traefik-simple-auth](#running-traefik-simple-auth)
+  - [traefik](#traefik)
+  - [traefik-simple-auth](#traefik-simple-auth)
+- [Command line arguments](#command-line-arguments)
 - [Metrics](#metrics)
 - [Authors](#authors)
 - [License](#license)
@@ -148,7 +148,7 @@ This forwards the request to traefik-simple-auth.
 Note: unlike with traefik-forward-auth, the ingress for the authentication callback flow does not need the forwardAuth middleware
 (i.e. it does not include a `traefik.ingress.kubernetes.io/router.middlewares: <traefik-simple-auth>` annotation).
 
-### Authenticating access to an ingress
+#### Authenticating access to an ingress
 
 To enable traefik-simple-auth to authenticate access to an ingress, add the middleware as an annotation:
 
@@ -169,10 +169,29 @@ spec:
 Each access to the ingress causes traefik to first forward the request to the middleware.  If the middleware responds
 with an HTTP 2xx code (meaning the request has a valid session cookie), traefik honours the request.
 
-Note: traefik prepends the namespace to the name of middleware defined via a kubernetes resource. So, the middleware
-`traefik-simple-auth` that was created in the `traefik` namespace becomes `traefik-traefik-simple-auth`.
+Note: traefik prepends the namespace to the name of the middleware defined via a kubernetes resource. So, the middleware
+`traefik-simple-auth` in the `traefik` namespace becomes `traefik-traefik-simple-auth`.
 
-### Running traefik-simple-auth
+### traefik-simple-auth
+
+With the configuration above, run traefik-forward-auth:
+
+```
+traefik-simple-auth \
+  -addr :8080 \                     # service directs to port 8080
+  -provider google \                # google is the auth provider
+  -auth-prefix auth \               # prefix of the redirect URL configured in the auth provider
+  -domains example.com \            # domain of the redirect URL 
+  -client-id <client-id> \          # auth provider Client ID
+  -client-secret <client-secret> \  # auth provider Client Secret
+  -secret c2VjcmV0Cg==              # secret used to protect the session cookie
+```
+
+With this configuration, traefik-simple-auth authenticates any request for example.com, or any subdomain. Since no 
+whitelist is provided, any authenticated user is allowed. The application handling the authenticated traffic can find 
+the user in the `X-Forwarded-User` header of the request.
+
+## Command line arguments
 
 traefik-simple-auth supports the following command-line arguments:
 
@@ -232,7 +251,7 @@ Usage:
 
 - `auth-prefix`
 
-  Prefix used to construct the authorization URL from the domain.
+  The prefix used in the auth provider's redirect URL.
 
 - `session-cookie-name`
 
@@ -244,7 +263,10 @@ Usage:
 
 - `domains`
 
-   A comma-separated list of all allowed domains. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) are allowed.
+  A comma-separated list of all allowed domains. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) are allowed. 
+  
+  Note: each domain needs a redirect URL configured in the auth provider, matching the domain, e.g. when using example.com and example.org, 
+  both https://auth.example.com/_oauth and https://auth.example.org/_oauth need to be set up as redirect URLs and an ingress is needed for each of these URLs to route back to traefik-simple-auth.   
 
 - `expiry`
 
