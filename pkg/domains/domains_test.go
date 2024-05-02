@@ -91,7 +91,7 @@ func TestDomains_Domain(t *testing.T) {
 		{
 			name:    "match single domain",
 			domains: []string{"example.com"},
-			target:  "https://www.example.com/foo",
+			target:  "https://example.com/foo",
 			wantOK:  assert.True,
 			want:    ".example.com",
 		},
@@ -106,6 +106,12 @@ func TestDomains_Domain(t *testing.T) {
 			name:    "no match",
 			domains: []string{"example.com", "example.org"},
 			target:  "https://www.example.net",
+			wantOK:  assert.False,
+		},
+		{
+			name:    "overlap",
+			domains: []string{"example.com"},
+			target:  "https://www.badexample.com/foo",
 			wantOK:  assert.False,
 		},
 		{
@@ -130,45 +136,6 @@ func TestDomains_Domain(t *testing.T) {
 			domain, ok := domains.Domain(u)
 			tt.wantOK(t, ok)
 			assert.Equal(t, tt.want, domain)
-		})
-	}
-}
-
-func Test_isSubdomain(t *testing.T) {
-	tests := []struct {
-		name   string
-		domain Domain
-		input  string
-		want   assert.BoolAssertionFunc
-	}{
-		{
-			name:   "equal",
-			domain: ".example.com",
-			input:  "example.com",
-			want:   assert.True,
-		},
-		{
-			name:   "valid subdomain",
-			domain: ".example.com",
-			input:  "www.example.com",
-			want:   assert.True,
-		},
-		{
-			name:   "don't match on overlap",
-			domain: ".example.com",
-			input:  "bad-example.com",
-			want:   assert.False,
-		},
-		{
-			name:   "mismatch",
-			domain: ".example.com",
-			input:  "www.example2.com",
-			want:   assert.False,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.want(t, isValidSubdomain(tt.domain, tt.input))
 		})
 	}
 }

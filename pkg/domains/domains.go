@@ -6,10 +6,9 @@ import (
 	"strings"
 )
 
-// Domain type
 type Domain string
 
-// Domains validates if the host in a URL is part of a list of subdomains.
+// Domains validates if the host in a URL is part of a list of domains.
 type Domains []Domain
 
 func GetDomains(entries []string) (Domains, error) {
