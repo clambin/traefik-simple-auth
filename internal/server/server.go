@@ -32,7 +32,7 @@ func New(ctx context.Context, config configuration.Configuration, m *Metrics, l 
 	oauthHandlers := make(map[domains.Domain]oauth.Handler)
 	for _, domain := range config.Domains {
 		var err error
-		if oauthHandlers[domain], err = oauth.NewHandler(ctx, config.Provider, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath), l.With("oauth", config.Provider)); err != nil {
+		if oauthHandlers[domain], err = oauth.NewHandler(ctx, config.Provider, config.OIDCServiceURL, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath), l.With("domain", domain)); err != nil {
 			panic("unknown provider: " + config.Provider)
 		}
 	}

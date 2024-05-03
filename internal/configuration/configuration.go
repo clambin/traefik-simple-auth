@@ -21,6 +21,7 @@ var (
 	domainsString     = flag.String("domains", "", "Comma-separated list of domains to allow access")
 	users             = flag.String("users", "", "Comma-separated list of usernames to login")
 	provider          = flag.String("provider", "google", "The OAuth2 provider to use")
+	oidcServiceURL    = flag.String("provider-oidc-service-url", "https://accounts.google.com", "The OIDC ServiceURL to use (only used when provider is oidc")
 	clientId          = flag.String("client-id", "", "OAuth2 Client ID")
 	clientSecret      = flag.String("client-secret", "", "OAuth2 Client Secret")
 	secret            = flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
@@ -34,6 +35,7 @@ type Configuration struct {
 	Expiry            time.Duration
 	Secret            []byte
 	Provider          string
+	OIDCServiceURL    string
 	Domains           domains.Domains
 	Whitelist         whitelist.Whitelist
 	ClientID          string
@@ -49,6 +51,7 @@ func GetConfiguration() (Configuration, error) {
 		SessionCookieName: *sessionCookieName,
 		Expiry:            *expiry,
 		Provider:          *provider,
+		OIDCServiceURL:    *oidcServiceURL,
 		ClientID:          *clientId,
 		ClientSecret:      *clientSecret,
 		AuthPrefix:        *authPrefix,

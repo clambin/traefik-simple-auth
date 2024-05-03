@@ -32,7 +32,7 @@ func TestGoogleHandler_GetUserEmailAddress(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	h, _ := NewHandler(ctx, "google", "1234", "1234567", "https://auth.example.com/_oauth", slog.Default())
+	h, _ := NewHandler(ctx, "google", "", "1234", "1234567", "https://auth.example.com/_oauth", slog.Default())
 	h.(*GoogleHandler).HTTPClient = &http.Client{Transport: s}
 
 	user, err := h.GetUserEmailAddress(ctx, "abcd1234")
