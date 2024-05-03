@@ -38,36 +38,44 @@ func (h *OIDCHandler) GetUserEmailAddress(ctx context.Context, code string) (str
 		return "", fmt.Errorf("could not get access token: %w", err)
 	}
 
-	h.Logger.Debug("exchanged access token", "token", oauth2Token.AccessToken)
-
-	// Extract the ID Token from OAuth2 token.
-	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
-	if !ok {
-		return "", fmt.Errorf("no id_token field in oauth2 token")
-	}
-
-	h.Logger.Debug("extracted access token id_token", "id", rawIDToken)
-
-	// Parse and verify ID Token payload.
-	verifier := h.Provider.Verifier(&oidc.Config{ClientID: h.Config.ClientID})
-	idToken, err := verifier.Verify(ctx, rawIDToken)
+	userInfo, err := h.Provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
 	if err != nil {
-		return "", fmt.Errorf("could not verify ID token: %w", err)
+		return "", fmt.Errorf("could not get user info: %w", err)
 	}
+	return userInfo.Email, nil
+	/*
+		h.Logger.Debug("exchanged access token", "token", oauth2Token.AccessToken)
 
-	h.Logger.Debug("verified ID token", "token", idToken)
+		// Extract the ID Token from OAuth2 token.
+		rawIDToken, ok := oauth2Token.Extra("id_token").(string)
+		if !ok {
+			return "", fmt.Errorf("no id_token field in oauth2 token")
+		}
 
-	// Extract custom claims
-	var claims struct {
-		Email    string `json:"email"`
-		Verified bool   `json:"email_verified"`
-	}
-	if err = idToken.Claims(&claims); err != nil {
-		return "", fmt.Errorf("could not parse ID token claims: %w", err)
-	}
-	if !claims.Verified {
-		return "", fmt.Errorf("email address not verified: %s", claims.Email)
-	}
+		h.Logger.Debug("extracted access token id_token", "id", rawIDToken)
 
-	return claims.Email, nil
+		// Parse and verify ID Token payload.
+		verifier := h.Provider.Verifier(&oidc.Config{ClientID: h.Config.ClientID})
+		idToken, err := verifier.Verify(ctx, rawIDToken)
+		if err != nil {
+			return "", fmt.Errorf("could not verify ID token: %w", err)
+		}
+
+		h.Logger.Debug("verified ID token", "token", idToken)
+
+		// Extract custom claims
+		var claims struct {
+			Email    string `json:"email"`
+			Verified bool   `json:"email_verified"`
+		}
+		if err = idToken.Claims(&claims); err != nil {
+			return "", fmt.Errorf("could not parse ID token claims: %w", err)
+		}
+		if !claims.Verified {
+			return "", fmt.Errorf("email address not verified: %s", claims.Email)
+		}
+
+		return claims.Email, nil
+
+	*/
 }
