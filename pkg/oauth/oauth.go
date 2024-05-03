@@ -72,7 +72,7 @@ func NewOIDCHandler(ctx context.Context, provider, clientID, clientSecret, authU
 			ClientSecret: clientSecret,
 			Endpoint:     oidcProvider.Endpoint(),
 			RedirectURL:  authURL,
-			Scopes:       []string{"profile", "email"},
+			Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 		},
 		Logger:   logger,
 		Provider: oidcProvider,
