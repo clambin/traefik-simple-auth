@@ -23,11 +23,10 @@ type Handler interface {
 // NewHandler returns a new Handler for the selected provider. Currently, Google and GitHub are supported.
 func NewHandler(ctx context.Context, provider, oidcServiceURL, clientID, clientSecret, authURL string, logger *slog.Logger) (Handler, error) {
 	switch provider {
-	// TODO: make this a OIDCHandler. ServiceURL "https://accounts.google.com"
-	case "google":
-		return NewGoogleHandler(ctx, clientID, clientSecret, authURL, logger), nil
 	case "github":
 		return NewGitHubHandler(ctx, clientID, clientSecret, authURL, logger), nil
+	case "google":
+		return NewOIDCHandler(ctx, "https://accounts.google.com", clientID, clientSecret, authURL, logger)
 	case "oidc":
 		return NewOIDCHandler(ctx, oidcServiceURL, clientID, clientSecret, authURL, logger)
 	default:
