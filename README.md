@@ -33,7 +33,7 @@ many forks. However, that implementation hasn't been updated in over 3 years. I 
 * provide more operational observability into how forwardAuth is used;
 * fun!
 
-traefik-forward-auth offers many features that I wasn't necessarily interested in: support for openID, overlay mode, rules, etc. 
+traefik-forward-auth offers many features that I wasn't necessarily interested in: overlay mode, rules, etc. 
 Those are not implemented in the current version of traefik-simple-auth. That may change in the future. 
 
 ## Design
@@ -215,6 +215,8 @@ Usage:
         The address to listen on for Prometheus scrape requests (default ":9090")
   -provider string
         The OAuth2 provider to use (default "google")
+  -provider-oidc-service-url string
+        The OIDC ServiceURL to use (only used when provider is oidc) (default "https://accounts.google.com")
   -secret string
         Secret to use for authentication (base64 encoded)
   -session-cookie-name string
@@ -239,7 +241,14 @@ Usage:
 
 - `provider`
 
-  The auth provider to use. Currently, only "google" and "github" are supported.
+  The auth provider to use. Supported values are `github`, `google` and `oidc`. When using `oidc` (i.e. OpenID Connect), 
+  the user should also provide the OIDC ServiceURL for the OIDC service (`-provider-oidc-service-url`).
+
+  Note: in theory, any OpenID Connect-compliant service should work. But only Google has been tested.
+
+- `provider-oidc-service-url`
+
+  The service URL to use for the oidc provider. Default is "https://accounts.google.com" (i.e. Google)
 
 - `client-id`
 
@@ -251,7 +260,9 @@ Usage:
 
 - `auth-prefix`
 
-  The prefix used in the auth provider's redirect URL.
+  The prefix used to construct the auth provider's redirect URL.
+
+  Example: if the auth-prefix is `auth` and the domain is `example.com`, the Auth Redirect URL will be `https://auth.example.com/_oauth'. 
 
 - `session-cookie-name`
 
