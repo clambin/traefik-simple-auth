@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
@@ -33,17 +34,18 @@ func TestNewHandler(t *testing.T) {
 		},
 	}
 
+	ctx := context.TODO()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := NewHandler(tt.provider, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
+			_, err := NewHandler(ctx, tt.provider, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
 			tt.wantErr(t, err)
 		})
 	}
 }
 
 func TestHandler_AuthCodeURL(t *testing.T) {
-	h, _ := NewHandler("google", "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
+	h, _ := NewHandler(context.TODO(), "google", "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
 
 	u, err := url.Parse(h.AuthCodeURL("state", oauth2.SetAuthURLParam("prompt", "select_profile")))
 	require.NoError(t, err)

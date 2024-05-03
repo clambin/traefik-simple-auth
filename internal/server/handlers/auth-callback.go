@@ -44,7 +44,7 @@ func (h *AuthCallbackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	domain, _ := h.Domains.Domain(u)
 
 	// Use the "code" in the response to determine the user's email address.
-	user, err := h.OAuthHandlers[domain].GetUserEmailAddress(r.FormValue("code"))
+	user, err := h.OAuthHandlers[domain].GetUserEmailAddress(r.Context(), r.FormValue("code"))
 	if err != nil {
 		h.Logger.Error("failed to log in", "err", err)
 		http.Error(w, "oauth2 failed", http.StatusBadGateway)

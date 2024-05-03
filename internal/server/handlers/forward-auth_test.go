@@ -24,7 +24,7 @@ func TestServer_Authenticate(t *testing.T) {
 		Domains:       domains.Domains{".example.com"},
 		States:        &store,
 		Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
-		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": oauth.NewGoogleHandler("123", "1234", "https://auth.example.com/_oauth", l)},
+		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": oauth.NewGoogleHandler(context.TODO(), "123", "1234", "https://auth.example.com/_oauth", l)},
 		OAUTHPath:     "/oauth",
 	}
 

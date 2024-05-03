@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
@@ -26,7 +27,7 @@ func TestServer(t *testing.T) {
 		ClientSecret:      "1234",
 		AuthPrefix:        "auth",
 	}
-	s := New(config, nil, slog.Default())
+	s := New(context.TODO(), config, nil, slog.Default())
 
 	t.Run("forwardAuth requests without cookie get redirected", func(t *testing.T) {
 		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
@@ -79,7 +80,7 @@ func TestServer_Panics(t *testing.T) {
 			Domains:  domains.Domains{"example.com"},
 		}
 		l := slog.Default()
-		_ = New(cfg, nil, l)
+		_ = New(context.TODO(), cfg, nil, l)
 	}()
 	assert.True(t, panics)
 }
@@ -151,7 +152,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Whitelist:         map[string]struct{}{"foo@example.com": {}},
 		Provider:          "google",
 	}
-	s := New(config, nil, slog.Default())
+	s := New(context.TODO(), config, nil, slog.Default())
 	sess := s.sessions.SessionWithExpiration("foo@example.com", time.Hour)
 	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(s.cbHandler.Sessions.Cookie(sess, config.Domains[0]))

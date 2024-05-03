@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,10 +31,11 @@ func TestGoogleHandler_GetUserEmailAddress(t *testing.T) {
 		},
 	}
 
-	h, _ := NewHandler("google", "1234", "1234567", "https://auth.example.com/_oauth", slog.Default())
+	ctx := context.TODO()
+	h, _ := NewHandler(ctx, "google", "1234", "1234567", "https://auth.example.com/_oauth", slog.Default())
 	h.(*GoogleHandler).HTTPClient = &http.Client{Transport: s}
 
-	user, err := h.GetUserEmailAddress("abcd1234")
+	user, err := h.GetUserEmailAddress(ctx, "abcd1234")
 	require.NoError(t, err)
 	assert.Equal(t, "foo@example.com", user)
 }

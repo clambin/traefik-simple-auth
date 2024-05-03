@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -22,7 +23,7 @@ func TestServer_withMetrics(t *testing.T) {
 		Provider:          "google",
 	}
 	m := NewMetrics("", "", map[string]string{"provider": "foo"})
-	s := New(config, m, slog.Default())
+	s := New(context.TODO(), config, m, slog.Default())
 
 	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	w := httptest.NewRecorder()
@@ -70,7 +71,7 @@ func TestMetrics_Collect_ActiveUsers(t *testing.T) {
 		Expiry:            time.Hour,
 	}
 	m := NewMetrics("", "", map[string]string{"provider": "foo"})
-	s := New(config, m, slog.Default())
+	s := New(context.TODO(), config, m, slog.Default())
 
 	s.sessions.Session("foo@example.com")
 	s.sessions.SessionWithExpiration("foo@example.com", 30*time.Minute)

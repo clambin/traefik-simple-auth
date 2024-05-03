@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/handlers"
@@ -25,13 +26,13 @@ type Server struct {
 	http.Handler
 }
 
-func New(config configuration.Configuration, m *Metrics, l *slog.Logger) *Server {
+func New(ctx context.Context, config configuration.Configuration, m *Metrics, l *slog.Logger) *Server {
 	l = l.With("provider", config.Provider)
 
 	oauthHandlers := make(map[domains.Domain]oauth.Handler)
 	for _, domain := range config.Domains {
 		var err error
-		if oauthHandlers[domain], err = oauth.NewHandler(config.Provider, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath), l.With("oauth", config.Provider)); err != nil {
+		if oauthHandlers[domain], err = oauth.NewHandler(ctx, config.Provider, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath), l.With("oauth", config.Provider)); err != nil {
 			panic("unknown provider: " + config.Provider)
 		}
 	}

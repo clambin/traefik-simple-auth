@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -56,10 +57,11 @@ func TestGitHubHandler_GetUserEmailAddress(t *testing.T) {
 				},
 			}
 
-			h, _ := NewHandler("github", "1234", "1234567", "https://auth.example.com/_oauth", slog.Default())
+			ctx := context.Background()
+			h, _ := NewHandler(ctx, "github", "1234", "1234567", "https://auth.example.com/_oauth", slog.Default())
 			h.(*GitHubHandler).HTTPClient = &http.Client{Transport: s}
 
-			user, err := h.GetUserEmailAddress("abcd1234")
+			user, err := h.GetUserEmailAddress(ctx, "abcd1234")
 			require.NoError(t, err)
 			assert.Equal(t, "foo@example.com", user)
 

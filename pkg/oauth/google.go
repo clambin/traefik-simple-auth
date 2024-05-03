@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"golang.org/x/oauth2"
@@ -17,7 +18,7 @@ type GoogleHandler struct {
 }
 
 // NewGoogleHandler returns a new Handler for Google.
-func NewGoogleHandler(clientID, clientSecret, authURL string, logger *slog.Logger) *GoogleHandler {
+func NewGoogleHandler(_ context.Context, clientID, clientSecret, authURL string, logger *slog.Logger) *GoogleHandler {
 	return &GoogleHandler{
 		BaseHandler: BaseHandler{
 			HTTPClient: http.DefaultClient,
@@ -36,14 +37,14 @@ func NewGoogleHandler(clientID, clientSecret, authURL string, logger *slog.Logge
 const googleUserURL = "https://openidconnect.googleapis.com/v1/userinfo"
 
 // GetUserEmailAddress returns the email address of the authenticated user.
-func (h GoogleHandler) GetUserEmailAddress(code string) (string, error) {
+func (h GoogleHandler) GetUserEmailAddress(ctx context.Context, code string) (string, error) {
 	// Use code to get token and get user info from Google.
-	token, err := h.getAccessToken(code)
+	token, err := h.getAccessToken(ctx, code)
 	if err != nil {
 		return "", err
 	}
 
-	req, _ := http.NewRequest(http.MethodGet, googleUserURL, nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, googleUserURL, nil)
 	token.SetAuthHeader(req)
 
 	response, err := h.HTTPClient.Do(req)

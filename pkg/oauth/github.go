@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"golang.org/x/oauth2"
@@ -17,7 +18,7 @@ type GitHubHandler struct {
 }
 
 // NewGitHubHandler returns a new Handler for GitHub.
-func NewGitHubHandler(clientID, clientSecret, authURL string, logger *slog.Logger) *GitHubHandler {
+func NewGitHubHandler(_ context.Context, clientID, clientSecret, authURL string, logger *slog.Logger) *GitHubHandler {
 	return &GitHubHandler{
 		BaseHandler: BaseHandler{
 			HTTPClient: http.DefaultClient,
@@ -38,24 +39,24 @@ func NewGitHubHandler(clientID, clientSecret, authURL string, logger *slog.Logge
 // For GitHub, we first check the user's profile.  If the user's email address if marked as public, that email address is returned.
 // Otherwise, we check the different email addresses for that user. If one is marked as primary, that email address is returned.
 // Otherwise, we return the first email address in the list.
-func (h GitHubHandler) GetUserEmailAddress(code string) (string, error) {
+func (h GitHubHandler) GetUserEmailAddress(ctx context.Context, code string) (string, error) {
 	// Use code to get token and get user info from GitHub
-	token, err := h.getAccessToken(code)
+	token, err := h.getAccessToken(ctx, code)
 	if err != nil {
 		return "", err
 	}
 
-	email, err := h.getAddress(token)
+	email, err := h.getAddress(ctx, token)
 	if email != "" && err == nil {
 		return email, nil
 	}
 	h.Logger.Debug("No email address found. Using user public profile instead", "err", err)
 	// this should normally not be needed (and only works if the user made their address public).
-	return h.getAddressFromProfile(token)
+	return h.getAddressFromProfile(ctx, token)
 }
 
-func (h GitHubHandler) getAddress(token *oauth2.Token) (string, error) {
-	resp, err := h.do("https://api.github.com/user/emails", token)
+func (h GitHubHandler) getAddress(ctx context.Context, token *oauth2.Token) (string, error) {
+	resp, err := h.do(ctx, "https://api.github.com/user/emails", token)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user info: %w", err)
 	}
@@ -84,8 +85,8 @@ func (h GitHubHandler) getAddress(token *oauth2.Token) (string, error) {
 	return users[0].Email, nil
 }
 
-func (h GitHubHandler) getAddressFromProfile(token *oauth2.Token) (string, error) {
-	resp, err := h.do("https://api.github.com/user", token)
+func (h GitHubHandler) getAddressFromProfile(ctx context.Context, token *oauth2.Token) (string, error) {
+	resp, err := h.do(ctx, "https://api.github.com/user", token)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user info: %w", err)
 	}
@@ -99,8 +100,8 @@ func (h GitHubHandler) getAddressFromProfile(token *oauth2.Token) (string, error
 	return user.Email, err
 }
 
-func (h GitHubHandler) do(url string, token *oauth2.Token) (*http.Response, error) {
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
+func (h GitHubHandler) do(ctx context.Context, url string, token *oauth2.Token) (*http.Response, error) {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	token.SetAuthHeader(req)
 	req.Header.Set("Accept", "application/vnd.github+json")
 
