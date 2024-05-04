@@ -34,7 +34,7 @@ func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {
 			Email:         "foo@example.com",
 			EmailVerified: true,
 		}
-		session, err := s.SessionStore.NewSession("oidc profile email", "1234567890", &u, "12345", "")
+		session, err := s.SessionStore.NewSession("oidc profile email", "", &u, "", "")
 		require.NoError(t, err)
 
 		email, err := h.GetUserEmailAddress(ctx, session.SessionID)
