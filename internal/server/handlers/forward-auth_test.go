@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
-	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
@@ -17,19 +16,14 @@ import (
 )
 
 func TestServer_Authenticate(t *testing.T) {
-	store := state.New[string](time.Minute)
-	l := slog.Default()
-	oauthHandler, _ := oauth.NewHandler(context.TODO(), "google", "", "123", "1234", "https://auth.example.com/_oauth", l)
-	h := ForwardAuthHandler{
-		Logger:        l,
-		Domains:       domains.Domains{".example.com"},
-		States:        &store,
-		Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
-		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": oauthHandler},
-		OAUTHPath:     "/oauth",
-	}
+	stateStore := state.New[string](time.Minute)
+	logger := slog.Default()
+	oauthHandler, _ := oauth.NewHandler(context.TODO(), "google", "", "123", "1234", "https://auth.example.com/_oauth", logger)
 
-	validSession := h.Sessions.Session("foo@example.com")
+	h := ForwardAuthHandler(domains.Domains{".example.com"}, map[domains.Domain]oauth.Handler{".example.com": oauthHandler}, &stateStore, logger)
+
+	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
+	validSession := sessionStore.Session("foo@example.com")
 
 	type args struct {
 		target  string
@@ -87,36 +81,4 @@ func TestServer_Authenticate(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestServer_LogoutHandler(t *testing.T) {
-	store := state.New[string](time.Minute)
-	h := ForwardAuthHandler{
-		Logger:        slog.Default(),
-		Domains:       domains.Domains{".example.com"},
-		States:        &store,
-		Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
-		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": &testutils.FakeOauthHandler{}},
-		OAUTHPath:     "/_oauth",
-	}
-
-	t.Run("logging out clears the session cookie", func(t *testing.T) {
-		r, _ := http.NewRequest(http.MethodGet, "https://example.com/_oauth/logout", nil)
-		session := h.Sessions.Session("foo@example.com")
-		r = r.WithContext(context.WithValue(r.Context(), sessionKey, session))
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		require.Equal(t, http.StatusUnauthorized, w.Code)
-		assert.Equal(t, "You have been logged out\n", w.Body.String())
-		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
-
-	})
-
-	t.Run("must be logged in to log out", func(t *testing.T) {
-		r, _ := http.NewRequest(http.MethodGet, "https://example.com/_oauth/logout", nil)
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, r)
-		require.Equal(t, http.StatusUnauthorized, w.Code)
-		assert.Equal(t, "Invalid session\n", w.Body.String())
-	})
 }

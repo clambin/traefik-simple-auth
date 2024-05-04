@@ -61,9 +61,6 @@ func GetConfiguration() (Configuration, error) {
 	if err != nil {
 		return Configuration{}, fmt.Errorf("invalid domain list: %w", err)
 	}
-	if len(cfg.Domains) == 0 {
-		return Configuration{}, errors.New("no valid domains")
-	}
 	cfg.Whitelist, err = whitelist.New(strings.Split(*users, ","))
 	if err != nil {
 		return Configuration{}, fmt.Errorf("invalid whitelist: %w", err)

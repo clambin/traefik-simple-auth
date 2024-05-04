@@ -58,22 +58,22 @@ func TestAuthCallbackHandler(t *testing.T) {
 			t.Parallel()
 
 			store := state.New[string](time.Minute)
-			h := AuthCallbackHandler{
-				Logger:        slog.Default(),
-				States:        &store,
-				Domains:       domains.Domains{".example.com"},
-				OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": &testutils.FakeOauthHandler{Email: tt.oauthUser, Err: tt.oauthErr}},
-				Whitelist:     map[string]struct{}{"foo@example.com": {}},
-				Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
-			}
+			h := AuthCallbackHandler(
+				domains.Domains{".example.com"},
+				map[string]struct{}{"foo@example.com": {}},
+				map[domains.Domain]oauth.Handler{".example.com": &testutils.FakeOauthHandler{Email: tt.oauthUser, Err: tt.oauthErr}},
+				&store,
+				sessions.New("_auth", []byte("secret"), time.Hour),
+				slog.Default(),
+			)
 
-			state := tt.state
+			oauthState := tt.state
 			if tt.makeState {
-				state = h.States.Add("https://example.com/foo")
+				oauthState = store.Add("https://example.com/foo")
 			}
 			path := "/"
-			if state != "" {
-				path += "?state=" + state
+			if oauthState != "" {
+				path += "?state=" + oauthState
 			}
 
 			r, _ := http.NewRequest(http.MethodGet, "https://example.com"+path, nil)
