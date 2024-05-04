@@ -1,4 +1,4 @@
-package handlers
+package server
 
 import (
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"

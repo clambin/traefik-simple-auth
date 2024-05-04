@@ -14,8 +14,8 @@ type Sessions struct {
 	sessions          *cache.Cache[string, Session]
 }
 
-func New(cookieName string, secret []byte, expiration time.Duration) *Sessions {
-	return &Sessions{
+func New(cookieName string, secret []byte, expiration time.Duration) Sessions {
+	return Sessions{
 		SessionCookieName: cookieName,
 		Secret:            secret,
 		Expiration:        expiration,

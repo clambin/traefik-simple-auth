@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/go-common/http/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
@@ -18,13 +17,13 @@ import (
 const OAUTHPath = "/_oauth"
 
 type Server struct {
-	sessions      *sessions.Sessions
+	sessions      sessions.Sessions
 	states        state.States[string]
 	oauthHandlers map[domains.Domain]oauth.Handler
 	http.Handler
 }
 
-func New(ctx context.Context, config configuration.Configuration, m *Metrics, logger *slog.Logger) *Server {
+func New(ctx context.Context, config configuration.Configuration, metrics *Metrics, logger *slog.Logger) *Server {
 	logger = logger.With("provider", config.Provider)
 
 	s := Server{
@@ -39,29 +38,21 @@ func New(ctx context.Context, config configuration.Configuration, m *Metrics, lo
 		}
 	}
 
-	withMetrics := func(next http.Handler) http.Handler {
-		return next
-	}
-	if m != nil {
-		withMetrics = func(next http.Handler) http.Handler {
-			return middleware.WithRequestMetrics(m)(next)
-		}
-		go s.monitorSessions(m, 10*time.Second)
+	if metrics != nil {
+		go s.monitorSessions(metrics, 10*time.Second)
 	}
 
 	// create the server router
 	r := http.NewServeMux()
-
 	addRoutes(r,
 		config.Domains,
 		config.Whitelist,
 		s.oauthHandlers,
-		&s.states,
+		s.states,
 		s.sessions,
-		withMetrics,
+		metrics,
 		logger,
 	)
-
 	s.Handler = traefikForwardAuthParser(r)
 	return &s
 }
@@ -86,11 +77,16 @@ func makeAuthURL(authPrefix string, domain domains.Domain, OAUTHPath string) str
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
 func traefikForwardAuthParser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Forwarded-Host") != "" {
+		if isForwardAuth(r) {
 			r.URL = getOriginalTarget(r)
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isForwardAuth(r *http.Request) bool {
+	_, ok := r.Header["X-Forwarded-Host"]
+	return ok
 }
 
 func getOriginalTarget(r *http.Request) *url.URL {

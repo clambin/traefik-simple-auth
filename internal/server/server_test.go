@@ -82,7 +82,6 @@ func TestServer(t *testing.T) {
 }
 
 func TestServer_Panics(t *testing.T) {
-
 	var panics bool
 	func() {
 		defer func() {

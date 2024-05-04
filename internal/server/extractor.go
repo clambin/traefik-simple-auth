@@ -1,4 +1,4 @@
-package handlers
+package server
 
 import (
 	"context"
@@ -13,7 +13,7 @@ type ctxSessionKey string
 var sessionKey ctxSessionKey = "sessionKey"
 
 // SessionExtractor validates the session cookie from the request and, if valid, adds the session to the request's context.
-func SessionExtractor(sessions *sessions.Sessions, logger *slog.Logger) func(next http.Handler) http.Handler {
+func SessionExtractor(sessions sessions.Sessions, logger *slog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if userSession, err := sessions.Validate(r); err == nil {
