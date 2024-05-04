@@ -92,7 +92,7 @@ func TestGetConfiguration(t *testing.T) {
 				Addr:              ":8080",
 				PromAddr:          ":9090",
 				SessionCookieName: "_traefik_simple_auth",
-				Expiry:            30 * 24 * time.Hour,
+				Expiration:        30 * 24 * time.Hour,
 				Secret:            []byte("secret\n"),
 				Provider:          "google",
 				OIDCIssuerURL:     "https://accounts.google.com",

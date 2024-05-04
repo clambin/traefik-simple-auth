@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
@@ -99,7 +100,7 @@ func AuthCallbackHandler(
 		targetURL, ok := states.Get(encodedState)
 		if !ok {
 			logger.Warn("invalid state. Dropping request ...")
-			http.Error(w, "Invalid state", http.StatusBadRequest)
+			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
 
@@ -111,6 +112,12 @@ func AuthCallbackHandler(
 		// Use the "code" in the response to determine the user's email address.
 		user, err := oauthHandlers[domain].GetUserEmailAddress(r.Context(), r.FormValue("code"))
 		if err != nil {
+			var oauthErr *oauth2.RetrieveError
+			if errors.As(err, &oauthErr) {
+				logger.Warn("failed to retrieve code", "code", oauthErr.ErrorCode, "desc", oauthErr.ErrorDescription)
+				http.Error(w, "Invalid code", http.StatusUnauthorized)
+				return
+			}
 			logger.Error("failed to log in", "err", err)
 			http.Error(w, "oauth2 failed", http.StatusBadGateway)
 			return
@@ -124,7 +131,7 @@ func AuthCallbackHandler(
 			return
 		}
 
-		// GetUserEmailAddress successful. Add session cookie and redirect the user to the final destination.
+		// GetUserEmailAddress successful. Create a session and redirect the user to the final destination.
 		session := sessions.Session(user)
 		http.SetCookie(w, sessions.Cookie(session, domain))
 

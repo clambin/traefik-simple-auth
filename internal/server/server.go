@@ -16,30 +16,19 @@ import (
 
 const OAUTHPath = "/_oauth"
 
-type Server struct {
-	sessions      sessions.Sessions
-	states        state.States[string]
-	oauthHandlers map[domains.Domain]oauth.Handler
-	http.Handler
-}
-
-func New(ctx context.Context, config configuration.Configuration, metrics *Metrics, logger *slog.Logger) *Server {
+func New(ctx context.Context, sessions sessions.Sessions, states state.States[string], config configuration.Configuration, metrics *Metrics, logger *slog.Logger) http.Handler {
 	logger = logger.With("provider", config.Provider)
 
-	s := Server{
-		sessions:      sessions.New(config.SessionCookieName, config.Secret, config.Expiry),
-		states:        state.New[string](5 * time.Minute),
-		oauthHandlers: make(map[domains.Domain]oauth.Handler),
-	}
+	oauthHandlers := make(map[domains.Domain]oauth.Handler)
 	for _, domain := range config.Domains {
 		var err error
-		if s.oauthHandlers[domain], err = oauth.NewHandler(ctx, config.Provider, config.OIDCIssuerURL, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath), logger.With("domain", domain)); err != nil {
-			panic("unknown provider: " + config.Provider)
+		if oauthHandlers[domain], err = oauth.NewHandler(ctx, config.Provider, config.OIDCIssuerURL, config.ClientID, config.ClientSecret, makeAuthURL(config.AuthPrefix, domain, OAUTHPath), logger.With("domain", domain)); err != nil {
+			panic("invalid provider: " + config.Provider + ", err: " + err.Error())
 		}
 	}
 
 	if metrics != nil {
-		go s.monitorSessions(metrics, 10*time.Second)
+		go monitorSessions(ctx, metrics, sessions, 10*time.Second)
 	}
 
 	// create the server router
@@ -47,21 +36,24 @@ func New(ctx context.Context, config configuration.Configuration, metrics *Metri
 	addRoutes(r,
 		config.Domains,
 		config.Whitelist,
-		s.oauthHandlers,
-		s.states,
-		s.sessions,
+		oauthHandlers,
+		states,
+		sessions,
 		metrics,
 		logger,
 	)
-	s.Handler = traefikForwardAuthParser(r)
-	return &s
+	return traefikForwardAuthParser(r)
 }
-func (s Server) monitorSessions(m *Metrics, interval time.Duration) {
+func monitorSessions(ctx context.Context, m *Metrics, sessions sessions.Sessions, interval time.Duration) {
 	for {
-		for user, count := range s.sessions.ActiveUsers() {
+		for user, count := range sessions.ActiveUsers() {
 			m.activeUsers.WithLabelValues(user).Set(float64(count))
 		}
-		time.Sleep(interval)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(interval):
+		}
 	}
 }
 
@@ -94,8 +86,8 @@ func getOriginalTarget(r *http.Request) *url.URL {
 	path := getHeaderValue(hdr, "X-Forwarded-Uri", "/")
 	var rawQuery string
 	if n := strings.Index(path, "?"); n > 0 {
-		rawQuery = path[n+1:]
 		path = path[:n]
+		rawQuery = path[n+1:]
 	}
 	return &url.URL{
 		Scheme:   getHeaderValue(hdr, "X-Forwarded-Proto", "https"),

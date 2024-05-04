@@ -32,7 +32,7 @@ type Configuration struct {
 	Addr              string
 	PromAddr          string
 	SessionCookieName string
-	Expiry            time.Duration
+	Expiration        time.Duration
 	Secret            []byte
 	Provider          string
 	OIDCIssuerURL     string
@@ -49,7 +49,7 @@ func GetConfiguration() (Configuration, error) {
 		Addr:              *addr,
 		PromAddr:          *promAddr,
 		SessionCookieName: *sessionCookieName,
-		Expiry:            *expiry,
+		Expiration:        *expiry,
 		Provider:          *provider,
 		OIDCIssuerURL:     *oidcIssuerURL,
 		ClientID:          *clientId,

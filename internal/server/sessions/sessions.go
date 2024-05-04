@@ -89,3 +89,13 @@ func (s Sessions) ActiveUsers() map[string]int {
 	}
 	return activeUsers
 }
+
+func (s Sessions) Contains(email string) bool {
+	for _, key := range s.sessions.GetKeys() {
+		sess, _ := s.sessions.Get(key)
+		if sess.Email == email {
+			return true
+		}
+	}
+	return false
+}
