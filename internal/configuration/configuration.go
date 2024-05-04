@@ -35,7 +35,7 @@ type Configuration struct {
 	Expiry            time.Duration
 	Secret            []byte
 	Provider          string
-	OIDCServiceURL    string
+	OIDCIssuerURL     string
 	Domains           domains.Domains
 	Whitelist         whitelist.Whitelist
 	ClientID          string
@@ -51,7 +51,7 @@ func GetConfiguration() (Configuration, error) {
 		SessionCookieName: *sessionCookieName,
 		Expiry:            *expiry,
 		Provider:          *provider,
-		OIDCServiceURL:    *oidcIssuerURL,
+		OIDCIssuerURL:     *oidcIssuerURL,
 		ClientID:          *clientId,
 		ClientSecret:      *clientSecret,
 		AuthPrefix:        *authPrefix,
