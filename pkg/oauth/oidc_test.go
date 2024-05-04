@@ -18,12 +18,12 @@ func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {
 	ctx := context.Background()
 	l := slog.Default()
 
-	t.Run("invalid service url", func(t *testing.T) {
+	t.Run("invalid issuer url", func(t *testing.T) {
 		_, err = NewOIDCHandler(ctx, "", cfg.ClientID, cfg.ClientSecret, "https://auth.example.com", l)
 		assert.Error(t, err)
 	})
 
-	t.Run("valid service url", func(t *testing.T) {
+	t.Run("valid issuer url", func(t *testing.T) {
 		h, err := NewOIDCHandler(ctx, s.Issuer(), cfg.ClientID, cfg.ClientSecret, "https://auth.example.com", l)
 		require.NoError(t, err)
 
@@ -42,7 +42,7 @@ func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {
 		assert.Equal(t, email, "foo@example.com")
 	})
 
-	t.Run("failed to access oauth server", func(t *testing.T) {
+	t.Run("failed to access OIDC server", func(t *testing.T) {
 		assert.NoError(t, s.Shutdown())
 
 		_, err = NewOIDCHandler(ctx, s.Issuer(), cfg.ClientID, cfg.ClientSecret, "https://auth.example.com", l)

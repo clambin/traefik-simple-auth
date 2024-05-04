@@ -19,9 +19,9 @@ var (
 	expiry            = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
 	authPrefix        = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
 	domainsString     = flag.String("domains", "", "Comma-separated list of domains to allow access")
-	users             = flag.String("users", "", "Comma-separated list of usernames to login")
-	provider          = flag.String("provider", "google", "The OAuth2 provider to use")
-	oidcServiceURL    = flag.String("provider-oidc-service-url", "https://accounts.google.com", "The OIDC ServiceURL to use (only used when provider is oidc")
+	users             = flag.String("users", "", "Comma-separated list of usernames to allow access")
+	provider          = flag.String("provider", "google", "The OAuth2 provider")
+	oidcIssuerURL     = flag.String("provider-oidc-issuer", "https://accounts.google.com", "The OIDC Issuer URL to use (only used when provider is oidc")
 	clientId          = flag.String("client-id", "", "OAuth2 Client ID")
 	clientSecret      = flag.String("client-secret", "", "OAuth2 Client Secret")
 	secret            = flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
@@ -51,7 +51,7 @@ func GetConfiguration() (Configuration, error) {
 		SessionCookieName: *sessionCookieName,
 		Expiry:            *expiry,
 		Provider:          *provider,
-		OIDCServiceURL:    *oidcServiceURL,
+		OIDCServiceURL:    *oidcIssuerURL,
 		ClientID:          *clientId,
 		ClientSecret:      *clientSecret,
 		AuthPrefix:        *authPrefix,

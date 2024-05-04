@@ -15,11 +15,11 @@ type OIDCHandler struct {
 	*oidc.Provider
 }
 
-func NewOIDCHandler(ctx context.Context, oidcServiceURL, clientID, clientSecret, authURL string, logger *slog.Logger) (Handler, error) {
-	if oidcServiceURL == "" {
-		return nil, errors.New("oidcServiceURL cannot be empty")
+func NewOIDCHandler(ctx context.Context, oidcIssuerURL, clientID, clientSecret, authURL string, logger *slog.Logger) (Handler, error) {
+	if oidcIssuerURL == "" {
+		return nil, errors.New("oidcIssuerURL cannot be empty")
 	}
-	oidcProvider, err := oidc.NewProvider(ctx, oidcServiceURL)
+	oidcProvider, err := oidc.NewProvider(ctx, oidcIssuerURL)
 	if err != nil {
 		return nil, fmt.Errorf("could not create OIDC provider: %w", err)
 	}
