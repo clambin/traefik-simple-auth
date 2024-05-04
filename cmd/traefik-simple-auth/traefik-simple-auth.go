@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
@@ -40,7 +41,7 @@ func main() {
 	m := server.NewMetrics("traefik_simple_auth", "", map[string]string{"provider": cfg.Provider})
 	prometheus.MustRegister(m)
 
-	s := server.New(cfg, m, l)
+	s := server.New(context.TODO(), cfg, m, l)
 	if err = http.ListenAndServe(cfg.Addr, s); !errors.Is(err, http.ErrServerClosed) {
 		l.Error("Error starting server", "err", err)
 		os.Exit(1)

@@ -19,12 +19,13 @@ import (
 func TestServer_Authenticate(t *testing.T) {
 	store := state.New[string](time.Minute)
 	l := slog.Default()
+	oauthHandler, _ := oauth.NewHandler(context.TODO(), "google", "", "123", "1234", "https://auth.example.com/_oauth", l)
 	h := ForwardAuthHandler{
 		Logger:        l,
 		Domains:       domains.Domains{".example.com"},
 		States:        &store,
 		Sessions:      sessions.New("_auth", []byte("secret"), time.Hour),
-		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": oauth.NewGoogleHandler("123", "1234", "https://auth.example.com/_oauth", l)},
+		OAuthHandlers: map[domains.Domain]oauth.Handler{".example.com": oauthHandler},
 		OAUTHPath:     "/oauth",
 	}
 

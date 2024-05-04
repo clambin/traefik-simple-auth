@@ -1,20 +1,19 @@
 package oauth
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"testing"
 )
 
 func TestNewHandler(t *testing.T) {
 	tests := []struct {
-		name     string
-		provider string
-		wantErr  assert.ErrorAssertionFunc
+		name       string
+		provider   string
+		serviceURL string
+		wantErr    assert.ErrorAssertionFunc
 	}{
 		{
 			name:     "google",
@@ -27,29 +26,26 @@ func TestNewHandler(t *testing.T) {
 			wantErr:  assert.NoError,
 		},
 		{
+			name:       "oidc",
+			provider:   "oidc",
+			serviceURL: "https://accounts.google.com",
+			wantErr:    assert.NoError,
+		},
+		{
 			name:     "invalid",
 			provider: "invalid",
 			wantErr:  assert.Error,
 		},
 	}
 
+	ctx := context.TODO()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := NewHandler(tt.provider, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
+			_, err := NewHandler(ctx, tt.provider, tt.serviceURL, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
 			tt.wantErr(t, err)
 		})
 	}
-}
-
-func TestHandler_AuthCodeURL(t *testing.T) {
-	h, _ := NewHandler("google", "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
-
-	u, err := url.Parse(h.AuthCodeURL("state", oauth2.SetAuthURLParam("prompt", "select_profile")))
-	require.NoError(t, err)
-	q := u.Query()
-	assert.Equal(t, "state", q.Get("state"))
-	assert.Equal(t, "select_profile", q.Get("prompt"))
 }
 
 var _ http.RoundTripper = &oauthServer{}

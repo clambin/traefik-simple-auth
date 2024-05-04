@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"context"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"golang.org/x/oauth2"
 )
@@ -17,6 +18,6 @@ func (f FakeOauthHandler) AuthCodeURL(_ string, _ ...oauth2.AuthCodeOption) stri
 	panic("implement me")
 }
 
-func (f FakeOauthHandler) GetUserEmailAddress(_ string) (string, error) {
+func (f FakeOauthHandler) GetUserEmailAddress(_ context.Context, _ string) (string, error) {
 	return f.Email, f.Err
 }

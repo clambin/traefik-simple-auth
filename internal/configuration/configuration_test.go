@@ -95,6 +95,7 @@ func TestGetConfiguration(t *testing.T) {
 				Expiry:            30 * 24 * time.Hour,
 				Secret:            []byte("secret\n"),
 				Provider:          "google",
+				OIDCIssuerURL:     "https://accounts.google.com",
 				Domains:           domains.Domains{".example.com"},
 				Whitelist:         whitelist.Whitelist{"foo@example.com": struct{}{}},
 				ClientID:          "123456789",
