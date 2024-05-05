@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
@@ -18,7 +17,7 @@ const OAUTHPath = "/_oauth"
 
 // New returns a new http.Handler that handles traefik's forward-auth requests, and the associated oauth flow.
 // It panics if config.Provider is invalid.
-func New(ctx context.Context, sessions sessions.Sessions, states state.States[string], config configuration.Configuration, metrics *Metrics, logger *slog.Logger) http.Handler {
+func New(ctx context.Context, sessions sessions.Sessions, states state.States[string], config Configuration, metrics *Metrics, logger *slog.Logger) http.Handler {
 	logger = logger.With("provider", config.Provider)
 
 	oauthHandlers := make(map[domains.Domain]oauth.Handler)
@@ -75,7 +74,7 @@ func traefikForwardAuthParser(logger *slog.Logger) func(next http.Handler) http.
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			//logger.Debug("raw request", "request", loggedRequest(r))
 			// anything other that OAUTHPath comes from traefik's forwardAuth middleware
-			if r.URL.Path != OAUTHPath {
+			if r.URL.Path != OAUTHPath && r.URL.Path != "/health" {
 				r.URL = getOriginalTarget(r)
 				logger.Debug("restored original request", "r", loggedRequest(r))
 			}

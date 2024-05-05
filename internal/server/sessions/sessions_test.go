@@ -56,10 +56,13 @@ func TestSessions_Validate(t *testing.T) {
 			}
 			session, err := s.Validate(r)
 			tt.wantErr(t, err)
-			if err == nil {
-				assert.NoError(t, session.validate(secret))
-				assert.Equal(t, tt.wantEmail, session.Email)
+			if err != nil {
+				return
 			}
+			assert.NoError(t, session.validate(secret))
+			assert.Equal(t, tt.wantEmail, session.Email)
+			assert.Equal(t, 1, s.Count())
+			assert.True(t, s.Contains(tt.wantEmail))
 		})
 	}
 }

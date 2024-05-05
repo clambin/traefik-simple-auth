@@ -35,6 +35,7 @@ func addRoutes(
 	))
 	mux.Handle("/", forwardAuthMiddleware(sessions, metrics, logger)(
 		ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth"))))
+	mux.Handle("/health", HealthHandler(sessions, states))
 }
 
 func forwardAuthMiddleware(sessions sessions.Sessions, m *Metrics, logger *slog.Logger) func(next http.Handler) http.Handler {

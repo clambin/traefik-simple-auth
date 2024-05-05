@@ -99,3 +99,7 @@ func (s Sessions) Contains(email string) bool {
 	}
 	return false
 }
+
+func (s Sessions) Count() int {
+	return s.sessions.Len()
+}

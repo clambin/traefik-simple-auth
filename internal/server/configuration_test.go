@@ -1,4 +1,4 @@
-package configuration
+package server
 
 import (
 	"github.com/clambin/traefik-simple-auth/pkg/domains"

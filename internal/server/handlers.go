@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
@@ -137,5 +138,20 @@ func AuthCallbackHandler(
 
 		logger.Info("user logged in. redirecting ...", "user", user, "url", targetURL)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
+	})
+}
+
+func HealthHandler(sessions sessions.Sessions, states state.States[string]) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		health := struct {
+			Sessions int `json:"sessions"`
+			States   int `json:"states"`
+		}{
+			Sessions: sessions.Count(),
+			States:   states.Count(),
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(health)
 	})
 }

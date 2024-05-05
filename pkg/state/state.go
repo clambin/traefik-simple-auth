@@ -39,3 +39,7 @@ func (s States[T]) Add(value T) string {
 func (s States[T]) Get(state string) (T, bool) {
 	return s.values.Get(state)
 }
+
+func (s States[T]) Count() int {
+	return s.values.Len()
+}

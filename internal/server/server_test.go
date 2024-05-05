@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
@@ -26,7 +25,7 @@ func TestServer_Panics(t *testing.T) {
 				panics = true
 			}
 		}()
-		cfg := configuration.Configuration{
+		cfg := Configuration{
 			Provider: "foobar",
 			Domains:  domains.Domains{"example.com"},
 		}
@@ -212,7 +211,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 	}()
 
 	list, _ := whitelist.New([]string{"foo@example.com"})
-	cfg := configuration.Configuration{
+	cfg := Configuration{
 		Provider:      "oidc",
 		AuthPrefix:    "auth",
 		ClientID:      oidcServer.ClientID,
@@ -283,7 +282,7 @@ func Test_getOriginalTarget(t *testing.T) {
 // before:
 // Benchmark_authHandler-16                  927531              1194 ns/op             941 B/op         14 allocs/op
 func Benchmark_authHandler(b *testing.B) {
-	config := configuration.Configuration{
+	config := Configuration{
 		Domains:   domains.Domains{"example.com"},
 		Whitelist: map[string]struct{}{"foo@example.com": {}},
 		Provider:  "google",

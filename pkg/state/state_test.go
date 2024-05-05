@@ -7,17 +7,19 @@ import (
 	"time"
 )
 
-func Test_stateHandler(t *testing.T) {
-	h := New[string](100 * time.Millisecond)
+func TestStates(t *testing.T) {
+	s := New[string](100 * time.Millisecond)
 
 	url := "https://example.com"
-	key := h.Add(url)
+	key := s.Add(url)
 
-	url2, ok := h.Get(key)
+	url2, ok := s.Get(key)
 	require.Truef(t, ok && url == url2, "failed to retrieve url from cache")
+	assert.Equal(t, 1, s.Count())
 
 	assert.Eventuallyf(t, func() bool {
-		_, ok = h.Get(key)
+		_, ok = s.Get(key)
 		return !ok
 	}, time.Second, 50*time.Millisecond, "state didn't expire")
+	assert.Zero(t, s.Count())
 }
