@@ -76,6 +76,7 @@ func traefikForwardAuthParser(logger *slog.Logger) func(next http.Handler) http.
 			logger.Debug("raw request", "request", loggedRequest(r))
 			if isForwardAuth(r) {
 				r.URL = getOriginalTarget(r)
+				logger.Debug("restored request", "r", loggedRequest(r))
 			}
 			next.ServeHTTP(w, r)
 		})
