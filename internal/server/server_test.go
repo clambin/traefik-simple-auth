@@ -110,7 +110,7 @@ func TestLogoutHandler(t *testing.T) {
 	sessionStore, _, _, s := setupServer(ctx, t, nil)
 
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
-		r, _ := http.NewRequest(http.MethodGet, "https://example.com/_oauth/logout", nil)
+		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
 		session := sessionStore.Session("foo@example.com")
 		r = r.WithContext(context.WithValue(r.Context(), sessionKey, session))
 		w := httptest.NewRecorder()
@@ -121,7 +121,7 @@ func TestLogoutHandler(t *testing.T) {
 	})
 
 	t.Run("must be logged in to log out", func(t *testing.T) {
-		r, _ := http.NewRequest(http.MethodGet, "https://example.com/_oauth/logout", nil)
+		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -188,7 +188,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 			v.Set("state", oauthState)
 			v.Set("code", code)
 
-			r, _ := http.NewRequest(http.MethodGet, "https://example.com"+OAUTHPath+"?"+v.Encode(), nil)
+			r, _ := http.NewRequest(http.MethodGet, OAUTHPath+"?"+v.Encode(), nil)
 			w := httptest.NewRecorder()
 			server.ServeHTTP(w, r)
 			assert.Equal(t, tt.wantCode, w.Code)

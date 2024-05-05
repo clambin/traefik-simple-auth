@@ -14,8 +14,11 @@ func loggedRequest(r *http.Request) slog.LogValuer {
 }
 
 func (r request) LogValue() slog.Value {
-	return slog.GroupValue(
-		slog.String("http", r.request.URL.String()),
-		slog.String("source", r.request.Header.Get("X-Forwarded-For")),
-	)
+	attrs := []slog.Attr{
+		slog.String("url", r.request.URL.String()),
+	}
+	for k := range r.request.Header {
+		attrs = append(attrs, slog.String(k, r.request.Header.Get(k)))
+	}
+	return slog.GroupValue(attrs...)
 }
