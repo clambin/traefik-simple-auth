@@ -2,48 +2,27 @@ package main
 
 import (
 	"context"
-	"errors"
-	"flag"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
+	"fmt"
+	"github.com/clambin/traefik-simple-auth/internal/cmd"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"log/slog"
-	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 var version string = "change-me"
 
 func main() {
-	flag.Parse()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
-	cfg, err := configuration.GetConfiguration()
+	cfg, err := server.GetConfiguration()
+	if err == nil {
+		err = cmd.Run(ctx, cfg, prometheus.DefaultRegisterer, os.Stderr, version)
+	}
 	if err != nil {
-		panic(err)
-	}
-
-	var opts slog.HandlerOptions
-	if cfg.Debug {
-		opts.Level = slog.LevelDebug
-	}
-	l := slog.New(slog.NewJSONHandler(os.Stderr, &opts))
-	l.Info("Starting traefik-simple-auth", "version", version)
-
-	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-		if err = http.ListenAndServe(cfg.PromAddr, nil); !errors.Is(err, http.ErrServerClosed) {
-			l.Error("Error starting Prometheus metrics server", "err", err)
-			os.Exit(1)
-		}
-	}()
-
-	m := server.NewMetrics("traefik_simple_auth", "", map[string]string{"provider": cfg.Provider})
-	prometheus.MustRegister(m)
-
-	s := server.New(context.TODO(), cfg, m, l)
-	if err = http.ListenAndServe(cfg.Addr, s); !errors.Is(err, http.ErrServerClosed) {
-		l.Error("Error starting server", "err", err)
+		_, _ = fmt.Fprintf(os.Stderr, "failed to start traefik-simple-auth: %s", err.Error())
 		os.Exit(1)
 	}
 }

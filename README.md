@@ -19,6 +19,7 @@ A simple, up-to-date, re-implementation of traefik-forward-auth.
   - [traefik-simple-auth](#traefik-simple-auth)
 - [Command line arguments](#command-line-arguments)
 - [Metrics](#metrics)
+- [Limitations](#limitations)
 - [Authors](#authors)
 - [License](#license)
 
@@ -300,6 +301,10 @@ traefik-simple-auth exports the following metrics:
 | traefik_simple_auth_active_users | GAUGE | provider, user| number of active users        |
 | traefik_simple_auth_http_request_duration_seconds | HISTOGRAM | code, host, path, provider, user| duration of http requests     |
 | traefik_simple_auth_http_requests_total | COUNTER | code, host, path, provider, user| total number of http requests |
+
+## Limitations
+
+- traefik-simple-auth doesn't handle URLs where ports are specified.
 
 ## Authors
 

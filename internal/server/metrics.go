@@ -2,7 +2,6 @@ package server
 
 import (
 	"github.com/clambin/go-common/http/metrics"
-	"github.com/clambin/traefik-simple-auth/internal/server/handlers"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"strconv"
@@ -54,7 +53,7 @@ func NewMetrics(namespace, subsystem string, constLabels map[string]string, buck
 }
 
 func (m Metrics) Measure(req *http.Request, statusCode int, duration time.Duration) {
-	sess, _ := handlers.GetSession(req)
+	sess, _ := GetSession(req)
 	code := strconv.Itoa(statusCode)
 	path := req.URL.Path
 	if path != OAUTHPath && path != OAUTHPath+"/logout" {

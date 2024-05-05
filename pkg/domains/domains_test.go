@@ -102,6 +102,16 @@ func TestDomains_Domain(t *testing.T) {
 			wantOK:  assert.True,
 			want:    ".example.com",
 		},
+		/*
+			{
+				name:    "ignore ports",
+				domains: []string{"Example.com"},
+				target:  "https://example.com/foo",
+				wantOK:  assert.True,
+				want:    ".example.com",
+			},
+
+		*/
 		{
 			name:    "match multiple domains",
 			domains: []string{"example.com", "example.org"},

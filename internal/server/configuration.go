@@ -1,4 +1,4 @@
-package configuration
+package server
 
 import (
 	"encoding/base64"
@@ -32,7 +32,7 @@ type Configuration struct {
 	Addr              string
 	PromAddr          string
 	SessionCookieName string
-	Expiry            time.Duration
+	Expiration        time.Duration
 	Secret            []byte
 	Provider          string
 	OIDCIssuerURL     string
@@ -44,12 +44,13 @@ type Configuration struct {
 }
 
 func GetConfiguration() (Configuration, error) {
+	flag.Parse()
 	cfg := Configuration{
 		Debug:             *debug,
 		Addr:              *addr,
 		PromAddr:          *promAddr,
 		SessionCookieName: *sessionCookieName,
-		Expiry:            *expiry,
+		Expiration:        *expiry,
 		Provider:          *provider,
 		OIDCIssuerURL:     *oidcIssuerURL,
 		ClientID:          *clientId,
@@ -60,9 +61,6 @@ func GetConfiguration() (Configuration, error) {
 	cfg.Domains, err = domains.New(strings.Split(*domainsString, ","))
 	if err != nil {
 		return Configuration{}, fmt.Errorf("invalid domain list: %w", err)
-	}
-	if len(cfg.Domains) == 0 {
-		return Configuration{}, errors.New("no valid domains")
 	}
 	cfg.Whitelist, err = whitelist.New(strings.Split(*users, ","))
 	if err != nil {

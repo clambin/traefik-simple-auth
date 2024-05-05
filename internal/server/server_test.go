@@ -2,70 +2,21 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
+	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
+	"github.com/oauth2-proxy/mockoidc"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 )
-
-func TestServer(t *testing.T) {
-	config := configuration.Configuration{
-		Debug:             false,
-		SessionCookieName: "_traefik_simple_auth",
-		Expiry:            time.Hour,
-		Secret:            []byte("secret"),
-		Provider:          "google",
-		Domains:           domains.Domains{".example.com"},
-		Whitelist:         whitelist.Whitelist{},
-		ClientID:          "123",
-		ClientSecret:      "1234",
-		AuthPrefix:        "auth",
-	}
-	s := New(context.TODO(), config, nil, slog.Default())
-
-	t.Run("forwardAuth requests without cookie get redirected", func(t *testing.T) {
-		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
-		assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
-	})
-
-	t.Run("forwardAuth requests with valid cookie are accepted", func(t *testing.T) {
-		validSession := s.sessions.Session("foo@example.com")
-		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
-		r.AddCookie(s.sessions.Cookie(validSession, "example.com"))
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, 1, s.sessions.ActiveUsers()["foo@example.com"])
-	})
-
-	t.Run("forwardAuth requests with valid cookie for logout handler are accepted", func(t *testing.T) {
-		validSession := s.sessions.Session("foo@example.com")
-		r := makeForwardAuthRequest(http.MethodGet, "example.com", OAUTHPath+"/logout")
-		r.AddCookie(s.sessions.Cookie(validSession, "example.com"))
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
-		assert.Equal(t, http.StatusUnauthorized, w.Code)
-		assert.Zero(t, s.sessions.ActiveUsers()["foo@example.com"])
-	})
-
-	t.Run("oauth callback", func(t *testing.T) {
-		s.cbHandler.OAuthHandlers[".example.com"] = testutils.FakeOauthHandler{Email: "foo@example.com"}
-		state := s.states.Add("https://example.com")
-		r, _ := http.NewRequest(http.MethodGet, "https://traefik"+OAUTHPath+"?state="+state, nil)
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
-		assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
-		assert.Equal(t, "https://example.com", w.Header().Get("Location"))
-	})
-}
 
 func TestServer_Panics(t *testing.T) {
 	var panics bool
@@ -75,24 +26,236 @@ func TestServer_Panics(t *testing.T) {
 				panics = true
 			}
 		}()
-		cfg := configuration.Configuration{
+		cfg := Configuration{
 			Provider: "foobar",
 			Domains:  domains.Domains{"example.com"},
 		}
-		l := slog.Default()
-		_ = New(context.TODO(), cfg, nil, l)
+		sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
+		stateStore := state.New[string](time.Minute)
+		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, slog.Default())
 	}()
 	assert.True(t, panics)
 }
 
-func makeForwardAuthRequest(method, host, uri string) *http.Request {
-	req, _ := http.NewRequest(http.MethodPut, "https://traefik/", nil)
-	req.Header.Set("X-Forwarded-Method", method)
-	req.Header.Set("X-Forwarded-Proto", "https")
-	req.Header.Set("X-Forwarded-Host", host)
-	req.Header.Set("X-Forwarded-Uri", uri)
-	req.Header.Set("User-Agent", "unit-test")
-	return req
+func TestForwardAuthHandler(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	sessionStore, _, _, h := setupServer(ctx, t, nil)
+	validSession := sessionStore.Session("foo@example.com")
+
+	type args struct {
+		target  string
+		session *sessions.Session
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+		user string
+	}{
+		{
+			name: "missing session",
+			args: args{
+				target: "example.com",
+			},
+			want: http.StatusTemporaryRedirect,
+		},
+		{
+			name: "valid session",
+			args: args{
+				target:  "example.com",
+				session: &validSession,
+			},
+			want: http.StatusOK,
+			user: "foo@example.com",
+		},
+		{
+			name: "invalid domain",
+			args: args{
+				target:  "example.org",
+				session: &validSession,
+			},
+			want: http.StatusUnauthorized,
+		},
+		{
+			// TODO: this should work
+			name: "port specified",
+			args: args{
+				target:  "example.com:443",
+				session: &validSession,
+			},
+			want: http.StatusUnauthorized,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target, "/")
+			w := httptest.NewRecorder()
+			if tt.args.session != nil {
+				r = r.WithContext(context.WithValue(r.Context(), sessionKey, *tt.args.session))
+			}
+
+			h.ServeHTTP(w, r)
+			require.Equal(t, tt.want, w.Code)
+
+			switch w.Code {
+			case http.StatusOK:
+				assert.Equal(t, tt.user, w.Header().Get("X-Forwarded-User"))
+			case http.StatusTemporaryRedirect:
+				assert.NotEmpty(t, w.Header().Get("Location"))
+			}
+		})
+	}
+}
+
+func TestLogoutHandler(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	sessionStore, _, _, s := setupServer(ctx, t, nil)
+
+	t.Run("logging out clears the session cookie", func(t *testing.T) {
+		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
+		session := sessionStore.Session("foo@example.com")
+		r = r.WithContext(context.WithValue(r.Context(), sessionKey, session))
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.Equal(t, "You have been logged out\n", w.Body.String())
+		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
+	})
+
+	t.Run("must be logged in to log out", func(t *testing.T) {
+		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.Equal(t, "Invalid session\n", w.Body.String())
+	})
+}
+
+func TestAuthCallbackHandler(t *testing.T) {
+	tests := []struct {
+		name     string
+		email    string
+		code     string
+		state    string
+		wantCode int
+	}{
+		{
+			name:     "valid",
+			email:    "foo@example.com",
+			wantCode: http.StatusTemporaryRedirect,
+		},
+		{
+			name:     "invalid email address",
+			email:    "foo@example.org",
+			wantCode: http.StatusUnauthorized,
+		},
+		{
+			name:     "invalid code",
+			email:    "foo@example.com",
+			code:     "1234",
+			wantCode: http.StatusUnauthorized,
+		},
+		{
+			name:     "invalid state",
+			email:    "foo@example.com",
+			state:    "1234",
+			wantCode: http.StatusUnauthorized,
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	sessionStore, stateStore, oidcServer, server := setupServer(ctx, t, nil)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// mockoidc is not thread-safe
+			//t.Parallel()
+
+			oauthState := tt.state
+			if oauthState == "" {
+				oauthState = stateStore.Add("https://example.com/foo")
+			}
+
+			code := tt.code
+			if code == "" {
+				u := mockoidc.MockUser{Email: tt.email, EmailVerified: true}
+				session, err := oidcServer.SessionStore.NewSession("oidc profile email", "", &u, "", "")
+				require.NoError(t, err)
+				code = session.SessionID
+			}
+
+			v := url.Values{}
+			v.Set("state", oauthState)
+			v.Set("code", code)
+
+			r, _ := http.NewRequest(http.MethodGet, OAUTHPath+"?"+v.Encode(), nil)
+			w := httptest.NewRecorder()
+			server.ServeHTTP(w, r)
+			assert.Equal(t, tt.wantCode, w.Code)
+
+			if w.Code == http.StatusTemporaryRedirect {
+				assert.Equal(t, "https://example.com/foo", w.Header().Get("Location"))
+				assert.True(t, sessionStore.Contains(tt.email))
+			}
+		})
+	}
+}
+
+func TestHealthHandler(t *testing.T) {
+	ctx := context.Background()
+	sessionStore, stateStore, _, server := setupServer(ctx, t, nil)
+
+	r, _ := http.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+	server.ServeHTTP(w, r)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	assert.Equal(t, `{"sessions":0,"states":0}
+`, w.Body.String())
+
+	sessionStore.Session("foo@example.com")
+	stateStore.Add("https://example.com")
+
+	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
+	w = httptest.NewRecorder()
+	server.ServeHTTP(w, r)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	assert.Equal(t, `{"sessions":1,"states":1}
+`, w.Body.String())
+
+}
+
+func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.Sessions, state.States[string], *mockoidc.MockOIDC, http.Handler) {
+	t.Helper()
+	oidcServer, err := mockoidc.Run()
+	require.NoError(t, err)
+
+	go func() {
+		<-ctx.Done()
+		require.NoError(t, oidcServer.Shutdown())
+	}()
+
+	list, _ := whitelist.New([]string{"foo@example.com"})
+	cfg := Configuration{
+		Provider:      "oidc",
+		AuthPrefix:    "auth",
+		ClientID:      oidcServer.ClientID,
+		ClientSecret:  oidcServer.ClientSecret,
+		OIDCIssuerURL: oidcServer.Issuer(),
+		Domains:       domains.Domains{"example.com"},
+		Whitelist:     list,
+	}
+	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
+	stateStore := state.New[string](time.Minute)
+	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, slog.Default())
 }
 
 func Test_getOriginalTarget(t *testing.T) {
@@ -140,22 +303,19 @@ func Test_getOriginalTarget(t *testing.T) {
 }
 
 // before:
-// Benchmark_authHandler-16                  758744              1468 ns/op             978 B/op         17 allocs/op
-// after:
 // Benchmark_authHandler-16                  927531              1194 ns/op             941 B/op         14 allocs/op
 func Benchmark_authHandler(b *testing.B) {
-	config := configuration.Configuration{
-		SessionCookieName: "_traefik_simple_auth",
-		Domains:           domains.Domains{"example.com"},
-		Secret:            []byte("secret"),
-		Expiry:            time.Hour,
-		Whitelist:         map[string]struct{}{"foo@example.com": {}},
-		Provider:          "google",
+	config := Configuration{
+		Domains:   domains.Domains{"example.com"},
+		Whitelist: map[string]struct{}{"foo@example.com": {}},
+		Provider:  "google",
 	}
-	s := New(context.TODO(), config, nil, slog.Default())
-	sess := s.sessions.SessionWithExpiration("foo@example.com", time.Hour)
-	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
-	r.AddCookie(s.cbHandler.Sessions.Cookie(sess, config.Domains[0]))
+	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
+	stateStore := state.New[string](time.Minute)
+	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
+	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
+	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	r.AddCookie(sessionStore.Cookie(sess, config.Domains[0]))
 	w := httptest.NewRecorder()
 
 	b.ResetTimer()
@@ -177,6 +337,7 @@ func Benchmark_getOriginalTarget(b *testing.B) {
 		"X-Forwarded-Uri":   []string{"/foo?arg1=bar"},
 	}
 
+	b.ResetTimer()
 	b.Run("old", func(b *testing.B) {
 		for range b.N {
 			_ = getOriginalTarget(r)

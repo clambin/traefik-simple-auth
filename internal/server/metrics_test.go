@@ -2,11 +2,10 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/pkg/domains"
+	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -15,17 +14,12 @@ import (
 )
 
 func TestServer_withMetrics(t *testing.T) {
-	config := configuration.Configuration{
-		SessionCookieName: "_auth",
-		Secret:            []byte("secret"),
-		Whitelist:         map[string]struct{}{"foo@example.com": {}},
-		Domains:           domains.Domains{".example.com"},
-		Provider:          "google",
-	}
-	m := NewMetrics("", "", map[string]string{"provider": "foo"})
-	s := New(context.TODO(), config, m, slog.Default())
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	metrics := NewMetrics("", "", map[string]string{"provider": "foo"})
+	sessionStore, _, _, s := setupServer(ctx, t, metrics)
 
-	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
@@ -33,57 +27,51 @@ func TestServer_withMetrics(t *testing.T) {
 	r, _ = http.NewRequest(http.MethodGet, "https://example.com/_oauth", nil)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
-	sess := s.sessions.Session("foo@example.com")
-	r = makeForwardAuthRequest(http.MethodGet, "example.org", "/foo")
-	r.AddCookie(s.sessions.Cookie(sess, "example.com"))
+	sess := sessionStore.Session("foo@example.com")
+	r = testutils.ForwardAuthRequest(http.MethodGet, "example.org", "/foo")
+	r.AddCookie(sessionStore.Cookie(sess, "example.com"))
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
-	r = makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
-	r.AddCookie(s.sessions.Cookie(sess, "example.com"))
+	r = testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	r.AddCookie(sessionStore.Cookie(sess, "example.com"))
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	assert.NoError(t, testutil.CollectAndCompare(m, strings.NewReader(`
+	assert.NoError(t, testutil.CollectAndCompare(metrics, strings.NewReader(`
 # HELP http_requests_total total number of http requests
 # TYPE http_requests_total counter
 http_requests_total{code="200",host="example.com",path="/",provider="foo",user="foo@example.com"} 1
 http_requests_total{code="307",host="example.com",path="/",provider="foo",user=""} 1
-http_requests_total{code="400",host="example.com",path="/_oauth",provider="foo",user=""} 1
+http_requests_total{code="401",host="example.com",path="/_oauth",provider="foo",user=""} 1
 http_requests_total{code="401",host="example.org",path="/",provider="foo",user="foo@example.com"} 1
 
 `), "http_requests_total"))
 
-	assert.Equal(t, 4, testutil.CollectAndCount(m, "http_request_duration_seconds"))
+	assert.Equal(t, 4, testutil.CollectAndCount(metrics, "http_request_duration_seconds"))
 }
 
 func TestMetrics_Collect_ActiveUsers(t *testing.T) {
-	config := configuration.Configuration{
-		SessionCookieName: "_auth",
-		Secret:            []byte("secret"),
-		Whitelist:         map[string]struct{}{"foo@example.com": {}},
-		Domains:           domains.Domains{"example.com"},
-		Provider:          "google",
-		Expiry:            time.Hour,
-	}
-	m := NewMetrics("", "", map[string]string{"provider": "foo"})
-	s := New(context.TODO(), config, m, slog.Default())
+	metrics := NewMetrics("", "", map[string]string{"provider": "foo"})
+	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 
-	s.sessions.Session("foo@example.com")
-	s.sessions.SessionWithExpiration("foo@example.com", 30*time.Minute)
-	s.sessions.Session("bar@example.com")
+	sessionStore.Session("foo@example.com")
+	sessionStore.SessionWithExpiration("foo@example.com", 30*time.Minute)
+	sessionStore.Session("bar@example.com")
 
-	go s.monitorSessions(m, 100*time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go monitorSessions(ctx, metrics, sessionStore, 100*time.Millisecond)
 
 	assert.Eventually(t, func() bool {
-		return testutil.CollectAndCount(m) > 0
+		return testutil.CollectAndCount(metrics) > 0
 	}, time.Second, time.Millisecond)
 
-	assert.NoError(t, testutil.CollectAndCompare(m, strings.NewReader(`
+	assert.NoError(t, testutil.CollectAndCompare(metrics, strings.NewReader(`
 # HELP active_users number of active users
 # TYPE active_users gauge
 active_users{provider="foo",user="bar@example.com"} 1
