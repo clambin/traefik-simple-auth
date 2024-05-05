@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/cmd"
-	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
 	"github.com/prometheus/client_golang/prometheus"
 	"os"
 	"os/signal"
@@ -17,7 +17,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	cfg, err := server.GetConfiguration()
+	cfg, err := configuration.GetConfiguration()
 	if err == nil {
 		err = cmd.Run(ctx, cfg, prometheus.DefaultRegisterer, os.Stderr, version)
 	}

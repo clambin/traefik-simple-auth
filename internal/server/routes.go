@@ -2,9 +2,10 @@ package server
 
 import (
 	"github.com/clambin/go-common/http/middleware"
-	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/server/extractor"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
+	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"log/slog"
@@ -40,7 +41,7 @@ func addRoutes(
 
 func forwardAuthMiddleware(sessions sessions.Sessions, m *Metrics, logger *slog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return SessionExtractor(sessions, logger.With("middleware", "sessionExtractor"))( // extract & validate the session cookie from the request
+		return extractor.SessionExtractor(sessions, logger.With("middleware", "sessionExtractor"))( // extract & validate the session cookie from the request
 			withMetrics(m)( // measure request metrics
 				next,
 			),

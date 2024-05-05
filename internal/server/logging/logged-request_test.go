@@ -1,4 +1,4 @@
-package server
+package logging
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ func Test_loggedRequest(t *testing.T) {
 
 	var out bytes.Buffer
 	l := logtest.NewJSONLogger(&out, slog.LevelInfo)
-	l.Info("request", "r", loggedRequest(r))
+	l.Info("request", "r", Request(r))
 
 	want := `{"level":"INFO","msg":"request","r":{"url":"https://example.com/","X-Forwarded-For":"127.0.0.1:0"}}
 `

@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
@@ -28,7 +28,7 @@ func TestRun(t *testing.T) {
 		<-ctx.Done()
 		require.NoError(t, oidcServer.Shutdown())
 	}()
-	cfg := server.Configuration{
+	cfg := configuration.Configuration{
 		Debug:             true,
 		Addr:              ":8081",
 		PromAddr:          ":9091",
@@ -112,7 +112,7 @@ func TestRun_Fail(t *testing.T) {
 		<-ctx.Done()
 		require.NoError(t, oidcServer.Shutdown())
 	}()
-	cfg := server.Configuration{
+	cfg := configuration.Configuration{
 		Debug:             true,
 		Addr:              ":-1",
 		PromAddr:          ":-1",

@@ -3,9 +3,11 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/server/extractor"
+	"github.com/clambin/traefik-simple-auth/internal/server/logging"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
+	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"golang.org/x/oauth2"
@@ -20,7 +22,7 @@ import (
 // forwards the request to the originally requested destination.
 func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States[string], logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", loggedRequest(r))
+		logger.Debug("request received", "request", logging.Request(r))
 
 		// check that the request is for one of the configured domains
 		domain, ok := domains.Domain(r.URL)
@@ -31,7 +33,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		}
 
 		// validate that the request has a valid session cookie
-		if sess, ok := GetSession(r); ok {
+		if sess, ok := extractor.GetSession(r); ok {
 			logger.Debug("allowing valid request", slog.String("email", sess.Email))
 			w.Header().Set("X-Forwarded-User", sess.Email)
 			w.WriteHeader(http.StatusOK)
@@ -60,10 +62,10 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
 func LogoutHandler(domains domains.Domains, sessionStore sessions.Sessions, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", loggedRequest(r))
+		logger.Debug("request received", "request", logging.Request(r))
 
 		// remove the cached cookie
-		session, ok := GetSession(r)
+		session, ok := extractor.GetSession(r)
 		if !ok {
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return
@@ -74,7 +76,7 @@ func LogoutHandler(domains domains.Domains, sessionStore sessions.Sessions, logg
 
 		// Write a blank session cookie to override the current valid one.
 		domain, _ := domains.Domain(r.URL)
-		http.SetCookie(w, sessionStore.Cookie(sessions.Session{}, domain))
+		http.SetCookie(w, sessionStore.Cookie(sessions.Session{}, string(domain)))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		logger.Info("user has been logged out", "user", session.Email)
@@ -94,7 +96,7 @@ func AuthCallbackHandler(
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", loggedRequest(r))
+		logger.Debug("request received", "request", logging.Request(r))
 
 		// Look up the (random) state to find the final destination.
 		encodedState := r.URL.Query().Get("state")
@@ -134,7 +136,7 @@ func AuthCallbackHandler(
 
 		// GetUserEmailAddress successful. Create a session and redirect the user to the final destination.
 		session := sessions.Session(user)
-		http.SetCookie(w, sessions.Cookie(session, domain))
+		http.SetCookie(w, sessions.Cookie(session, string(domain)))
 
 		logger.Info("user logged in. redirecting ...", "user", user, "url", targetURL)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)

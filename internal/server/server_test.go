@@ -2,9 +2,11 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/server/extractor"
 	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
+	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"github.com/oauth2-proxy/mockoidc"
@@ -26,7 +28,7 @@ func TestServer_Panics(t *testing.T) {
 				panics = true
 			}
 		}()
-		cfg := Configuration{
+		cfg := configuration.Configuration{
 			Provider: "foobar",
 			Domains:  domains.Domains{"example.com"},
 		}
@@ -96,7 +98,7 @@ func TestForwardAuthHandler(t *testing.T) {
 			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target, "/")
 			w := httptest.NewRecorder()
 			if tt.args.session != nil {
-				r = r.WithContext(context.WithValue(r.Context(), sessionKey, *tt.args.session))
+				r = extractor.WithSession(r, *tt.args.session)
 			}
 
 			h.ServeHTTP(w, r)
@@ -120,7 +122,7 @@ func TestLogoutHandler(t *testing.T) {
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
 		session := sessionStore.Session("foo@example.com")
-		r = r.WithContext(context.WithValue(r.Context(), sessionKey, session))
+		r = extractor.WithSession(r, session)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -244,7 +246,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 	}()
 
 	list, _ := whitelist.New([]string{"foo@example.com"})
-	cfg := Configuration{
+	cfg := configuration.Configuration{
 		Provider:      "oidc",
 		AuthPrefix:    "auth",
 		ClientID:      oidcServer.ClientID,
@@ -305,7 +307,7 @@ func Test_getOriginalTarget(t *testing.T) {
 // before:
 // Benchmark_authHandler-16                  927531              1194 ns/op             941 B/op         14 allocs/op
 func Benchmark_authHandler(b *testing.B) {
-	config := Configuration{
+	config := configuration.Configuration{
 		Domains:   domains.Domains{"example.com"},
 		Whitelist: map[string]struct{}{"foo@example.com": {}},
 		Provider:  "google",
@@ -315,7 +317,7 @@ func Benchmark_authHandler(b *testing.B) {
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
 	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
-	r.AddCookie(sessionStore.Cookie(sess, config.Domains[0]))
+	r.AddCookie(sessionStore.Cookie(sess, string(config.Domains[0])))
 	w := httptest.NewRecorder()
 
 	b.ResetTimer()

@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/clambin/traefik-simple-auth/internal/server"
-	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
+	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-func Run(ctx context.Context, cfg server.Configuration, registry prometheus.Registerer, logOutput io.Writer, version string) error {
+func Run(ctx context.Context, cfg configuration.Configuration, registry prometheus.Registerer, logOutput io.Writer, version string) error {
 	var opts slog.HandlerOptions
 	if cfg.Debug {
 		opts.Level = slog.LevelDebug

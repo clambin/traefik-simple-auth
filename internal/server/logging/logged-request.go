@@ -1,4 +1,4 @@
-package server
+package logging
 
 import (
 	"log/slog"
@@ -10,7 +10,7 @@ var _ slog.LogValuer = request{}
 
 type request struct{ request *http.Request }
 
-func loggedRequest(r *http.Request) slog.LogValuer {
+func Request(r *http.Request) slog.LogValuer {
 	return request{request: r}
 }
 
