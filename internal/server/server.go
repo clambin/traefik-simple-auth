@@ -86,8 +86,8 @@ func getOriginalTarget(r *http.Request) *url.URL {
 	path := getHeaderValue(hdr, "X-Forwarded-Uri", "/")
 	var rawQuery string
 	if n := strings.Index(path, "?"); n > 0 {
-		path = path[:n]
 		rawQuery = path[n+1:]
+		path = path[:n]
 	}
 	return &url.URL{
 		Scheme:   getHeaderValue(hdr, "X-Forwarded-Proto", "https"),

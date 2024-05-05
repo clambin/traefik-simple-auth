@@ -234,7 +234,8 @@ func TestAuthCallbackHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+			// mockoidc is not thread-safe
+			//t.Parallel()
 
 			oauthState := tt.state
 			if oauthState == "" {
