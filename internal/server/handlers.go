@@ -19,7 +19,7 @@ import (
 // forwards the request to the originally requested destination.
 func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States[string], logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", slog.Any("request", loggedRequest(r)))
+		logger.Debug("request received", "request", loggedRequest(r))
 
 		// check that the request is for one of the configured domains
 		domain, ok := domains.Domain(r.URL)
@@ -50,7 +50,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 		// Redirect the user to the oauth2 provider to select the account to authenticate the request.
 		authCodeURL := oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
-		logger.Debug("redirecting ...", "authCodeURL", authCodeURL)
+		logger.Debug("redirecting ...", slog.String("authCodeURL", authCodeURL))
 		http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 	})
 }
