@@ -78,6 +78,15 @@ func TestForwardAuthHandler(t *testing.T) {
 			},
 			want: http.StatusUnauthorized,
 		},
+		{
+			// TODO: this should work
+			name: "port specified",
+			args: args{
+				target:  "example.com:443",
+				session: &validSession,
+			},
+			want: http.StatusUnauthorized,
+		},
 	}
 
 	for _, tt := range tests {
