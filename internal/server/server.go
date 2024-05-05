@@ -76,7 +76,7 @@ func traefikForwardAuthParser(logger *slog.Logger) func(next http.Handler) http.
 			// anything other that OAUTHPath comes from traefik's forwardAuth middleware
 			if r.URL.Path != OAUTHPath && r.URL.Path != "/health" {
 				r.URL = getOriginalTarget(r)
-				logger.Debug("restored original request", "r", loggedRequest(r))
+				//logger.Debug("restored original request", "r", loggedRequest(r))
 			}
 			next.ServeHTTP(w, r)
 		})

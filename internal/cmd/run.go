@@ -1,8 +1,9 @@
-package server
+package cmd
 
 import (
 	"context"
 	"errors"
+	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-func Run(ctx context.Context, cfg Configuration, logOutput io.Writer, version string) error {
+func Run(ctx context.Context, cfg server.Configuration, registry prometheus.Registerer, logOutput io.Writer, version string) error {
 	var opts slog.HandlerOptions
 	if cfg.Debug {
 		opts.Level = slog.LevelDebug
@@ -28,11 +29,11 @@ func Run(ctx context.Context, cfg Configuration, logOutput io.Writer, version st
 		promErr <- runHTTPServer(ctx, cfg.PromAddr, m)
 	}()
 
-	m := NewMetrics("traefik_simple_auth", "", map[string]string{"provider": cfg.Provider})
-	prometheus.MustRegister(m)
+	m := server.NewMetrics("traefik_simple_auth", "", map[string]string{"provider": cfg.Provider})
+	registry.MustRegister(m)
 	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.Expiration)
 	stateStore := state.New[string](time.Minute)
-	s := New(ctx, sessionStore, stateStore, cfg, m, l)
+	s := server.New(ctx, sessionStore, stateStore, cfg, m, l)
 
 	serverErr := make(chan error)
 	go func() {

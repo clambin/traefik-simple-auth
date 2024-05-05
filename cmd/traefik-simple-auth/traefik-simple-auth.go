@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/clambin/traefik-simple-auth/internal/cmd"
 	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/prometheus/client_golang/prometheus"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,7 +19,7 @@ func main() {
 
 	cfg, err := server.GetConfiguration()
 	if err == nil {
-		err = server.Run(ctx, cfg, os.Stderr, version)
+		err = cmd.Run(ctx, cfg, prometheus.DefaultRegisterer, os.Stderr, version)
 	}
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to start traefik-simple-auth: %s", err.Error())
