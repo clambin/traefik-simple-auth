@@ -42,7 +42,7 @@ func New(ctx context.Context, sessions sessions.Sessions, states state.States[st
 		metrics,
 		logger,
 	)
-	return traefikForwardAuthParser(r)
+	return traefikForwardAuthParser(logger)(r)
 }
 func monitorSessions(ctx context.Context, m *Metrics, sessions sessions.Sessions, interval time.Duration) {
 	for {
@@ -67,13 +67,17 @@ func makeAuthURL(authPrefix string, domain domains.Domain, OAUTHPath string) str
 }
 
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
-func traefikForwardAuthParser(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isForwardAuth(r) {
-			r.URL = getOriginalTarget(r)
-		}
-		next.ServeHTTP(w, r)
-	})
+func traefikForwardAuthParser(logger *slog.Logger) func(next http.Handler) http.Handler {
+	logger = logger.With("handler", "traefikForwardAuthParser")
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			logger.Debug("received request", "url", r.URL)
+			if isForwardAuth(r) {
+				r.URL = getOriginalTarget(r)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func isForwardAuth(r *http.Request) bool {
