@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"github.com/oauth2-proxy/mockoidc"
@@ -73,7 +74,7 @@ func TestRun(t *testing.T) {
 	// call the authCallback flow. RawQuery contains the code & state. this will redirect us back to the forwardAuth
 	// flow and gives us a session cookie.
 	var cookie *http.Cookie
-	code, location, cookie, err = doDirect(&c, "http://localhost:8081"+oauthURL.Path+"?"+oauthURL.RawQuery, cfg.SessionCookieName)
+	code, _, cookie, err = doDirect(&c, "http://localhost:8081"+oauthURL.Path+"?"+oauthURL.RawQuery, cfg.SessionCookieName)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusTemporaryRedirect, code)
 	require.NotNil(t, cookie)
@@ -128,7 +129,7 @@ func TestRun_Fail(t *testing.T) {
 }
 
 func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, string, error) {
-	req := makeForwardAuthRequest(http.MethodGet, "www.example.com", "/")
+	req := testutils.ForwardAuthRequest(http.MethodGet, "www.example.com", "/")
 	var err error
 	if req.URL, err = url.Parse(target); err != nil {
 		return 0, "", fmt.Errorf("url: %w", err)
@@ -167,14 +168,4 @@ func doDirect(c *http.Client, target string, sessionCookieName string) (int, str
 		}
 	}
 	return resp.StatusCode, redirectURL, cookie, nil
-}
-
-func makeForwardAuthRequest(method, host, uri string) *http.Request {
-	req, _ := http.NewRequest(http.MethodGet, "https://traefik/", nil)
-	req.Header.Set("X-Forwarded-Method", method)
-	req.Header.Set("X-Forwarded-Proto", "https")
-	req.Header.Set("X-Forwarded-Host", host)
-	req.Header.Set("X-Forwarded-Uri", uri)
-	req.Header.Set("User-Agent", "unit-test")
-	return req
 }

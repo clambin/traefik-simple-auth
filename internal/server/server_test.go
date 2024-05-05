@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
@@ -82,7 +83,7 @@ func TestForwardAuthHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			r := makeForwardAuthRequest(http.MethodGet, tt.args.target, "/")
+			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target, "/")
 
 			w := httptest.NewRecorder()
 			if tt.args.session != nil {
@@ -109,7 +110,7 @@ func TestLogoutHandler(t *testing.T) {
 	sessionStore, _, _, s := setupServer(ctx, t, nil)
 
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
-		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
+		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
 		session := sessionStore.Session("foo@example.com")
 		r = r.WithContext(context.WithValue(r.Context(), sessionKey, session))
 		w := httptest.NewRecorder()
@@ -120,7 +121,7 @@ func TestLogoutHandler(t *testing.T) {
 	})
 
 	t.Run("must be logged in to log out", func(t *testing.T) {
-		r := makeForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
+		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -160,9 +161,8 @@ func TestAuthCallbackHandler(t *testing.T) {
 		},
 	}
 
-	//ctx, cancel := context.WithCancel(context.Background())
-	//defer cancel()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	sessionStore, stateStore, oidcServer, server := setupServer(ctx, t, nil)
 
 	for _, tt := range tests {
@@ -200,6 +200,31 @@ func TestAuthCallbackHandler(t *testing.T) {
 	}
 }
 
+func TestHealthHandler(t *testing.T) {
+	ctx := context.Background()
+	sessionStore, stateStore, _, server := setupServer(ctx, t, nil)
+
+	r, _ := http.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+	server.ServeHTTP(w, r)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	assert.Equal(t, `{"sessions":0,"states":0}
+`, w.Body.String())
+
+	sessionStore.Session("foo@example.com")
+	stateStore.Add("https://example.com")
+
+	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
+	w = httptest.NewRecorder()
+	server.ServeHTTP(w, r)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+	assert.Equal(t, `{"sessions":1,"states":1}
+`, w.Body.String())
+
+}
+
 func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.Sessions, state.States[string], *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
@@ -223,16 +248,6 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
 	stateStore := state.New[string](time.Minute)
 	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, slog.Default())
-}
-
-func makeForwardAuthRequest(method, host, uri string) *http.Request {
-	req, _ := http.NewRequest(http.MethodGet, "https://traefik/", nil)
-	req.Header.Set("X-Forwarded-Method", method)
-	req.Header.Set("X-Forwarded-Proto", "https")
-	req.Header.Set("X-Forwarded-Host", host)
-	req.Header.Set("X-Forwarded-Uri", uri)
-	req.Header.Set("User-Agent", "unit-test")
-	return req
 }
 
 func Test_getOriginalTarget(t *testing.T) {
@@ -291,7 +306,7 @@ func Benchmark_authHandler(b *testing.B) {
 	stateStore := state.New[string](time.Minute)
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
-	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(sessionStore.Cookie(sess, config.Domains[0]))
 	w := httptest.NewRecorder()
 

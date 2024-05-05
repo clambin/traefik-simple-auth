@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"net/http"
@@ -18,7 +19,7 @@ func TestServer_withMetrics(t *testing.T) {
 	metrics := NewMetrics("", "", map[string]string{"provider": "foo"})
 	sessionStore, _, _, s := setupServer(ctx, t, metrics)
 
-	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
@@ -29,13 +30,13 @@ func TestServer_withMetrics(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
 	sess := sessionStore.Session("foo@example.com")
-	r = makeForwardAuthRequest(http.MethodGet, "example.org", "/foo")
+	r = testutils.ForwardAuthRequest(http.MethodGet, "example.org", "/foo")
 	r.AddCookie(sessionStore.Cookie(sess, "example.com"))
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
-	r = makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	r = testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(sessionStore.Cookie(sess, "example.com"))
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)

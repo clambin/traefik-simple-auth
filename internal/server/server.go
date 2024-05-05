@@ -69,7 +69,7 @@ func makeAuthURL(authPrefix string, domain domains.Domain, OAUTHPath string) str
 
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
 func traefikForwardAuthParser(logger *slog.Logger) func(next http.Handler) http.Handler {
-	logger = logger.With("handler", "traefikForwardAuthParser")
+	//logger = logger.With("handler", "traefikForwardAuthParser")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			//logger.Debug("raw request", "request", loggedRequest(r))
