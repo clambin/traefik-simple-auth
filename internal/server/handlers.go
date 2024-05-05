@@ -98,14 +98,12 @@ func AuthCallbackHandler(
 
 		// Look up the (random) state to find the final destination.
 		encodedState := r.URL.Query().Get("state")
-		targetURL, ok := states.Get(encodedState)
+		targetURL, ok := states.Validate(encodedState)
 		if !ok {
 			logger.Warn("invalid state. Dropping request ...")
 			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
-
-		// TODO: remove the state now that we've used it
 
 		// we already validated the host vs the domain during the redirect.
 		// since the state matches, we can trust the request to be valid.

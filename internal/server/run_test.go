@@ -59,14 +59,15 @@ func TestRun(t *testing.T) {
 	req.URL, _ = url.Parse("http://localhost:8081/")
 	resp, err := c.Do(req)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	assert.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
-	defer func() { _ = resp.Body.Close() }()
 	target := resp.Header.Get("Location")
 
 	// call the oauth provider. this will redirect us to the authCallback flow
 	req, _ = http.NewRequest(http.MethodGet, target, nil)
 	resp, err = c.Do(req)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	assert.Equal(t, http.StatusFound, resp.StatusCode)
 	oauthURL, _ := url.Parse(resp.Header.Get("Location"))
 
@@ -82,8 +83,9 @@ func TestRun(t *testing.T) {
 			break
 		}
 	}
+	require.NotNil(t, cookie)
 
-	// try again, this time with the session cookie. this time, we are authenticated.
+	// try again, now with the session cookie. this time, we are authenticated.
 	req = makeForwardAuthRequest(http.MethodGet, "www.example.com", "/")
 	req.URL, _ = url.Parse("http://localhost:8081/")
 	req.AddCookie(cookie)
@@ -96,7 +98,7 @@ func TestRun(t *testing.T) {
 	require.NoError(t, err)
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	assert.Equal(t, "{\"sessions\":1,\"states\":1}\n", string(body))
+	assert.Equal(t, "{\"sessions\":1,\"states\":0}\n", string(body))
 
 	cancel()
 

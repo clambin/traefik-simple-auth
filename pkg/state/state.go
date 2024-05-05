@@ -35,9 +35,14 @@ func (s States[T]) Add(value T) string {
 	return encodedState
 }
 
-// Get checks if the state exists and returns the associated value.
-func (s States[T]) Get(state string) (T, bool) {
-	return s.values.Get(state)
+// Validate checks if the state exists. If it exists, we remove the state and return the associated value.
+// If the state does not exist, bool is false.
+func (s States[T]) Validate(state string) (T, bool) {
+	value, ok := s.values.Get(state)
+	if ok {
+		s.values.Remove(state)
+	}
+	return value, ok
 }
 
 func (s States[T]) Count() int {
