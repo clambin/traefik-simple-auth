@@ -21,8 +21,6 @@ func addRoutes(
 	metrics *Metrics,
 	logger *slog.Logger,
 ) {
-	mux.Handle("/", forwardAuthMiddleware(sessions, metrics, logger)(
-		ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth"))))
 	mux.Handle(OAUTHPath+"/logout", forwardAuthMiddleware(sessions, metrics, logger)(
 		LogoutHandler(domains, sessions, logger.With("handler", "logout"))))
 	mux.Handle(OAUTHPath, withMetrics(metrics)(
@@ -35,6 +33,8 @@ func addRoutes(
 			logger.With("handler", "authCallback"),
 		),
 	))
+	mux.Handle("/", forwardAuthMiddleware(sessions, metrics, logger)(
+		ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth"))))
 }
 
 func forwardAuthMiddleware(sessions sessions.Sessions, m *Metrics, logger *slog.Logger) func(next http.Handler) http.Handler {
