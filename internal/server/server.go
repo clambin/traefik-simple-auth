@@ -92,6 +92,7 @@ func getOriginalTarget(r *http.Request) *url.URL {
 		rawQuery = path[n+1:]
 		path = path[:n]
 	}
+
 	return &url.URL{
 		Scheme:   getHeaderValue(hdr, "X-Forwarded-Proto", "https"),
 		Host:     getHeaderValue(hdr, "X-Forwarded-Host", ""),

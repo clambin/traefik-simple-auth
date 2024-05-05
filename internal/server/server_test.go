@@ -32,7 +32,7 @@ func TestServer_Panics(t *testing.T) {
 		}
 		sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 		stateStore := state.New[string](time.Minute)
-		_ = New(context.TODO(), sessionStore, stateStore, cfg, nil, slog.Default())
+		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, slog.Default())
 	}()
 	assert.True(t, panics)
 }
@@ -295,7 +295,7 @@ func Benchmark_authHandler(b *testing.B) {
 	}
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 	stateStore := state.New[string](time.Minute)
-	s := New(context.TODO(), sessionStore, stateStore, config, nil, slog.Default())
+	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
 	r := makeForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(sessionStore.Cookie(sess, config.Domains[0]))
