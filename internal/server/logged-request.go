@@ -3,6 +3,7 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 )
 
 var _ slog.LogValuer = request{}
@@ -18,7 +19,9 @@ func (r request) LogValue() slog.Value {
 		slog.String("url", r.request.URL.String()),
 	}
 	for k := range r.request.Header {
-		attrs = append(attrs, slog.String(k, r.request.Header.Get(k)))
+		if strings.HasPrefix(k, "X-Forwarded-") {
+			attrs = append(attrs, slog.String(k, r.request.Header.Get(k)))
+		}
 	}
 	return slog.GroupValue(attrs...)
 }
