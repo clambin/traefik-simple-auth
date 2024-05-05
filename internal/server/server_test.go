@@ -226,7 +226,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 }
 
 func makeForwardAuthRequest(method, host, uri string) *http.Request {
-	req, _ := http.NewRequest(http.MethodPut, "https://traefik/", nil)
+	req, _ := http.NewRequest(http.MethodGet, "https://traefik/", nil)
 	req.Header.Set("X-Forwarded-Method", method)
 	req.Header.Set("X-Forwarded-Proto", "https")
 	req.Header.Set("X-Forwarded-Host", host)

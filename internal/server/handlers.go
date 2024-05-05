@@ -105,6 +105,8 @@ func AuthCallbackHandler(
 			return
 		}
 
+		// TODO: remove the state now that we've used it
+
 		// we already validated the host vs the domain during the redirect.
 		// since the state matches, we can trust the request to be valid.
 		u, _ := url.Parse(targetURL)

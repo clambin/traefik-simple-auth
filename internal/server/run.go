@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"flag"
-	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/server/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,13 +13,7 @@ import (
 	"time"
 )
 
-func Run(ctx context.Context, logOutput io.Writer, version string) error {
-	flag.Parse()
-	cfg, err := GetConfiguration()
-	if err != nil {
-		return fmt.Errorf("configuration: %w", err)
-	}
-
+func Run(ctx context.Context, cfg Configuration, logOutput io.Writer, version string) error {
 	var opts slog.HandlerOptions
 	if cfg.Debug {
 		opts.Level = slog.LevelDebug
@@ -47,7 +39,7 @@ func Run(ctx context.Context, logOutput io.Writer, version string) error {
 		serverErr <- runHTTPServer(ctx, cfg.Addr, s)
 	}()
 
-	err = errors.Join(<-serverErr, <-promErr)
+	err := errors.Join(<-serverErr, <-promErr)
 	l.Info("traefik-simple-auth stopped")
 	return err
 }

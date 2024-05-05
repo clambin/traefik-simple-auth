@@ -44,6 +44,7 @@ type Configuration struct {
 }
 
 func GetConfiguration() (Configuration, error) {
+	flag.Parse()
 	cfg := Configuration{
 		Debug:             *debug,
 		Addr:              *addr,
