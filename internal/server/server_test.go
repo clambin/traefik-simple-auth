@@ -83,8 +83,8 @@ func TestForwardAuthHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target, "/")
 
+			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target, "/")
 			w := httptest.NewRecorder()
 			if tt.args.session != nil {
 				r = r.WithContext(context.WithValue(r.Context(), sessionKey, *tt.args.session))
@@ -99,7 +99,6 @@ func TestForwardAuthHandler(t *testing.T) {
 			case http.StatusTemporaryRedirect:
 				assert.NotEmpty(t, w.Header().Get("Location"))
 			}
-			t.Log(w.Header().Get("Location"))
 		})
 	}
 }
@@ -329,6 +328,7 @@ func Benchmark_getOriginalTarget(b *testing.B) {
 		"X-Forwarded-Uri":   []string{"/foo?arg1=bar"},
 	}
 
+	b.ResetTimer()
 	b.Run("old", func(b *testing.B) {
 		for range b.N {
 			_ = getOriginalTarget(r)

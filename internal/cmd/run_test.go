@@ -69,7 +69,8 @@ func TestRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusFound, code)
 	assert.NotEmpty(t, location)
-	oauthURL, _ := url.Parse(location)
+	oauthURL, err := url.Parse(location)
+	require.NoError(t, err)
 
 	// call the authCallback flow. RawQuery contains the code & state. this will redirect us back to the forwardAuth
 	// flow and gives us a session cookie.
@@ -95,7 +96,7 @@ func TestRun(t *testing.T) {
 
 	// wait for shutdown
 	assert.Eventually(t, func() bool {
-		_, err := http.Get("http://localhost:8081/health")
+		_, err = http.Get("http://localhost:8081/health")
 		return err != nil
 	}, time.Second, 10*time.Millisecond)
 }
