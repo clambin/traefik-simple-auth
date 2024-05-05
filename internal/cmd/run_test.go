@@ -103,7 +103,8 @@ func TestRun(t *testing.T) {
 
 func TestRun_Fail(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
+
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
 

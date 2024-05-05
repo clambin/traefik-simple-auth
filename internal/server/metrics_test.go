@@ -15,7 +15,7 @@ import (
 
 func TestServer_withMetrics(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 	metrics := NewMetrics("", "", map[string]string{"provider": "foo"})
 	sessionStore, _, _, s := setupServer(ctx, t, metrics)
 
@@ -64,7 +64,7 @@ func TestMetrics_Collect_ActiveUsers(t *testing.T) {
 	sessionStore.Session("bar@example.com")
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 	go monitorSessions(ctx, metrics, sessionStore, 100*time.Millisecond)
 
 	assert.Eventually(t, func() bool {

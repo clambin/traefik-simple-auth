@@ -62,8 +62,8 @@ func runHTTPServer(ctx context.Context, addr string, handler http.Handler) error
 	case <-ctx.Done():
 	}
 
-	ctx2, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
+	ctx2, cancel2 := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel2()
 	err := httpServer.Shutdown(ctx2)
 	if errors.Is(err, http.ErrServerClosed) {
 		err = nil

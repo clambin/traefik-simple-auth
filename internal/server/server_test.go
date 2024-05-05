@@ -39,7 +39,7 @@ func TestServer_Panics(t *testing.T) {
 
 func TestForwardAuthHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 
 	sessionStore, _, _, h := setupServer(ctx, t, nil)
 	validSession := sessionStore.Session("foo@example.com")
@@ -105,7 +105,7 @@ func TestForwardAuthHandler(t *testing.T) {
 
 func TestLogoutHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 	sessionStore, _, _, s := setupServer(ctx, t, nil)
 
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
@@ -161,7 +161,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 	sessionStore, stateStore, oidcServer, server := setupServer(ctx, t, nil)
 
 	for _, tt := range tests {
