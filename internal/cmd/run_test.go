@@ -85,7 +85,7 @@ func TestRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, code)
 
-	// health now gives us 1 session and 1 (used) state
+	// health now gives us 1 session. the state has been deleted.
 	resp, err := http.Get("http://localhost:8081/health")
 	require.NoError(t, err)
 	body, _ := io.ReadAll(resp.Body)

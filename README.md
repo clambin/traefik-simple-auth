@@ -304,7 +304,7 @@ traefik-simple-auth exports the following metrics:
 
 ## Limitations
 
-- traefik-simple-auth doesn't handle URLs where ports are specified.
+- The oauth callback (i.e. `<auth-prefix>.<domain>/_oauth`) is currently restricted to the standard https port (i.e. 443).
 
 ## Authors
 

@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -70,7 +71,7 @@ func TestForwardAuthHandler(t *testing.T) {
 				session: &validSession,
 			},
 			want: http.StatusOK,
-			user: "foo@example.com",
+			user: validSession.Email,
 		},
 		{
 			name: "invalid domain",
@@ -81,13 +82,13 @@ func TestForwardAuthHandler(t *testing.T) {
 			want: http.StatusUnauthorized,
 		},
 		{
-			// TODO: this should work
 			name: "port specified",
 			args: args{
 				target:  "example.com:443",
 				session: &validSession,
 			},
-			want: http.StatusUnauthorized,
+			want: http.StatusOK,
+			user: validSession.Email,
 		},
 	}
 
@@ -292,6 +293,15 @@ func Test_getOriginalTarget(t *testing.T) {
 			},
 			want: "https://example.com/foo",
 		},
+		{
+			name: "ports are ignored",
+			headers: http.Header{
+				"X-Forwarded-Proto": []string{"https"},
+				"X-Forwarded-Host":  []string{"example.com"},
+				"X-Forwarded-Port":  []string{"443"},
+			},
+			want: "https://example.com/",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -299,7 +309,6 @@ func Test_getOriginalTarget(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.Header = tt.headers
 			assert.Equal(t, tt.want, getOriginalTarget(r).String())
-			//assert.Equal(t, tt.want, altGetOriginalTarget(r).String())
 		})
 	}
 }
@@ -343,6 +352,31 @@ func Benchmark_getOriginalTarget(b *testing.B) {
 	b.Run("old", func(b *testing.B) {
 		for range b.N {
 			_ = getOriginalTarget(r)
+		}
+	})
+}
+
+func Benchmark_header_get(b *testing.B) {
+	const headerName = "X-Foo"
+	const headerValue = "bar"
+
+	r, _ := http.NewRequest(http.MethodGet, "/", nil)
+	r.Header.Set(headerName, headerValue)
+
+	b.Run("header.Get", func(b *testing.B) {
+		for range b.N {
+			if r.Header.Get(headerName) != headerValue {
+				b.Fatal("header not found")
+			}
+		}
+	})
+
+	b.Run("direct", func(b *testing.B) {
+		for range b.N {
+			vals := r.Header[headerName]
+			if len(vals) != 1 || vals[0] != headerValue {
+				b.Fatal("header not found:" + strings.Join(vals, ","))
+			}
 		}
 	})
 }

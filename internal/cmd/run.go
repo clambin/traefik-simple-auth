@@ -20,8 +20,8 @@ func Run(ctx context.Context, cfg configuration.Configuration, registry promethe
 	if cfg.Debug {
 		opts.Level = slog.LevelDebug
 	}
-	l := slog.New(slog.NewJSONHandler(logOutput, &opts))
-	l.Info("traefik-simple-auth starting", "version", version)
+	logger := slog.New(slog.NewJSONHandler(logOutput, &opts))
+	logger.Info("traefik-simple-auth starting", "version", version)
 
 	promErr := make(chan error)
 	go func() {
@@ -34,7 +34,7 @@ func Run(ctx context.Context, cfg configuration.Configuration, registry promethe
 	registry.MustRegister(m)
 	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.Expiration)
 	stateStore := state.New[string](time.Minute)
-	s := server.New(ctx, sessionStore, stateStore, cfg, m, l)
+	s := server.New(ctx, sessionStore, stateStore, cfg, m, logger)
 
 	serverErr := make(chan error)
 	go func() {
@@ -42,7 +42,7 @@ func Run(ctx context.Context, cfg configuration.Configuration, registry promethe
 	}()
 
 	err := errors.Join(<-serverErr, <-promErr)
-	l.Info("traefik-simple-auth stopped")
+	logger.Info("traefik-simple-auth stopped")
 	return err
 }
 

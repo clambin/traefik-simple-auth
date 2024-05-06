@@ -3,6 +3,7 @@ package domains
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 )
@@ -33,6 +34,9 @@ func New(entries []string) (Domains, error) {
 // Domain returns the domain that the host in the URL is part of. Returns false if the URL is not part of any domain.
 func (d Domains) Domain(u *url.URL) (Domain, bool) {
 	host := strings.ToLower(u.Host)
+	if strings.ContainsRune(host, ':') {
+		host, _, _ = net.SplitHostPort(host)
+	}
 	for _, domain := range d {
 		if isValidSubdomain(domain, host) {
 			return domain, true
