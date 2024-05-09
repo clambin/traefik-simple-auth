@@ -14,10 +14,13 @@ type Whitelist map[string]struct{}
 func New(emails []string) (Whitelist, error) {
 	list := make(map[string]struct{}, len(emails))
 	for _, email := range emails {
-		if _, err := mail.ParseAddress(email); err != nil {
-			return nil, fmt.Errorf("invalid email address %q: %w", email, err)
+		email = strings.ReplaceAll(email, " ", "")
+		if email != "" {
+			if _, err := mail.ParseAddress(email); err != nil {
+				return nil, fmt.Errorf("invalid email address %q: %w", email, err)
+			}
+			list[strings.ToLower(email)] = struct{}{}
 		}
-		list[strings.ToLower(email)] = struct{}{}
 	}
 	return list, nil
 }

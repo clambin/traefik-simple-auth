@@ -3,7 +3,6 @@ package whitelist
 import (
 	"github.com/stretchr/testify/assert"
 	"net/mail"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -11,42 +10,63 @@ import (
 func TestNew(t *testing.T) {
 	tests := []struct {
 		name    string
-		emails  []string
+		emails  string
 		email   string
 		wantErr assert.ErrorAssertionFunc
 		want    assert.BoolAssertionFunc
 	}{
 		{
 			name:    "match",
-			emails:  []string{"foo@example.com", "bar@example.com"},
+			emails:  "foo@example.com,bar@example.com",
 			email:   "foo@example.com",
 			wantErr: assert.NoError,
 			want:    assert.True,
 		},
 		{
+			name:    "leading whitespace is ignored",
+			emails:  "foo@example.com, bar@example.com",
+			email:   "bar@example.com",
+			wantErr: assert.NoError,
+			want:    assert.True,
+		},
+		{
+			name:    "trailing whitespace is ignored",
+			emails:  "foo@example.com ,bar@example.com",
+			email:   "foo@example.com",
+			wantErr: assert.NoError,
+			want:    assert.True,
+		},
+		{
+			name:    "email list is case-insensitive",
+			emails:  "Foo@example.com",
+			email:   "foo@example.com",
+			wantErr: assert.NoError,
+			want:    assert.True,
+		},
+		{
+			name:    "email is case-insensitive",
+			emails:  "foo@example.com",
+			email:   "Foo@example.com",
+			wantErr: assert.NoError,
+			want:    assert.True,
+		},
+		{
 			name:    "no match",
-			emails:  []string{"foo@example.com"},
+			emails:  "foo@example.com",
 			email:   "bar@example.com",
 			wantErr: assert.NoError,
 			want:    assert.False,
 		},
 		{
 			name:    "empty",
-			emails:  []string{},
+			emails:  "",
 			email:   "foo@example.com",
 			wantErr: assert.NoError,
 			want:    assert.True,
 		},
 		{
-			name:    "case-insensitive",
-			emails:  []string{"foo@example.com", "bar@example.com"},
-			email:   "Foo@example.com",
-			wantErr: assert.NoError,
-			want:    assert.True,
-		},
-		{
 			name:    "invalid email address",
-			emails:  []string{"foo@example.com", "0"},
+			emails:  "0",
 			wantErr: assert.Error,
 		},
 	}
@@ -55,18 +75,13 @@ func TestNew(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			list, err := New(tt.emails)
+			list, err := New(strings.Split(tt.emails, ","))
 			tt.wantErr(t, err)
 			if err != nil {
 				return
 			}
 
 			tt.want(t, list.Match(tt.email))
-
-			sortedList := list.list()
-			slices.Sort(sortedList)
-			slices.Sort(tt.emails)
-			assert.Equal(t, tt.emails, sortedList)
 		})
 	}
 }
