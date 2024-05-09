@@ -40,20 +40,19 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 			return
 		}
 
-		// no valid session cookie found. redirect to oauth handler
+		// no valid session cookie found. redirect to oauth handler.
 
 		// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 		// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
 		//
-		// Note: since the state is kept in memory, this does limit traefik-simple-auth to a single instance, as in a multi-inatance setup,
+		// Note: since the state is kept in memory, this does limit traefik-simple-auth to a single instance, as in a multi-instance setup,
 		// the callback may be routed to a different instance than the one that generate the state.
-		// However, considered traefik-simple-auth responds in less than 100 µs (i.e. 10,000 tps in a worst case scenario),
-		// this doesn't present a real problem (yet).
 		encodedState := states.Add(r.URL.String())
 
 		// Redirect the user to the oauth2 provider to select the account to authenticate the request.
 		authCodeURL := oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 		logger.Debug("redirecting ...", slog.String("authCodeURL", authCodeURL))
+		// TODO: possible clear the session cookie, so it's removed from the user's browser?
 		http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 	})
 }
