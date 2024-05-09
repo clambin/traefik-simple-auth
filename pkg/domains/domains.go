@@ -17,6 +17,7 @@ type Domains []Domain
 func New(entries []string) (Domains, error) {
 	var results Domains
 	for _, domain := range entries {
+		domain = strings.TrimSpace(domain)
 		if domain == "" {
 			return nil, fmt.Errorf("domain cannot be empty")
 		}

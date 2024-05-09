@@ -8,39 +8,45 @@ import (
 	"testing"
 )
 
-func TestGetDomains(t *testing.T) {
+func TestNew(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   []string
+		input   string
 		wantErr assert.ErrorAssertionFunc
 		want    Domains
 	}{
 		{
 			name:    "single domain, no dot",
-			input:   []string{"example.com"},
+			input:   "example.com",
 			wantErr: assert.NoError,
 			want:    Domains{".example.com"},
 		},
 		{
 			name:    "single domain, dot",
-			input:   []string{".example.com"},
+			input:   ".example.com",
 			wantErr: assert.NoError,
 			want:    Domains{".example.com"},
 		},
 		{
 			name:    "multiple domains",
-			input:   []string{".example.com", "example.org"},
+			input:   ".example.com,example.org",
+			wantErr: assert.NoError,
+			want:    Domains{".example.com", ".example.org"},
+		},
+		{
+			name:    "whitespace is ignored",
+			input:   ".example.com , example.org",
 			wantErr: assert.NoError,
 			want:    Domains{".example.com", ".example.org"},
 		},
 		{
 			name:    "invalid entry",
-			input:   []string{". example.com"},
+			input:   ". example.com",
 			wantErr: assert.Error,
 		},
 		{
 			name:    "empty entry",
-			input:   []string{""},
+			input:   "",
 			wantErr: assert.Error,
 		},
 	}
@@ -49,7 +55,7 @@ func TestGetDomains(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			result, err := New(tt.input)
+			result, err := New(strings.Split(tt.input, ","))
 			tt.wantErr(t, err)
 			if err != nil {
 				return
@@ -61,7 +67,7 @@ func TestGetDomains(t *testing.T) {
 	}
 }
 
-func FuzzGetDomains(f *testing.F) {
+func FuzzNew(f *testing.F) {
 	testcases := []string{"example.com", ".example.com", "example.com,example.org", ".example.com,.example.org"}
 	for _, tc := range testcases {
 		f.Add(tc)
@@ -83,60 +89,54 @@ func FuzzGetDomains(f *testing.F) {
 func TestDomains_Domain(t *testing.T) {
 	tests := []struct {
 		name    string
-		domains []string
+		domains Domains
 		target  string
 		wantOK  assert.BoolAssertionFunc
 		want    Domain
 	}{
 		{
 			name:    "match single domain",
-			domains: []string{"example.com"},
+			domains: Domains{".example.com"},
 			target:  "https://example.com/foo",
 			wantOK:  assert.True,
 			want:    ".example.com",
 		},
 		{
 			name:    "match should be case-insensitive",
-			domains: []string{"Example.com"},
-			target:  "https://example.Com/foo",
-			wantOK:  assert.True,
-			want:    ".example.com",
-		},
-		{
-			name:    "ignore ports",
-			domains: []string{"example.com"},
-			target:  "https://example.com:443/foo",
+			domains: Domains{".example.com"},
+			target:  "https://Example.Com/foo",
 			wantOK:  assert.True,
 			want:    ".example.com",
 		},
 		{
 			name:    "match multiple domains",
-			domains: []string{"example.com", "example.org"},
+			domains: Domains{".example.com", ".example.org"},
 			target:  "https://www.example.org/foo",
 			wantOK:  assert.True,
 			want:    ".example.org",
 		},
 		{
+			name:    "ignore ports",
+			domains: Domains{".example.com"},
+			target:  "https://example.com:443/foo",
+			wantOK:  assert.True,
+			want:    ".example.com",
+		},
+		{
 			name:    "no match",
-			domains: []string{"example.com", "example.org"},
+			domains: Domains{".example.com", ".example.org"},
 			target:  "https://www.example.net",
 			wantOK:  assert.False,
 		},
 		{
 			name:    "overlap",
-			domains: []string{"example.com"},
+			domains: Domains{".example.com"},
 			target:  "https://www.badexample.com/foo",
 			wantOK:  assert.False,
 		},
 		{
 			name:    "empty",
-			domains: []string{},
-			target:  "https://www.example.com",
-			wantOK:  assert.False,
-		},
-		{
-			name:    "error",
-			domains: []string{},
+			domains: Domains{".example.com"},
 			target:  "",
 			wantOK:  assert.False,
 		},
@@ -146,8 +146,7 @@ func TestDomains_Domain(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			u, _ := url.Parse(tt.target)
-			domains, _ := New(tt.domains)
-			domain, ok := domains.Domain(u)
+			domain, ok := tt.domains.Domain(u)
 			tt.wantOK(t, ok)
 			assert.Equal(t, tt.want, domain)
 		})
