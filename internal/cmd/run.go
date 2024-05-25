@@ -30,11 +30,11 @@ func Run(ctx context.Context, cfg configuration.Configuration, registry promethe
 		promErr <- runHTTPServer(ctx, cfg.PromAddr, m)
 	}()
 
-	m := server.NewMetrics("traefik_simple_auth", "", map[string]string{"provider": cfg.Provider})
-	registry.MustRegister(m)
+	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
+	registry.MustRegister(metrics)
 	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.Expiration)
 	stateStore := state.New[string](time.Minute)
-	s := server.New(ctx, sessionStore, stateStore, cfg, m, logger)
+	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)
 
 	serverErr := make(chan error)
 	go func() {

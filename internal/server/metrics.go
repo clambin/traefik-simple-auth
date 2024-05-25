@@ -17,7 +17,7 @@ type Metrics struct {
 	activeUsers     *prometheus.GaugeVec
 }
 
-func NewMetrics(namespace, subsystem string, constLabels map[string]string, buckets ...float64) *Metrics {
+func NewMetrics(namespace, subsystem string, constLabels prometheus.Labels, buckets ...float64) *Metrics {
 	if len(buckets) == 0 {
 		buckets = []float64{0.0001, 0.0005, 0.001, .005, .01, .05, .1, .5, 1}
 	}

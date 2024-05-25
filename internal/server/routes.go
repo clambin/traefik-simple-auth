@@ -22,20 +22,28 @@ func addRoutes(
 	metrics *Metrics,
 	logger *slog.Logger,
 ) {
-	mux.Handle(OAUTHPath+"/logout", forwardAuthMiddleware(sessions, metrics, logger)(
-		LogoutHandler(domains, sessions, logger.With("handler", "logout"))))
-	mux.Handle(OAUTHPath, withMetrics(metrics)(
-		AuthCallbackHandler(
-			domains,
-			whitelist,
-			oauthHandlers,
-			states,
-			sessions,
-			logger.With("handler", "authCallback"),
+	mux.Handle("/",
+		forwardAuthMiddleware(sessions, metrics, logger)(
+			ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth")),
 		),
-	))
-	mux.Handle("/", forwardAuthMiddleware(sessions, metrics, logger)(
-		ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth"))))
+	)
+	mux.Handle(OAUTHPath+"/logout",
+		forwardAuthMiddleware(sessions, metrics, logger)(
+			LogoutHandler(domains, sessions, logger.With("handler", "logout")),
+		),
+	)
+	mux.Handle(OAUTHPath,
+		withMetrics(metrics)(
+			AuthCallbackHandler(
+				domains,
+				whitelist,
+				oauthHandlers,
+				states,
+				sessions,
+				logger.With("handler", "authCallback"),
+			),
+		),
+	)
 	mux.Handle("/health", HealthHandler(sessions, states))
 }
 
