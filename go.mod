@@ -6,7 +6,7 @@ toolchain go1.22.3
 
 require (
 	github.com/clambin/go-common/cache v0.4.0
-	github.com/clambin/go-common/http v0.4.4
+	github.com/clambin/go-common/http v0.5.0
 	github.com/clambin/go-common/testutils v0.1.0
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
