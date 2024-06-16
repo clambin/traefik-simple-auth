@@ -51,7 +51,7 @@ For traefik-simple-auth, a valid cookie:
 * comes from an authenticated user (more below);
 * hasn't expired (as determined by the `expiry` parameter documented below);
 * is secure (by creating a SHA256 HMAC of the above two values, using the `secret` parameter to generate the HMAC, to ensure it was issued by us);
-* is sent to us by the browser, i.e. the final destination needs to be part of the `domain` configured for traefik-simple-auth).
+* is sent to us by the browser, i.e. the final destination needs to be part of the `domain` configured for traefik-simple-auth.
 
 If an incoming request does not contain a valid session cookie, the user needs to be authenticated:
 
@@ -267,7 +267,7 @@ Usage:
 
 - `session-cookie-name`
 
-  The name of the browser cookie holding the session. Overriding this may be useful when you to segregate a user signing into one instance of traefik-simple-auth vs. any other instances.
+  The name of the browser cookie holding the session. Overriding this may be useful when you to segregate a user signing in to one instance of traefik-simple-auth vs. any other instances.
   
   By default, traefik-simple-auth uses Google as oauth provider and a session cooke called `traefik-simple-auth`.
   If a second instance, using GitHub oauth, used the same cookie name, then signing in to Google would also allow any flows
@@ -275,7 +275,7 @@ Usage:
 
 - `domains`
 
-  A comma-separated list of all allowed domains. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) are allowed. 
+  A comma-separated list of all allowed domains. If "example.com" is an allowed domain, then all subdomains (e.g. www.example.com) are allowed. 
   
   Note: each domain needs a redirect URL configured in the auth provider, matching the domain, e.g. when using example.com and example.org, 
   both https://auth.example.com/_oauth and https://auth.example.org/_oauth need to be set up as redirect URLs and an ingress is needed for each of these URLs to route back to traefik-simple-auth.   
@@ -296,11 +296,11 @@ Usage:
 
 traefik-simple-auth exports the following metrics:
 
-| metric | type |  labels | help                          |
-| --- | --- |  --- |-------------------------------|
-| traefik_simple_auth_active_users | GAUGE | provider, user| number of active users        |
-| traefik_simple_auth_http_request_duration_seconds | HISTOGRAM | code, host, path, provider, user| duration of http requests     |
-| traefik_simple_auth_http_requests_total | COUNTER | code, host, path, provider, user| total number of http requests |
+| metric                                            | type      | labels                           | help                          |
+|---------------------------------------------------|-----------|----------------------------------|-------------------------------|
+| traefik_simple_auth_active_users                  | GAUGE     | provider, user                   | number of active users        |
+| traefik_simple_auth_http_request_duration_seconds | HISTOGRAM | code, host, path, provider, user | duration of http requests     |
+| traefik_simple_auth_http_requests_total           | COUNTER   | code, host, path, provider, user | total number of http requests |
 
 ## Limitations
 
