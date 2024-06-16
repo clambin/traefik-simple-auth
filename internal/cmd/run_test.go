@@ -33,7 +33,6 @@ func TestRun(t *testing.T) {
 		Addr:              ":8081",
 		PromAddr:          ":9091",
 		SessionCookieName: "_auth",
-		Expiration:        time.Hour,
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
@@ -42,6 +41,10 @@ func TestRun(t *testing.T) {
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
+		CacheConfiguration: configuration.CacheConfiguration{
+			TTL:     time.Hour,
+			Backend: "memory",
+		},
 	}
 	go func() {
 		err := Run(ctx, cfg, prometheus.NewRegistry(), os.Stderr, "dev")
@@ -117,7 +120,6 @@ func TestRun_Fail(t *testing.T) {
 		Addr:              ":-1",
 		PromAddr:          ":-1",
 		SessionCookieName: "_auth",
-		Expiration:        time.Hour,
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
@@ -126,6 +128,10 @@ func TestRun_Fail(t *testing.T) {
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
+		CacheConfiguration: configuration.CacheConfiguration{
+			TTL:     time.Hour,
+			Backend: "memory",
+		},
 	}
 	assert.Error(t, Run(ctx, cfg, prometheus.NewRegistry(), os.Stderr, "dev"))
 }

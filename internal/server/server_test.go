@@ -34,7 +34,10 @@ func TestServer_Panics(t *testing.T) {
 			Domains:  domains.Domains{"example.com"},
 		}
 		sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-		stateStore := state.New[string](time.Minute)
+		stateStore := state.States[string]{
+			Backend: state.NewLocalCache[string](),
+			TTL:     time.Minute,
+		}
 		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, slog.Default())
 	}()
 	assert.True(t, panics)
@@ -180,10 +183,9 @@ func TestAuthCallbackHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// mockoidc is not thread-safe
 			//t.Parallel()
-
 			oauthState := tt.state
 			if oauthState == "" {
-				oauthState = stateStore.Add("https://example.com/foo")
+				oauthState, _ = stateStore.Add(ctx, "https://example.com/foo")
 			}
 
 			code := tt.code
@@ -224,7 +226,7 @@ func TestHealthHandler(t *testing.T) {
 `, w.Body.String())
 
 	sessionStore.Session("foo@example.com")
-	stateStore.Add("https://example.com")
+	_, _ = stateStore.Add(ctx, "https://example.com")
 
 	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
 	w = httptest.NewRecorder()
@@ -257,7 +259,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 		Whitelist:     list,
 	}
 	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
-	stateStore := state.New[string](time.Minute)
+	stateStore := state.States[string]{TTL: time.Minute, Backend: state.NewLocalCache[string]()}
 	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, slog.Default())
 }
 
@@ -322,7 +324,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Provider:  "google",
 	}
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-	stateStore := state.New[string](time.Minute)
+	stateStore := state.States[string]{TTL: time.Minute, Backend: state.NewLocalCache[string]()}
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
 	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")

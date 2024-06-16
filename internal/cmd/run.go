@@ -9,6 +9,7 @@ import (
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"io"
 	"log/slog"
 	"net/http"
@@ -32,8 +33,8 @@ func Run(ctx context.Context, cfg configuration.Configuration, registry promethe
 
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	registry.MustRegister(metrics)
-	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.Expiration)
-	stateStore := state.New[string](time.Minute)
+	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.TTL)
+	stateStore := makeStateStore(cfg.CacheConfiguration)
 	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)
 
 	serverErr := make(chan error)
@@ -70,4 +71,26 @@ func runHTTPServer(ctx context.Context, addr string, handler http.Handler) error
 		err = nil
 	}
 	return err
+}
+
+func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
+	var backend state.Backend[string]
+	switch cfg.Backend {
+	case "memory":
+		backend = state.NewLocalCache[string]()
+	case "redis":
+		backend = state.RedisCache{Client: redis.NewClient(&redis.Options{
+			Addr:     cfg.Addr,
+			Username: cfg.Username,
+			Password: cfg.Password,
+			DB:       cfg.Database,
+		})}
+	default:
+		panic("unknown backend: " + cfg.Backend)
+	}
+
+	return state.States[string]{
+		Backend: backend,
+		TTL:     cfg.TTL,
+	}
 }
