@@ -80,13 +80,13 @@ type fakeRedisClient struct {
 
 func (f *fakeRedisClient) Set(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd {
 	cmd := redis.NewStatusCmd(ctx)
-	cmd.SetErr(f.c.Add(ctx, key, value.(string), expiration))
+	cmd.SetErr(f.c.add(ctx, key, value.(string), expiration))
 	return cmd
 }
 
 func (f *fakeRedisClient) GetDel(ctx context.Context, key string) *redis.StringCmd {
 	cmd := redis.NewStringCmd(ctx)
-	value, err := f.c.Get(ctx, key)
+	value, err := f.c.get(ctx, key)
 	cmd.SetVal(value)
 	cmd.SetErr(err)
 	return cmd
@@ -105,11 +105,11 @@ type fakeMemcachedClient struct {
 }
 
 func (f *fakeMemcachedClient) Set(item *memcache.Item) error {
-	return f.c.Add(context.Background(), item.Key, string(item.Value), time.Duration(item.Expiration)*time.Second)
+	return f.c.add(context.Background(), item.Key, string(item.Value), time.Duration(item.Expiration)*time.Second)
 }
 
 func (f *fakeMemcachedClient) Get(key string) (*memcache.Item, error) {
-	value, err := f.c.Get(context.Background(), key)
+	value, err := f.c.get(context.Background(), key)
 	if err != nil {
 		return nil, err
 	}

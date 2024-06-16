@@ -30,26 +30,26 @@ func (s States[T]) Add(ctx context.Context, value T) (string, error) {
 	// theoretically this could fail, but in practice this will never happen.
 	_, _ = rand.Read(state)
 	encodedState := hex.EncodeToString(state)
-	err := s.Backend.Add(ctx, encodedState, value, s.TTL)
+	err := s.Backend.add(ctx, encodedState, value, s.TTL)
 	return encodedState, err
 }
 
 // Validate checks if the state exists. If it exists, we remove the state and return the associated value.
 // If the state does not exist, bool is false.
 func (s States[T]) Validate(ctx context.Context, state string) (T, error) {
-	return s.Backend.Get(ctx, state)
+	return s.Backend.get(ctx, state)
 }
 
 func (s States[T]) Count(ctx context.Context) (int, error) {
-	return s.Backend.Len(ctx)
+	return s.Backend.len(ctx)
 }
 
 var ErrNotFound = errors.New("not found")
 
 type Backend[T any] interface {
-	Add(context.Context, string, T, time.Duration) error
-	Get(context.Context, string) (T, error)
-	Len(context.Context) (int, error)
+	add(context.Context, string, T, time.Duration) error
+	get(context.Context, string) (T, error)
+	len(context.Context) (int, error)
 }
 
 type LocalCache[T any] struct {
@@ -62,23 +62,21 @@ func NewLocalCache[T any]() LocalCache[T] {
 	}
 }
 
-func (l LocalCache[T]) Add(_ context.Context, state string, value T, duration time.Duration) error {
+func (l LocalCache[T]) add(_ context.Context, state string, value T, duration time.Duration) error {
 	l.values.AddWithExpiry(state, value, duration)
 	return nil
 }
 
-func (l LocalCache[T]) Get(_ context.Context, key string) (T, error) {
+func (l LocalCache[T]) get(_ context.Context, key string) (T, error) {
 	var err error
-	val, ok := l.values.Get(key)
+	val, ok := l.values.GetAndRemove(key)
 	if !ok {
 		return val, ErrNotFound
 	}
-	// TODO: this isn't atomic.  need to implement in cache library.
-	l.values.Remove(key)
 	return val, err
 }
 
-func (l LocalCache[T]) Len(_ context.Context) (int, error) {
+func (l LocalCache[T]) len(_ context.Context) (int, error) {
 	return l.values.Len(), nil
 }
 
@@ -92,20 +90,19 @@ type RedisClient interface {
 	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
 }
 
-func (l RedisCache) Add(ctx context.Context, state string, value string, duration time.Duration) error {
+func (l RedisCache) add(ctx context.Context, state string, value string, duration time.Duration) error {
 	return l.Client.Set(ctx, state, value, duration).Err()
 }
 
-func (l RedisCache) Get(ctx context.Context, key string) (string, error) {
+func (l RedisCache) get(ctx context.Context, key string) (string, error) {
 	return l.Client.GetDel(ctx, key).Result()
 }
 
-func (l RedisCache) Len(ctx context.Context) (int, error) {
+func (l RedisCache) len(ctx context.Context) (int, error) {
+	// heavy operation
 	keys, err := l.Client.Keys(ctx, "").Result()
 	return len(keys), err
 }
-
-var _ Backend[string] = MemcachedCache{}
 
 type MemcachedCache struct {
 	Client MemcachedClient
@@ -117,7 +114,7 @@ type MemcachedClient interface {
 	Delete(string) error
 }
 
-func (m MemcachedCache) Add(_ context.Context, key string, value string, ttl time.Duration) error {
+func (m MemcachedCache) add(_ context.Context, key string, value string, ttl time.Duration) error {
 	return m.Client.Set(&memcache.Item{
 		Key:        key,
 		Value:      []byte(value),
@@ -125,7 +122,7 @@ func (m MemcachedCache) Add(_ context.Context, key string, value string, ttl tim
 	})
 }
 
-func (m MemcachedCache) Get(_ context.Context, key string) (string, error) {
+func (m MemcachedCache) get(_ context.Context, key string) (string, error) {
 	item, err := m.Client.Get(key)
 	if err != nil {
 		if errors.Is(err, memcache.ErrCacheMiss) {
@@ -139,6 +136,6 @@ func (m MemcachedCache) Get(_ context.Context, key string) (string, error) {
 	return string(item.Value), nil
 }
 
-func (m MemcachedCache) Len(_ context.Context) (int, error) {
+func (m MemcachedCache) len(_ context.Context) (int, error) {
 	return 0, nil
 }
