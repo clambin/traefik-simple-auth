@@ -9,6 +9,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/go-common/cache"
 	"github.com/redis/go-redis/v9"
 	"time"
@@ -101,4 +103,42 @@ func (l RedisCache) Get(ctx context.Context, key string) (string, error) {
 func (l RedisCache) Len(ctx context.Context) (int, error) {
 	keys, err := l.Client.Keys(ctx, "").Result()
 	return len(keys), err
+}
+
+var _ Backend[string] = MemcachedCache{}
+
+type MemcachedCache struct {
+	Client MemcachedClient
+}
+
+type MemcachedClient interface {
+	Set(*memcache.Item) error
+	Get(string) (*memcache.Item, error)
+	Delete(string) error
+}
+
+func (m MemcachedCache) Add(_ context.Context, key string, value string, ttl time.Duration) error {
+	return m.Client.Set(&memcache.Item{
+		Key:        key,
+		Value:      []byte(value),
+		Expiration: int32(ttl.Seconds()),
+	})
+}
+
+func (m MemcachedCache) Get(_ context.Context, key string) (string, error) {
+	item, err := m.Client.Get(key)
+	if err != nil {
+		if errors.Is(err, memcache.ErrCacheMiss) {
+			err = ErrNotFound
+		}
+		return "", err
+	}
+	if err = m.Client.Delete(key); err != nil {
+		return "", fmt.Errorf("delete: %w", err)
+	}
+	return string(item.Value), nil
+}
+
+func (m MemcachedCache) Len(_ context.Context) (int, error) {
+	return 0, nil
 }

@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/go-common/cache"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,7 @@ func TestStates(t *testing.T) {
 	tests := []struct {
 		name    string
 		backend Backend[string]
+		noCount bool
 	}{
 		{
 			name: "localCache",
@@ -26,6 +28,13 @@ func TestStates(t *testing.T) {
 			backend: RedisCache{
 				Client: &fakeRedisClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
 			},
+		},
+		{
+			name: "memcachedCache",
+			backend: MemcachedCache{
+				Client: &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
+			},
+			noCount: true,
 		},
 	}
 
@@ -40,17 +49,21 @@ func TestStates(t *testing.T) {
 			state, err := c.Add(ctx, "foo")
 			require.NoError(t, err)
 
-			count, err := c.Count(ctx)
-			require.NoError(t, err)
-			assert.Equal(t, 1, count)
+			if !tt.noCount {
+				count, err := c.Count(ctx)
+				require.NoError(t, err)
+				assert.Equal(t, 1, count)
+			}
 
 			value, err := c.Validate(ctx, state)
 			require.NoError(t, err)
 			assert.Equal(t, "foo", value)
 
-			count, err = c.Count(ctx)
-			require.NoError(t, err)
-			assert.Zero(t, count)
+			if !tt.noCount {
+				count, err := c.Count(ctx)
+				require.NoError(t, err)
+				assert.Zero(t, count)
+			}
 
 			_, err = c.Validate(ctx, state)
 			require.ErrorIs(t, err, ErrNotFound)
@@ -83,4 +96,27 @@ func (f *fakeRedisClient) Keys(ctx context.Context, _ string) *redis.StringSlice
 	cmd := redis.NewStringSliceCmd(ctx)
 	cmd.SetVal(f.c.values.GetKeys())
 	return cmd
+}
+
+var _ MemcachedClient = &fakeMemcachedClient{}
+
+type fakeMemcachedClient struct {
+	c LocalCache[string]
+}
+
+func (f *fakeMemcachedClient) Set(item *memcache.Item) error {
+	return f.c.Add(context.Background(), item.Key, string(item.Value), time.Duration(item.Expiration)*time.Second)
+}
+
+func (f *fakeMemcachedClient) Get(key string) (*memcache.Item, error) {
+	value, err := f.c.Get(context.Background(), key)
+	if err != nil {
+		return nil, err
+	}
+	return &memcache.Item{Key: key, Value: []byte(value)}, nil
+}
+
+func (f *fakeMemcachedClient) Delete(key string) error {
+	f.c.values.Remove(key)
+	return nil
 }

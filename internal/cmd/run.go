@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
@@ -80,11 +81,15 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
 		backend = state.NewLocalCache[string]()
 	case "redis":
 		backend = state.RedisCache{Client: redis.NewClient(&redis.Options{
-			Addr:     cfg.Addr,
-			Username: cfg.Username,
-			Password: cfg.Password,
-			DB:       cfg.Database,
+			Addr:     cfg.RedisConfiguration.Addr,
+			Username: cfg.RedisConfiguration.Username,
+			Password: cfg.RedisConfiguration.Password,
+			DB:       cfg.RedisConfiguration.Database,
 		})}
+	case "memcached":
+		backend = state.MemcachedCache{
+			Client: memcache.New(cfg.MemcachedConfiguration.Addr),
+		}
 	default:
 		panic("unknown backend: " + cfg.Backend)
 	}
