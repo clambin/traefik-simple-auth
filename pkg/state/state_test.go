@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/go-common/cache"
 	"github.com/stretchr/testify/assert"
@@ -88,6 +89,9 @@ func (f *fakeMemcachedClient) Set(item *memcache.Item) error {
 func (f *fakeMemcachedClient) Get(key string) (*memcache.Item, error) {
 	value, err := f.c.get(context.Background(), key)
 	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			err = memcache.ErrCacheMiss
+		}
 		return nil, err
 	}
 	return &memcache.Item{Key: key, Value: []byte(value)}, nil
