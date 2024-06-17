@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/go-common/cache"
-	"github.com/redis/go-redis/v9"
 	"time"
 )
 
@@ -78,30 +77,6 @@ func (l LocalCache[T]) get(_ context.Context, key string) (T, error) {
 
 func (l LocalCache[T]) len(_ context.Context) (int, error) {
 	return l.values.Len(), nil
-}
-
-type RedisCache struct {
-	Client RedisClient //*redis.Client
-}
-
-type RedisClient interface {
-	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.StatusCmd
-	GetDel(ctx context.Context, key string) *redis.StringCmd
-	Keys(ctx context.Context, pattern string) *redis.StringSliceCmd
-}
-
-func (l RedisCache) add(ctx context.Context, state string, value string, duration time.Duration) error {
-	return l.Client.Set(ctx, state, value, duration).Err()
-}
-
-func (l RedisCache) get(ctx context.Context, key string) (string, error) {
-	return l.Client.GetDel(ctx, key).Result()
-}
-
-func (l RedisCache) len(ctx context.Context) (int, error) {
-	// heavy operation
-	keys, err := l.Client.Keys(ctx, "").Result()
-	return len(keys), err
 }
 
 type MemcachedCache struct {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/go-common/cache"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -21,12 +20,6 @@ func TestStates(t *testing.T) {
 			name: "localCache",
 			backend: LocalCache[string]{
 				values: cache.New[string, string](0, 0),
-			},
-		},
-		{
-			name: "redisCache",
-			backend: RedisCache{
-				Client: &fakeRedisClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
 			},
 		},
 		{
@@ -70,32 +63,6 @@ func TestStates(t *testing.T) {
 
 		})
 	}
-}
-
-var _ RedisClient = &fakeRedisClient{}
-
-type fakeRedisClient struct {
-	c LocalCache[string]
-}
-
-func (f *fakeRedisClient) Set(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd {
-	cmd := redis.NewStatusCmd(ctx)
-	cmd.SetErr(f.c.add(ctx, key, value.(string), expiration))
-	return cmd
-}
-
-func (f *fakeRedisClient) GetDel(ctx context.Context, key string) *redis.StringCmd {
-	cmd := redis.NewStringCmd(ctx)
-	value, err := f.c.get(ctx, key)
-	cmd.SetVal(value)
-	cmd.SetErr(err)
-	return cmd
-}
-
-func (f *fakeRedisClient) Keys(ctx context.Context, _ string) *redis.StringSliceCmd {
-	cmd := redis.NewStringSliceCmd(ctx)
-	cmd.SetVal(f.c.values.GetKeys())
-	return cmd
 }
 
 var _ MemcachedClient = &fakeMemcachedClient{}

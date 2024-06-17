@@ -10,7 +10,6 @@ import (
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
 	"io"
 	"log/slog"
 	"net/http"
@@ -79,13 +78,6 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
 	switch cfg.Backend {
 	case "memory":
 		backend = state.NewLocalCache[string]()
-	case "redis":
-		backend = state.RedisCache{Client: redis.NewClient(&redis.Options{
-			Addr:     cfg.RedisConfiguration.Addr,
-			Username: cfg.RedisConfiguration.Username,
-			Password: cfg.RedisConfiguration.Password,
-			DB:       cfg.RedisConfiguration.Database,
-		})}
 	case "memcached":
 		backend = state.MemcachedCache{
 			Client: memcache.New(cfg.MemcachedConfiguration.Addr),

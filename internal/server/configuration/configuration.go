@@ -26,10 +26,6 @@ var (
 	clientSecret       = flag.String("client-secret", "", "OAuth2 Client Secret")
 	secret             = flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
 	cacheBackend       = flag.String("cache", "memory", "The backend to use for caching")
-	cacheRedisAddr     = flag.String("cache-redis-addr", "", "redis address to use for caching (if cache=redis)")
-	cacheRedisDB       = flag.Int("cache-redis-db", 0, "redis DB to use for caching (if cache=redis)")
-	cacheRedisUsername = flag.String("cache-redis-username", "", "redis username to use for caching (if cache=redis)")
-	cacheRedisPassword = flag.String("cache-redis-password", "", "redis password to use for caching (if cache=redis)")
 	cacheMemcachedAddr = flag.String("cache-memcached-addr", "", "memcached address to use (only used when cache backend is memcached)")
 )
 
@@ -82,12 +78,6 @@ func GetConfiguration() (Configuration, error) {
 		CacheConfiguration: CacheConfiguration{
 			Backend: *cacheBackend,
 			TTL:     *expiry,
-			RedisConfiguration: RedisConfiguration{
-				Addr:     *cacheRedisAddr,
-				Database: *cacheRedisDB,
-				Username: *cacheRedisUsername,
-				Password: *cacheRedisPassword,
-			},
 			MemcachedConfiguration: MemcachedConfiguration{
 				Addr: *cacheMemcachedAddr,
 			},
