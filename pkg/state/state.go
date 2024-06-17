@@ -91,13 +91,13 @@ type MemcachedClient interface {
 }
 
 func (m MemcachedCache[T]) add(_ context.Context, key string, value T, ttl time.Duration) error {
-	body, err := json.Marshal(value)
+	val, err := encode[T](value)
 	if err != nil {
 		return err
 	}
 	return m.Client.Set(&memcache.Item{
 		Key:        key,
-		Value:      body,
+		Value:      val,
 		Expiration: int32(ttl.Seconds()),
 	})
 }
@@ -114,10 +114,32 @@ func (m MemcachedCache[T]) get(_ context.Context, key string) (T, error) {
 	if err = m.Client.Delete(key); err != nil {
 		return value, fmt.Errorf("delete: %w", err)
 	}
-	err = json.Unmarshal(item.Value, &value)
-	return value, err
+	return decode[T](item.Value)
 }
 
 func (m MemcachedCache[T]) len(_ context.Context) (int, error) {
 	return 0, nil
+}
+
+func encode[T any](value T) ([]byte, error) {
+	var p any = &value
+	switch v := p.(type) {
+	case *string:
+		return []byte(*v), nil
+	default:
+		return json.Marshal(value)
+	}
+}
+
+func decode[T any](value []byte) (T, error) {
+	var v T
+	var p any = &v
+	switch val := p.(type) {
+	case *string:
+		*val = string(value)
+		return v, nil
+	default:
+		err := json.Unmarshal(value, &v)
+		return v, err
+	}
 }
