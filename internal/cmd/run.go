@@ -79,7 +79,7 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
 	case "memory":
 		backend = state.NewLocalCache[string]()
 	case "memcached":
-		backend = state.MemcachedCache{
+		backend = state.MemcachedCache[string]{
 			Client: memcache.New(cfg.MemcachedConfiguration.Addr),
 		}
 	default:

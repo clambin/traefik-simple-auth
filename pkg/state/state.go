@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
@@ -79,7 +80,7 @@ func (l LocalCache[T]) len(_ context.Context) (int, error) {
 	return l.values.Len(), nil
 }
 
-type MemcachedCache struct {
+type MemcachedCache[T any] struct {
 	Client MemcachedClient
 }
 
@@ -89,28 +90,34 @@ type MemcachedClient interface {
 	Delete(string) error
 }
 
-func (m MemcachedCache) add(_ context.Context, key string, value string, ttl time.Duration) error {
+func (m MemcachedCache[T]) add(_ context.Context, key string, value T, ttl time.Duration) error {
+	body, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
 	return m.Client.Set(&memcache.Item{
 		Key:        key,
-		Value:      []byte(value),
+		Value:      body,
 		Expiration: int32(ttl.Seconds()),
 	})
 }
 
-func (m MemcachedCache) get(_ context.Context, key string) (string, error) {
+func (m MemcachedCache[T]) get(_ context.Context, key string) (T, error) {
+	var value T
 	item, err := m.Client.Get(key)
 	if err != nil {
 		if errors.Is(err, memcache.ErrCacheMiss) {
 			err = ErrNotFound
 		}
-		return "", err
+		return value, err
 	}
 	if err = m.Client.Delete(key); err != nil {
-		return "", fmt.Errorf("delete: %w", err)
+		return value, fmt.Errorf("delete: %w", err)
 	}
-	return string(item.Value), nil
+	err = json.Unmarshal(item.Value, &value)
+	return value, err
 }
 
-func (m MemcachedCache) len(_ context.Context) (int, error) {
+func (m MemcachedCache[T]) len(_ context.Context) (int, error) {
 	return 0, nil
 }

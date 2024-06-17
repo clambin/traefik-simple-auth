@@ -24,7 +24,7 @@ func TestStates(t *testing.T) {
 		},
 		{
 			name: "memcachedCache",
-			backend: MemcachedCache{
+			backend: MemcachedCache[string]{
 				Client: &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
 			},
 			noCount: true,
