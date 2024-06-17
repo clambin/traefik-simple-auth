@@ -12,22 +12,22 @@ import (
 
 func TestStates(t *testing.T) {
 	tests := []struct {
-		name    string
-		backend Backend[string]
-		noCount bool
+		name      string
+		backend   Backend[string]
+		wantCount int
 	}{
 		{
 			name: "localCache",
 			backend: LocalCache[string]{
 				values: cache.New[string, string](0, 0),
 			},
+			wantCount: 1,
 		},
 		{
 			name: "memcachedCache",
 			backend: MemcachedCache[string]{
 				Client: &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
 			},
-			noCount: true,
 		},
 	}
 
@@ -42,25 +42,20 @@ func TestStates(t *testing.T) {
 			state, err := c.Add(ctx, "foo")
 			require.NoError(t, err)
 
-			if !tt.noCount {
-				count, err := c.Count(ctx)
-				require.NoError(t, err)
-				assert.Equal(t, 1, count)
-			}
+			count, err := c.Count(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantCount, count)
 
 			value, err := c.Validate(ctx, state)
 			require.NoError(t, err)
 			assert.Equal(t, "foo", value)
 
-			if !tt.noCount {
-				count, err := c.Count(ctx)
-				require.NoError(t, err)
-				assert.Zero(t, count)
-			}
+			count, err = c.Count(ctx)
+			require.NoError(t, err)
+			assert.Zero(t, count)
 
 			_, err = c.Validate(ctx, state)
 			require.ErrorIs(t, err, ErrNotFound)
-
 		})
 	}
 }
