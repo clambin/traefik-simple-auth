@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"io"
 	"net/http"
 	"net/url"
@@ -24,16 +25,17 @@ func TestRun(t *testing.T) {
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
 
-	go func() {
+	var g errgroup.Group
+	g.Go(func() error {
 		<-ctx.Done()
-		require.NoError(t, oidcServer.Shutdown())
-	}()
+		return oidcServer.Shutdown()
+	})
+
 	cfg := configuration.Configuration{
 		Debug:             true,
 		Addr:              ":8081",
 		PromAddr:          ":9091",
 		SessionCookieName: "_auth",
-		Expiration:        time.Hour,
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
@@ -42,11 +44,14 @@ func TestRun(t *testing.T) {
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
+		CacheConfiguration: configuration.CacheConfiguration{
+			TTL:     time.Hour,
+			Backend: "memory",
+		},
 	}
-	go func() {
-		err := Run(ctx, cfg, prometheus.NewRegistry(), os.Stderr, "dev")
-		require.NoError(t, err)
-	}()
+	g.Go(func() error {
+		return Run(ctx, cfg, prometheus.NewRegistry(), os.Stderr, "dev")
+	})
 
 	assert.Eventually(t, func() bool {
 		resp, err := http.Get("http://localhost:8081/health")
@@ -93,12 +98,7 @@ func TestRun(t *testing.T) {
 	assert.Equal(t, "{\"sessions\":1,\"states\":0}\n", string(body))
 
 	cancel()
-
-	// wait for shutdown
-	assert.Eventually(t, func() bool {
-		_, err = http.Get("http://localhost:8081/health")
-		return err != nil
-	}, time.Second, 10*time.Millisecond)
+	assert.NoError(t, g.Wait())
 }
 
 func TestRun_Fail(t *testing.T) {
@@ -117,7 +117,6 @@ func TestRun_Fail(t *testing.T) {
 		Addr:              ":-1",
 		PromAddr:          ":-1",
 		SessionCookieName: "_auth",
-		Expiration:        time.Hour,
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
@@ -126,6 +125,10 @@ func TestRun_Fail(t *testing.T) {
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
+		CacheConfiguration: configuration.CacheConfiguration{
+			TTL:     time.Hour,
+			Backend: "memory",
+		},
 	}
 	assert.Error(t, Run(ctx, cfg, prometheus.NewRegistry(), os.Stderr, "dev"))
 }

@@ -5,7 +5,8 @@ go 1.22
 toolchain go1.22.4
 
 require (
-	github.com/clambin/go-common/cache v0.4.0
+	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
+	github.com/clambin/go-common/cache v0.5.0
 	github.com/clambin/go-common/http v0.5.0
 	github.com/clambin/go-common/testutils v0.1.0
 	github.com/coreos/go-oidc/v3 v3.10.0
@@ -13,6 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.19.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/oauth2 v0.21.0
+	golang.org/x/sync v0.7.0
 )
 
 require (

@@ -44,10 +44,12 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 		// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 		// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
-		//
-		// Note: since the state is kept in memory, this does limit traefik-simple-auth to a single instance, as in a multi-instance setup,
-		// the callback may be routed to a different instance than the one that generate the state.
-		encodedState := states.Add(r.URL.String())
+		encodedState, err := states.Add(r.Context(), r.URL.String())
+		if err != nil {
+			logger.Warn("error adding state", slog.String("error", err.Error()))
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 
 		// Redirect the user to the oauth2 provider to select the account to authenticate the request.
 		authCodeURL := oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
@@ -99,9 +101,9 @@ func AuthCallbackHandler(
 
 		// Look up the (random) state to find the final destination.
 		encodedState := r.URL.Query().Get("state")
-		targetURL, ok := states.Validate(encodedState)
-		if !ok {
-			logger.Warn("invalid state. Dropping request ...")
+		targetURL, err := states.Validate(r.Context(), encodedState)
+		if err != nil {
+			logger.Warn("invalid state. Dropping request ...", "err", err)
 			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
@@ -142,15 +144,21 @@ func AuthCallbackHandler(
 	})
 }
 
-func HealthHandler(sessions sessions.Sessions, states state.States[string]) http.Handler {
+func HealthHandler(sessions sessions.Sessions, states state.States[string], logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		stateCount, err := states.Count(r.Context())
+		if err != nil {
+			logger.Warn("error counting states", "err", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 		health := struct {
 			Sessions int `json:"sessions"`
 			States   int `json:"states"`
 		}{
 			Sessions: sessions.Count(),
-			States:   states.Count(),
+			States:   stateCount,
 		}
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(health)

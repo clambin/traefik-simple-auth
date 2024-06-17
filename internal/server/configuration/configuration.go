@@ -12,19 +12,21 @@ import (
 )
 
 var (
-	debug             = flag.Bool("debug", false, "Log debug messages")
-	addr              = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
-	promAddr          = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
-	sessionCookieName = flag.String("session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
-	expiry            = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
-	authPrefix        = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
-	domainsString     = flag.String("domains", "", "Comma-separated list of domains to allow access")
-	users             = flag.String("users", "", "Comma-separated list of usernames to allow access")
-	provider          = flag.String("provider", "google", "The OAuth2 provider")
-	oidcIssuerURL     = flag.String("provider-oidc-issuer", "https://accounts.google.com", "The OIDC Issuer URL to use (only used when provider is oidc")
-	clientId          = flag.String("client-id", "", "OAuth2 Client ID")
-	clientSecret      = flag.String("client-secret", "", "OAuth2 Client Secret")
-	secret            = flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
+	debug              = flag.Bool("debug", false, "Log debug messages")
+	addr               = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
+	promAddr           = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
+	sessionCookieName  = flag.String("session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
+	expiry             = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
+	authPrefix         = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
+	domainsString      = flag.String("domains", "", "Comma-separated list of domains to allow access")
+	users              = flag.String("users", "", "Comma-separated list of usernames to allow access")
+	provider           = flag.String("provider", "google", "The OAuth2 provider")
+	oidcIssuerURL      = flag.String("provider-oidc-issuer", "https://accounts.google.com", "The OIDC Issuer URL to use (only used when provider is oidc")
+	clientId           = flag.String("client-id", "", "OAuth2 Client ID")
+	clientSecret       = flag.String("client-secret", "", "OAuth2 Client Secret")
+	secret             = flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
+	cacheBackend       = flag.String("cache", "memory", "The backend to use for caching")
+	cacheMemcachedAddr = flag.String("cache-memcached-addr", "", "memcached address to use (only used when cache backend is memcached)")
 )
 
 type Configuration struct {
@@ -32,7 +34,6 @@ type Configuration struct {
 	Addr              string
 	PromAddr          string
 	SessionCookieName string
-	Expiration        time.Duration
 	Secret            []byte
 	Provider          string
 	OIDCIssuerURL     string
@@ -41,6 +42,25 @@ type Configuration struct {
 	ClientID          string
 	ClientSecret      string
 	AuthPrefix        string
+	CacheConfiguration
+}
+
+type CacheConfiguration struct {
+	Backend string
+	TTL     time.Duration
+	RedisConfiguration
+	MemcachedConfiguration
+}
+
+type RedisConfiguration struct {
+	Addr     string
+	Database int
+	Username string
+	Password string
+}
+
+type MemcachedConfiguration struct {
+	Addr string
 }
 
 func GetConfiguration() (Configuration, error) {
@@ -50,12 +70,18 @@ func GetConfiguration() (Configuration, error) {
 		Addr:              *addr,
 		PromAddr:          *promAddr,
 		SessionCookieName: *sessionCookieName,
-		Expiration:        *expiry,
 		Provider:          *provider,
 		OIDCIssuerURL:     *oidcIssuerURL,
 		ClientID:          *clientId,
 		ClientSecret:      *clientSecret,
 		AuthPrefix:        *authPrefix,
+		CacheConfiguration: CacheConfiguration{
+			Backend: *cacheBackend,
+			TTL:     *expiry,
+			MemcachedConfiguration: MemcachedConfiguration{
+				Addr: *cacheMemcachedAddr,
+			},
+		},
 	}
 	var err error
 	cfg.Domains, err = domains.New(strings.Split(*domainsString, ","))

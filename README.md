@@ -51,7 +51,7 @@ For traefik-simple-auth, a valid cookie:
 * comes from an authenticated user (more below);
 * hasn't expired (as determined by the `expiry` parameter documented below);
 * is secure (by creating a SHA256 HMAC of the above two values, using the `secret` parameter to generate the HMAC, to ensure it was issued by us);
-* is sent to us by the browser, i.e. the final destination needs to be part of the `domain` configured for traefik-simple-auth).
+* is sent to us by the browser, i.e. the final destination needs to be part of the `domain` configured for traefik-simple-auth.
 
 If an incoming request does not contain a valid session cookie, the user needs to be authenticated:
 
@@ -202,6 +202,10 @@ Usage:
         The address to listen on for HTTP requests (default ":8080")
   -auth-prefix string
         prefix to construct the authRedirect URL from the domain (default "auth")
+  -cache string
+        The backend to use for caching (default "memory")
+  -cache-memcached-addr string
+        memcached address to use (only used when cache backend is memcached)
   -client-id string
         OAuth2 Client ID
   -client-secret string
@@ -228,13 +232,47 @@ Usage:
 
 #### Option details
 
+- `addr`
+
+  Listener address for traefik-simple-auth
+
+- `auth-prefix`
+
+  The prefix used to construct the auth provider's redirect URL.
+
+  Example: if the auth-prefix is `auth` and the domain is `example.com`, the Auth Redirect URL will be `https://auth.example.com/_oauth'.
+
+- `cache`
+
+  Defines how the State is shared between the forwardAuth and authCallback handlers. Default is `memory`, meaning the state is cached locally in memory.
+  To support running multiple instances of traefik-simple-auth, this can be switched to `memcached`, which will use an (external) memcached server instead.
+
+- `-cache-memcached-addr`
+
+  Address of the memcached instance to use. Only used when `cache` is `memcached`.
+
+- `client-id`
+
+  The Client ID, found in the OAuth provider's credentials configuration.
+
+- `client-secret`
+
+  The Client Secret, found in the OAuth provider's Credentials configuration.
+
 - `debug`
 
   Log debug messages
 
-- `addr`
+- `domains`
 
-  Listener address for traefik-simple-auth
+  A comma-separated list of all allowed domains. If "example.com" is an allowed domain, then all subdomains (e.g. www.example.com) are allowed.
+
+  Note: each domain needs a redirect URL configured in the auth provider, matching the domain, e.g. when using example.com and example.org,
+  both https://auth.example.com/_oauth and https://auth.example.org/_oauth need to be set up as redirect URLs and an ingress is needed for each of these URLs to route back to traefik-simple-auth.
+
+- `expiry`
+
+  Lifetime of the session cookie, i.e. how long before a user must log back into Google.
 
 - `prom`
 
@@ -251,42 +289,17 @@ Usage:
 
   The OpenID Connect Issuer URL to use for the oidc provider. Default is "https://accounts.google.com" (i.e. Google)
 
-- `client-id`
+- `secret`
 
-  The Client ID, found in the OAuth provider's credentials configuration.
-
-- `client-secret`
-
-  The Client Secret, found in the OAuth provider's Credentials configuration.
-
-- `auth-prefix`
-
-  The prefix used to construct the auth provider's redirect URL.
-
-  Example: if the auth-prefix is `auth` and the domain is `example.com`, the Auth Redirect URL will be `https://auth.example.com/_oauth'. 
+  A (base64-encoded) secret used to protect the session cookie.
 
 - `session-cookie-name`
 
-  The name of the browser cookie holding the session. Overriding this may be useful when you to segregate a user signing into one instance of traefik-simple-auth vs. any other instances.
+  The name of the browser cookie holding the session. Overriding this may be useful when you to segregate a user signing in to one instance of traefik-simple-auth vs. any other instances.
   
   By default, traefik-simple-auth uses Google as oauth provider and a session cooke called `traefik-simple-auth`.
   If a second instance, using GitHub oauth, used the same cookie name, then signing in to Google would also allow any flows
   authenticated by GitHub. If you want to segregate this, use a different `session-cookie-name` for the GitHub instance.  
-
-- `domains`
-
-  A comma-separated list of all allowed domains. If "example.com" is an allowed domain, then all subdomains (eg. www.example.com) are allowed. 
-  
-  Note: each domain needs a redirect URL configured in the auth provider, matching the domain, e.g. when using example.com and example.org, 
-  both https://auth.example.com/_oauth and https://auth.example.org/_oauth need to be set up as redirect URLs and an ingress is needed for each of these URLs to route back to traefik-simple-auth.   
-
-- `expiry`
-
-  Lifetime of the session cookie, i.e. how long before a user must log back into Google.
-
-- `secret`
-
-  A (base64-encoded) secret used to protect the session cookie.
 
 - `users`
 
@@ -296,11 +309,11 @@ Usage:
 
 traefik-simple-auth exports the following metrics:
 
-| metric | type |  labels | help                          |
-| --- | --- |  --- |-------------------------------|
-| traefik_simple_auth_active_users | GAUGE | provider, user| number of active users        |
-| traefik_simple_auth_http_request_duration_seconds | HISTOGRAM | code, host, path, provider, user| duration of http requests     |
-| traefik_simple_auth_http_requests_total | COUNTER | code, host, path, provider, user| total number of http requests |
+| metric                                            | type      | labels                           | help                          |
+|---------------------------------------------------|-----------|----------------------------------|-------------------------------|
+| traefik_simple_auth_active_users                  | GAUGE     | provider, user                   | number of active users        |
+| traefik_simple_auth_http_request_duration_seconds | HISTOGRAM | code, host, path, provider, user | duration of http requests     |
+| traefik_simple_auth_http_requests_total           | COUNTER   | code, host, path, provider, user | total number of http requests |
 
 ## Limitations
 

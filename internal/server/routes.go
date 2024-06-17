@@ -44,7 +44,7 @@ func addRoutes(
 			),
 		),
 	)
-	mux.Handle("/health", HealthHandler(sessions, states))
+	mux.Handle("/health", HealthHandler(sessions, states, logger.With("handler", "health")))
 }
 
 func forwardAuthMiddleware(sessions sessions.Sessions, m *Metrics, logger *slog.Logger) func(next http.Handler) http.Handler {
