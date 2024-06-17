@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/go-common/cache"
 	"time"
@@ -92,27 +91,27 @@ type MemcachedClient interface {
 
 func (m MemcachedCache[T]) add(_ context.Context, key string, value T, ttl time.Duration) error {
 	val, err := encode[T](value)
-	if err != nil {
-		return err
+	if err == nil {
+		err = m.Client.Set(&memcache.Item{
+			Key:        key,
+			Value:      val,
+			Expiration: int32(ttl.Seconds()),
+		})
 	}
-	return m.Client.Set(&memcache.Item{
-		Key:        key,
-		Value:      val,
-		Expiration: int32(ttl.Seconds()),
-	})
+	return err
 }
 
 func (m MemcachedCache[T]) get(_ context.Context, key string) (T, error) {
-	var value T
 	item, err := m.Client.Get(key)
+	if err == nil {
+		err = m.Client.Delete(key)
+	}
 	if err != nil {
 		if errors.Is(err, memcache.ErrCacheMiss) {
 			err = ErrNotFound
 		}
+		var value T
 		return value, err
-	}
-	if err = m.Client.Delete(key); err != nil {
-		return value, fmt.Errorf("delete: %w", err)
 	}
 	return decode[T](item.Value)
 }
@@ -121,9 +120,10 @@ func (m MemcachedCache[T]) len(_ context.Context) (int, error) {
 	return 0, nil
 }
 
+// memcached takes only []byte, so encoded the generic value.
+// optimisation: if T is a string, we can just copy it.
 func encode[T any](value T) ([]byte, error) {
-	var p any = &value
-	switch v := p.(type) {
+	switch v := (any(&value)).(type) {
 	case *string:
 		return []byte(*v), nil
 	default:
@@ -131,15 +131,12 @@ func encode[T any](value T) ([]byte, error) {
 	}
 }
 
-func decode[T any](value []byte) (T, error) {
-	var v T
-	var p any = &v
-	switch val := p.(type) {
+func decode[T any](value []byte) (v T, err error) {
+	switch val := (any(&v)).(type) {
 	case *string:
 		*val = string(value)
-		return v, nil
 	default:
-		err := json.Unmarshal(value, &v)
-		return v, err
+		err = json.Unmarshal(value, &v)
 	}
+	return v, err
 }

@@ -17,10 +17,8 @@ func TestStates(t *testing.T) {
 		wantCount int
 	}{
 		{
-			name: "localCache",
-			backend: LocalCache[string]{
-				values: cache.New[string, string](0, 0),
-			},
+			name:      "localCache",
+			backend:   NewLocalCache[string](),
 			wantCount: 1,
 		},
 		{
@@ -58,6 +56,23 @@ func TestStates(t *testing.T) {
 			require.ErrorIs(t, err, ErrNotFound)
 		})
 	}
+}
+
+func TestMemcachedCache_int(t *testing.T) {
+	s := States[int]{
+		Backend: MemcachedCache[int]{
+			Client: &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
+		},
+	}
+
+	ctx := context.Background()
+	state, err := s.Add(ctx, 10)
+	require.NoError(t, err)
+	value, err := s.Validate(ctx, state)
+	require.NoError(t, err)
+	assert.Equal(t, 10, value)
+	_, err = s.Validate(ctx, state)
+	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 var _ MemcachedClient = &fakeMemcachedClient{}
