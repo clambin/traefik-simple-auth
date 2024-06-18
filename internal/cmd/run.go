@@ -81,10 +81,12 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
 		backend = state.NewLocalCache[string]()
 	case "memcached":
 		backend = state.MemcachedCache[string]{
-			Client: memcache.New(cfg.MemcachedConfiguration.Addr),
+			Namespace: "github.com/clambin/traefik-simple-auth",
+			Client:    memcache.New(cfg.MemcachedConfiguration.Addr),
 		}
 	case "redis":
 		backend = state.RedisCache[string]{
+			Namespace: "github.com/clambin/traefik-simple-auth",
 			Client: redis.NewClient(&redis.Options{
 				Addr:     cfg.RedisConfiguration.Addr,
 				DB:       cfg.RedisConfiguration.Database,
