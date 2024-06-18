@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"syscall"
 )
 
@@ -17,10 +16,6 @@ var version string = "change-me"
 func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-
-	if info, ok := debug.ReadBuildInfo(); ok {
-		version = info.Main.Version
-	}
 
 	cfg, err := configuration.GetConfiguration()
 	if err == nil {
