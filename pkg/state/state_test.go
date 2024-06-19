@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/go-common/cache"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -25,7 +26,15 @@ func TestStates(t *testing.T) {
 		{
 			name: "memcachedCache",
 			backend: MemcachedCache[string]{
-				Client: &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
+				Namespace: "github.com/clambin/traefik-simple-auth",
+				Client:    &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
+			},
+		},
+		{
+			name: "redisCache",
+			backend: RedisCache[string]{
+				Namespace: "github.com/clambin/traefik-simple-auth",
+				Client:    &fakeRedisClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
 			},
 		},
 	}
@@ -100,4 +109,28 @@ func (f *fakeMemcachedClient) Get(key string) (*memcache.Item, error) {
 func (f *fakeMemcachedClient) Delete(key string) error {
 	f.c.values.Remove(key)
 	return nil
+}
+
+var _ RedisClient = fakeRedisClient{}
+
+type fakeRedisClient struct {
+	c LocalCache[string]
+}
+
+func (f fakeRedisClient) Set(ctx context.Context, key string, value any, ttl time.Duration) *redis.StatusCmd {
+	err := f.c.add(ctx, key, string(value.([]byte)), ttl)
+	cmd := redis.NewStatusCmd(ctx)
+	cmd.SetErr(err)
+	return cmd
+}
+
+func (f fakeRedisClient) GetDel(ctx context.Context, key string) *redis.StringCmd {
+	val, err := f.c.get(ctx, key)
+	if errors.Is(err, ErrNotFound) {
+		err = redis.Nil
+	}
+	cmd := redis.NewStringCmd(ctx)
+	cmd.SetErr(err)
+	cmd.SetVal(val)
+	return cmd
 }

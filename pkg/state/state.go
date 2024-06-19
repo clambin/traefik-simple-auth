@@ -12,6 +12,7 @@ import (
 	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/go-common/cache"
+	"github.com/redis/go-redis/v9"
 	"time"
 )
 
@@ -80,7 +81,8 @@ func (l LocalCache[T]) len(_ context.Context) (int, error) {
 }
 
 type MemcachedCache[T any] struct {
-	Client MemcachedClient
+	Namespace string
+	Client    MemcachedClient
 }
 
 type MemcachedClient interface {
@@ -93,7 +95,7 @@ func (m MemcachedCache[T]) add(_ context.Context, key string, value T, ttl time.
 	val, err := encode[T](value)
 	if err == nil {
 		err = m.Client.Set(&memcache.Item{
-			Key:        key,
+			Key:        m.Namespace + "|" + key,
 			Value:      val,
 			Expiration: int32(ttl.Seconds()),
 		})
@@ -102,6 +104,7 @@ func (m MemcachedCache[T]) add(_ context.Context, key string, value T, ttl time.
 }
 
 func (m MemcachedCache[T]) get(_ context.Context, key string) (T, error) {
+	key = m.Namespace + "|" + key
 	item, err := m.Client.Get(key)
 	if err == nil {
 		err = m.Client.Delete(key)
@@ -139,4 +142,40 @@ func decode[T any](value []byte) (v T, err error) {
 		err = json.Unmarshal(value, &v)
 	}
 	return v, err
+}
+
+var _ Backend[string] = RedisCache[string]{}
+
+type RedisCache[T any] struct {
+	Namespace string
+	Client    RedisClient
+}
+
+type RedisClient interface {
+	Set(context.Context, string, any, time.Duration) *redis.StatusCmd
+	GetDel(context.Context, string) *redis.StringCmd
+}
+
+func (r RedisCache[T]) add(ctx context.Context, key string, value T, ttl time.Duration) error {
+	val, err := encode[T](value)
+	if err == nil {
+		err = r.Client.Set(ctx, r.Namespace+"|"+key, val, ttl).Err()
+	}
+	return err
+}
+
+func (r RedisCache[T]) get(ctx context.Context, key string) (T, error) {
+	val, err := r.Client.GetDel(ctx, r.Namespace+"|"+key).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			err = ErrNotFound
+		}
+		var value T
+		return value, err
+	}
+	return decode[T]([]byte(val))
+}
+
+func (r RedisCache[T]) len(_ context.Context) (int, error) {
+	return 0, nil
 }

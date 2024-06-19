@@ -27,6 +27,10 @@ var (
 	secret             = flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
 	cacheBackend       = flag.String("cache", "memory", "The backend to use for caching")
 	cacheMemcachedAddr = flag.String("cache-memcached-addr", "", "memcached address to use (only used when cache backend is memcached)")
+	cacheRedisAddr     = flag.String("cache-redis-addr", "", "redis address to use (only used when cache backend is redis)")
+	cacheRedisDatabase = flag.Int("cache-redis-database", 0, "redis database to use (only used when cache backend is redis)")
+	cacheRedisUsername = flag.String("cache-redis-username", "", "Redis username (only used when cache backend is redis)")
+	cacheRedisPassword = flag.String("cache-redis-password", "", "Redis password (only used when cache backend is redis)")
 )
 
 type Configuration struct {
@@ -80,6 +84,12 @@ func GetConfiguration() (Configuration, error) {
 			TTL:     *expiry,
 			MemcachedConfiguration: MemcachedConfiguration{
 				Addr: *cacheMemcachedAddr,
+			},
+			RedisConfiguration: RedisConfiguration{
+				Addr:     *cacheRedisAddr,
+				Database: *cacheRedisDatabase,
+				Username: *cacheRedisUsername,
+				Password: *cacheRedisPassword,
 			},
 		},
 	}
