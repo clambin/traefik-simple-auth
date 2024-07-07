@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"testing"
 	"time"
 )
@@ -50,7 +50,7 @@ func TestRun(t *testing.T) {
 		},
 	}
 	g.Go(func() error {
-		return Run(ctx, cfg, prometheus.NewRegistry(), os.Stderr, "dev")
+		return Run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default())
 	})
 
 	assert.Eventually(t, func() bool {
@@ -130,7 +130,7 @@ func TestRun_Fail(t *testing.T) {
 			Backend: "memory",
 		},
 	}
-	assert.Error(t, Run(ctx, cfg, prometheus.NewRegistry(), os.Stderr, "dev"))
+	assert.Error(t, Run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default()))
 }
 
 func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, string, error) {
