@@ -17,12 +17,12 @@ jobs:
   build:
     needs:
       - test
-    uses: clambin/workflows/.github/workflows/build.yaml@docker
+    uses: clambin/workflows/.github/workflows/build.yaml@main
     with:
       image: ghcr.io/clambin/traefik-simple-auth
       dockerfile: build/Dockerfile
   release:
     needs:
       - build
-    uses: clambin/workflows/.github/workflows/release.yaml@docker
+    uses: clambin/workflows/.github/workflows/release.yaml@main
 
