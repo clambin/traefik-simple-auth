@@ -73,8 +73,8 @@ func traefikForwardAuthParser(_ *slog.Logger) func(next http.Handler) http.Handl
 	//logger = logger.With("handler", "traefikForwardAuthParser")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			//logger.Debug("raw request", "request", loggedRequest(r))
 			// anything other than OAUTHPath and /health comes from traefik's forwardAuth middleware
+			//logger.Debug("raw request", "request", loggedRequest(r))
 			if r.URL.Path != OAUTHPath && r.URL.Path != "/health" {
 				r.URL = getOriginalTarget(r)
 				//logger.Debug("restored original request", "r", loggedRequest(r))

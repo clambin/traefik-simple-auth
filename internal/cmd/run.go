@@ -11,18 +11,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
-	"io"
 	"log/slog"
 	"net/http"
 	"time"
 )
 
-func Run(ctx context.Context, cfg configuration.Configuration, registry prometheus.Registerer, logOutput io.Writer, version string) error {
-	var opts slog.HandlerOptions
-	if cfg.Debug {
-		opts.Level = slog.LevelDebug
-	}
-	logger := slog.New(slog.NewJSONHandler(logOutput, &opts))
+func Run(ctx context.Context, cfg configuration.Configuration, registry prometheus.Registerer, version string, logger *slog.Logger) error {
 	logger.Info("traefik-simple-auth starting", "version", version)
 
 	promErr := make(chan error)
