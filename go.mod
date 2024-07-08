@@ -9,7 +9,7 @@ require (
 	github.com/clambin/go-common/cache v0.5.0
 	github.com/clambin/go-common/http v0.5.0
 	github.com/clambin/go-common/testutils v0.1.0
-	github.com/coreos/go-oidc/v3 v3.10.0
+	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
 	github.com/prometheus/client_golang v1.19.1
 	github.com/redis/go-redis/v9 v9.5.3
@@ -36,5 +36,3 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/coreos/go-oidc/v3 v3.10.0 => github.com/clambin/go-oidc/v3 v3.0.0-20240707105153-06ef4d6b6d62

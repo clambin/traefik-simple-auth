@@ -14,8 +14,8 @@ github.com/clambin/go-common/http v0.5.0 h1:b/RwKQtJfbf3jIpNSeoXH2k3MFtLIXLVo7dA
 github.com/clambin/go-common/http v0.5.0/go.mod h1:F+wnT2n34Sb6wgOxd/V8f/7Z0JkSYDda4hphWJGpnyk=
 github.com/clambin/go-common/testutils v0.1.0 h1:/nGWaOCIhW+Ew1c2NU7GLY/YPb8dp9SV8+MTgWksAgk=
 github.com/clambin/go-common/testutils v0.1.0/go.mod h1:bV0j8D4zhNkleCeluFKLBeLQ0L/dqkxbaR/joLn8kzg=
-github.com/clambin/go-oidc/v3 v3.0.0-20240707105153-06ef4d6b6d62 h1:ht00taynNImU7PkQafjt8nHVkIQ0LAk/gcI2CA4kRsE=
-github.com/clambin/go-oidc/v3 v3.0.0-20240707105153-06ef4d6b6d62/go.mod h1:gE3LgjOgFoHi9a4ce4/tJczr0Ai2/BoDhf0r5lltWI0=
+github.com/coreos/go-oidc/v3 v3.11.0 h1:Ia3MxdwpSw702YW0xgfmP1GVCMA9aEFWu12XUZ3/OtI=
+github.com/coreos/go-oidc/v3 v3.11.0/go.mod h1:gE3LgjOgFoHi9a4ce4/tJczr0Ai2/BoDhf0r5lltWI0=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
