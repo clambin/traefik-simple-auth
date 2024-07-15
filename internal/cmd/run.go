@@ -94,6 +94,6 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
 
 	return state.States[string]{
 		Backend: backend,
-		TTL:     cfg.TTL,
+		TTL:     10 * time.Minute,
 	}
 }
