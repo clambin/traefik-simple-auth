@@ -26,15 +26,13 @@ func TestStates(t *testing.T) {
 		{
 			name: "memcachedCache",
 			backend: MemcachedCache[string]{
-				Namespace: "github.com/clambin/traefik-simple-auth",
-				Client:    &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
+				Client: &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
 			},
 		},
 		{
 			name: "redisCache",
 			backend: RedisCache[string]{
-				Namespace: "github.com/clambin/traefik-simple-auth",
-				Client:    &fakeRedisClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
+				Client: &fakeRedisClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
 			},
 		},
 	}
@@ -42,8 +40,9 @@ func TestStates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := States[string]{
-				Backend: tt.backend,
-				TTL:     500 * time.Millisecond,
+				Backend:   tt.backend,
+				Namespace: "github.com/clambin/traefik-simple-auth|state",
+				TTL:       500 * time.Millisecond,
 			}
 
 			ctx := context.Background()

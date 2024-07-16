@@ -21,7 +21,8 @@ const stateSize = 32 // 256 bits
 // States maintains a (random) state that is associated with a value.
 type States[T any] struct {
 	Backend[T]
-	TTL time.Duration
+	TTL       time.Duration
+	Namespace string
 }
 
 // Add returns a new state, associated with the provided value.
@@ -30,18 +31,22 @@ func (s States[T]) Add(ctx context.Context, value T) (string, error) {
 	// theoretically this could fail, but in practice this will never happen.
 	_, _ = rand.Read(state)
 	encodedState := hex.EncodeToString(state)
-	err := s.Backend.add(ctx, encodedState, value, s.TTL)
+	err := s.Backend.add(ctx, s.key(encodedState), value, s.TTL)
 	return encodedState, err
 }
 
 // Validate checks if the state exists. If it exists, we remove the state and return the associated value.
 // If the state does not exist, bool is false.
 func (s States[T]) Validate(ctx context.Context, state string) (T, error) {
-	return s.Backend.get(ctx, state)
+	return s.Backend.get(ctx, s.key(state))
 }
 
 func (s States[T]) Count(ctx context.Context) (int, error) {
 	return s.Backend.len(ctx)
+}
+
+func (s States[T]) key(value string) string {
+	return s.Namespace + "|state|" + value
 }
 
 var ErrNotFound = errors.New("not found")
@@ -81,8 +86,7 @@ func (l LocalCache[T]) len(_ context.Context) (int, error) {
 }
 
 type MemcachedCache[T any] struct {
-	Namespace string
-	Client    MemcachedClient
+	Client MemcachedClient
 }
 
 type MemcachedClient interface {
@@ -95,7 +99,7 @@ func (m MemcachedCache[T]) add(_ context.Context, key string, value T, ttl time.
 	val, err := encode[T](value)
 	if err == nil {
 		err = m.Client.Set(&memcache.Item{
-			Key:        m.Namespace + "|" + key,
+			Key:        key,
 			Value:      val,
 			Expiration: int32(ttl.Seconds()),
 		})
@@ -104,7 +108,6 @@ func (m MemcachedCache[T]) add(_ context.Context, key string, value T, ttl time.
 }
 
 func (m MemcachedCache[T]) get(_ context.Context, key string) (T, error) {
-	key = m.Namespace + "|" + key
 	item, err := m.Client.Get(key)
 	if err == nil {
 		err = m.Client.Delete(key)
@@ -147,8 +150,7 @@ func decode[T any](value []byte) (v T, err error) {
 var _ Backend[string] = RedisCache[string]{}
 
 type RedisCache[T any] struct {
-	Namespace string
-	Client    RedisClient
+	Client RedisClient
 }
 
 type RedisClient interface {
@@ -159,13 +161,13 @@ type RedisClient interface {
 func (r RedisCache[T]) add(ctx context.Context, key string, value T, ttl time.Duration) error {
 	val, err := encode[T](value)
 	if err == nil {
-		err = r.Client.Set(ctx, r.Namespace+"|"+key, val, ttl).Err()
+		err = r.Client.Set(ctx, key, val, ttl).Err()
 	}
 	return err
 }
 
 func (r RedisCache[T]) get(ctx context.Context, key string) (T, error) {
-	val, err := r.Client.GetDel(ctx, r.Namespace+"|"+key).Result()
+	val, err := r.Client.GetDel(ctx, key).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			err = ErrNotFound
