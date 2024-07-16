@@ -152,6 +152,13 @@ func HealthHandler(sessions sessions.Sessions, states state.States, logger *slog
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
+
+		if err = states.Cache.Ping(r.Context()); err != nil {
+			logger.Warn("cache ping failed", "err", err)
+			http.Error(w, "state cache not healthy", http.StatusServiceUnavailable)
+			return
+		}
+
 		health := struct {
 			Sessions int `json:"sessions"`
 			States   int `json:"states"`

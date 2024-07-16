@@ -49,6 +49,8 @@ func TestCache(t *testing.T) {
 			assert.Equal(t, "value", value)
 			_, err = tt.cache.GetDel(ctx, "key")
 			assert.ErrorIs(t, err, ErrNotFound)
+
+			assert.NoError(t, tt.cache.Ping(ctx))
 		})
 	}
 }
@@ -77,6 +79,10 @@ type fakeMemcachedClient struct {
 	c LocalCache[string]
 }
 
+func (f *fakeMemcachedClient) Ping() error {
+	return nil
+}
+
 func (f *fakeMemcachedClient) Set(item *memcache.Item) error {
 	return f.c.Add(context.Background(), item.Key, string(item.Value), time.Duration(item.Expiration)*time.Second)
 }
@@ -101,6 +107,12 @@ var _ RedisClient = fakeRedisClient{}
 
 type fakeRedisClient struct {
 	c LocalCache[string]
+}
+
+func (f fakeRedisClient) Ping(ctx context.Context) *redis.StatusCmd {
+	cmd := redis.NewStatusCmd(ctx)
+	cmd.SetErr(nil)
+	return cmd
 }
 
 func (f fakeRedisClient) Set(ctx context.Context, key string, value any, ttl time.Duration) *redis.StatusCmd {

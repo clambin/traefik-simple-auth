@@ -16,7 +16,10 @@ type Cache[T any] interface {
 	Add(context.Context, string, T, time.Duration) error
 	GetDel(context.Context, string) (T, error)
 	Len(context.Context) (int, error)
+	Ping(context.Context) error
 }
+
+var _ Cache[string] = &LocalCache[string]{}
 
 type LocalCache[T any] struct {
 	values *cache.Cache[string, T]
@@ -46,6 +49,10 @@ func (l LocalCache[T]) Len(_ context.Context) (int, error) {
 	return l.values.Len(), nil
 }
 
+func (l LocalCache[T]) Ping(context.Context) error {
+	return nil
+}
+
 type MemcachedCache[T any] struct {
 	Client MemcachedClient
 }
@@ -54,6 +61,7 @@ type MemcachedClient interface {
 	Set(*memcache.Item) error
 	Get(string) (*memcache.Item, error)
 	Delete(string) error
+	Ping() error
 }
 
 func (m MemcachedCache[T]) Add(_ context.Context, key string, value T, ttl time.Duration) error {
@@ -87,6 +95,10 @@ func (m MemcachedCache[T]) Len(_ context.Context) (int, error) {
 	return 0, nil
 }
 
+func (l MemcachedCache[T]) Ping(_ context.Context) error {
+	return l.Client.Ping()
+}
+
 // memcached takes only []byte, so encoded the generic value.
 // optimisation: if T is a string, we can just copy it.
 func encode[T any](value T) ([]byte, error) {
@@ -107,6 +119,7 @@ type RedisCache[T any] struct {
 type RedisClient interface {
 	Set(context.Context, string, any, time.Duration) *redis.StatusCmd
 	GetDel(context.Context, string) *redis.StringCmd
+	Ping(context.Context) *redis.StatusCmd
 }
 
 func (r RedisCache[T]) Add(ctx context.Context, key string, value T, ttl time.Duration) error {
@@ -131,4 +144,8 @@ func (r RedisCache[T]) GetDel(ctx context.Context, key string) (T, error) {
 
 func (r RedisCache[T]) Len(_ context.Context) (int, error) {
 	return 0, nil
+}
+
+func (r RedisCache[T]) Ping(ctx context.Context) error {
+	return r.Client.Ping(ctx).Err()
 }
