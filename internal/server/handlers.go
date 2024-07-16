@@ -20,7 +20,7 @@ import (
 // has a valid session (stored in a http.Cookie). If so, it returns http.StatusOK.   If not, it redirects the request
 // to the configured oauth provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
 // forwards the request to the originally requested destination.
-func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States[string], logger *slog.Logger) http.Handler {
+func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", logging.Request(r))
 
@@ -92,14 +92,14 @@ func AuthCallbackHandler(
 	domains domains.Domains,
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
-	states state.States[string],
+	states state.States,
 	sessions sessions.Sessions,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", logging.Request(r))
 
-		// Look up the (random) state to find the final destination.
+		// Look up the (random) state. This tells us that the request is valid and where to forward the request to.
 		encodedState := r.URL.Query().Get("state")
 		targetURL, err := states.Validate(r.Context(), encodedState)
 		if err != nil {
@@ -108,8 +108,8 @@ func AuthCallbackHandler(
 			return
 		}
 
-		// we already validated the host vs the domain during the redirect.
-		// since the state matches, we can trust the request to be valid.
+		// We already validated the host vs. the domain during the redirect.
+		// Since the state matches, we can trust the request to be valid.
 		u, _ := url.Parse(targetURL)
 		domain, _ := domains.Domain(u)
 
@@ -136,15 +136,14 @@ func AuthCallbackHandler(
 		}
 
 		// GetUserEmailAddress successful. Create a session and redirect the user to the final destination.
+		logger.Info("user logged in. redirecting ...", "user", user, "url", targetURL)
 		session := sessions.Session(user)
 		http.SetCookie(w, sessions.Cookie(session, string(domain)))
-
-		logger.Info("user logged in. redirecting ...", "user", user, "url", targetURL)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
 	})
 }
 
-func HealthHandler(sessions sessions.Sessions, states state.States[string], logger *slog.Logger) http.Handler {
+func HealthHandler(sessions sessions.Sessions, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		stateCount, err := states.Count(r.Context())

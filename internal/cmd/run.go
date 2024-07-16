@@ -68,19 +68,17 @@ func runHTTPServer(ctx context.Context, addr string, handler http.Handler) error
 	return err
 }
 
-func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
-	var backend state.Backend[string]
+func makeStateStore(cfg configuration.CacheConfiguration) state.States {
+	var backend state.Cache[string]
 	switch cfg.Backend {
 	case "memory":
 		backend = state.NewLocalCache[string]()
 	case "memcached":
 		backend = state.MemcachedCache[string]{
-			Namespace: "github.com/clambin/traefik-simple-auth",
-			Client:    memcache.New(cfg.MemcachedConfiguration.Addr),
+			Client: memcache.New(cfg.MemcachedConfiguration.Addr),
 		}
 	case "redis":
 		backend = state.RedisCache[string]{
-			Namespace: "github.com/clambin/traefik-simple-auth",
 			Client: redis.NewClient(&redis.Options{
 				Addr:     cfg.RedisConfiguration.Addr,
 				DB:       cfg.RedisConfiguration.Database,
@@ -92,8 +90,9 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
 		panic("unknown backend: " + cfg.Backend)
 	}
 
-	return state.States[string]{
-		Backend: backend,
-		TTL:     10 * time.Minute,
+	return state.States{
+		Cache:     backend,
+		Namespace: "github.com/clambin/traefik-simple-auth|state",
+		TTL:       10 * time.Minute,
 	}
 }

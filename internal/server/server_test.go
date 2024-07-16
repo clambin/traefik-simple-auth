@@ -34,9 +34,9 @@ func TestServer_Panics(t *testing.T) {
 			Domains:  domains.Domains{"example.com"},
 		}
 		sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-		stateStore := state.States[string]{
-			Backend: state.NewLocalCache[string](),
-			TTL:     time.Minute,
+		stateStore := state.States{
+			Cache: state.NewLocalCache[string](),
+			TTL:   time.Minute,
 		}
 		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, slog.Default())
 	}()
@@ -238,7 +238,7 @@ func TestHealthHandler(t *testing.T) {
 
 }
 
-func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.Sessions, state.States[string], *mockoidc.MockOIDC, http.Handler) {
+func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.Sessions, state.States, *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
@@ -259,7 +259,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 		Whitelist:     list,
 	}
 	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
-	stateStore := state.States[string]{TTL: time.Minute, Backend: state.NewLocalCache[string]()}
+	stateStore := state.States{TTL: time.Minute, Cache: state.NewLocalCache[string]()}
 	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, slog.Default())
 }
 
@@ -324,7 +324,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Provider:  "google",
 	}
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-	stateStore := state.States[string]{TTL: time.Minute, Backend: state.NewLocalCache[string]()}
+	stateStore := state.States{TTL: time.Minute, Cache: state.NewLocalCache[string]()}
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
 	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
