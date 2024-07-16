@@ -109,7 +109,7 @@ func AuthCallbackHandler(
 			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
-		logger.Info("validated", "duration", time.Since(start).Milliseconds())
+		logger.Info("validated", "duration", time.Since(start).Microseconds())
 
 		// we already validated the host vs the domain during the redirect.
 		// since the state matches, we can trust the request to be valid.
