@@ -14,7 +14,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 // The ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
@@ -100,19 +99,17 @@ func AuthCallbackHandler(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", logging.Request(r))
 
-		// Look up the (random) state to find the final destination.
+		// Look up the (random) state. This tells us that the request is valid and where to forward the request to.
 		encodedState := r.URL.Query().Get("state")
-		start := time.Now()
 		targetURL, err := states.Validate(r.Context(), encodedState)
 		if err != nil {
 			logger.Warn("invalid state. Dropping request ...", "err", err)
 			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
-		logger.Info("validated", "duration", time.Since(start).Microseconds())
 
-		// we already validated the host vs the domain during the redirect.
-		// since the state matches, we can trust the request to be valid.
+		// We already validated the host vs. the domain during the redirect.
+		// Since the state matches, we can trust the request to be valid.
 		u, _ := url.Parse(targetURL)
 		domain, _ := domains.Domain(u)
 
@@ -139,10 +136,9 @@ func AuthCallbackHandler(
 		}
 
 		// GetUserEmailAddress successful. Create a session and redirect the user to the final destination.
+		logger.Info("user logged in. redirecting ...", "user", user, "url", targetURL)
 		session := sessions.Session(user)
 		http.SetCookie(w, sessions.Cookie(session, string(domain)))
-
-		logger.Info("user logged in. redirecting ...", "user", user, "url", targetURL)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
 	})
 }
