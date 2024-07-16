@@ -69,7 +69,7 @@ func runHTTPServer(ctx context.Context, addr string, handler http.Handler) error
 	return err
 }
 
-func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
+func makeStateStore(cfg configuration.CacheConfiguration) state.States {
 	var backend cache.Cache[string]
 	switch cfg.Backend {
 	case "memory":
@@ -91,7 +91,7 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
 		panic("unknown backend: " + cfg.Backend)
 	}
 
-	return state.States[string]{
+	return state.States{
 		Cache:     backend,
 		Namespace: "github.com/clambin/traefik-simple-auth|state",
 		TTL:       10 * time.Minute,

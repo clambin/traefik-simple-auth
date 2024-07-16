@@ -20,7 +20,7 @@ import (
 // has a valid session (stored in a http.Cookie). If so, it returns http.StatusOK.   If not, it redirects the request
 // to the configured oauth provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
 // forwards the request to the originally requested destination.
-func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States[string], logger *slog.Logger) http.Handler {
+func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", logging.Request(r))
 
@@ -92,7 +92,7 @@ func AuthCallbackHandler(
 	domains domains.Domains,
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
-	states state.States[string],
+	states state.States,
 	sessions sessions.Sessions,
 	logger *slog.Logger,
 ) http.Handler {
@@ -144,7 +144,7 @@ func AuthCallbackHandler(
 	})
 }
 
-func HealthHandler(sessions sessions.Sessions, states state.States[string], logger *slog.Logger) http.Handler {
+func HealthHandler(sessions sessions.Sessions, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		stateCount, err := states.Count(r.Context())

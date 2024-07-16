@@ -18,7 +18,7 @@ const OAUTHPath = "/_oauth"
 
 // New returns a new http.Handler that handles traefik's forward-auth requests, and the associated oauth flow.
 // It panics if config.Provider is invalid.
-func New(ctx context.Context, sessions sessions.Sessions, states state.States[string], config configuration.Configuration, metrics *Metrics, logger *slog.Logger) http.Handler {
+func New(ctx context.Context, sessions sessions.Sessions, states state.States, config configuration.Configuration, metrics *Metrics, logger *slog.Logger) http.Handler {
 	logger = logger.With("provider", config.Provider)
 
 	oauthHandlers := make(map[domains.Domain]oauth.Handler)

@@ -11,7 +11,7 @@ import (
 )
 
 func TestStates(t *testing.T) {
-	c := States[string]{
+	c := States{
 		Cache:     cache.NewLocalCache[string](),
 		Namespace: "github.com/clambin/traefik-simple-auth|state",
 		TTL:       500 * time.Millisecond,
