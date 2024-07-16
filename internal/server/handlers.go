@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // The ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
@@ -101,12 +102,14 @@ func AuthCallbackHandler(
 
 		// Look up the (random) state to find the final destination.
 		encodedState := r.URL.Query().Get("state")
+		start := time.Now()
 		targetURL, err := states.Validate(r.Context(), encodedState)
 		if err != nil {
 			logger.Warn("invalid state. Dropping request ...", "err", err)
 			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
+		logger.Info("validated", "duration", time.Since(start).Milliseconds())
 
 		// we already validated the host vs the domain during the redirect.
 		// since the state matches, we can trust the request to be valid.

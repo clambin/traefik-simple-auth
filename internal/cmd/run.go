@@ -6,7 +6,6 @@ import (
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
-	"github.com/clambin/traefik-simple-auth/pkg/cache"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
@@ -70,16 +69,16 @@ func runHTTPServer(ctx context.Context, addr string, handler http.Handler) error
 }
 
 func makeStateStore(cfg configuration.CacheConfiguration) state.States {
-	var backend cache.Cache[string]
+	var backend state.Cache[string]
 	switch cfg.Backend {
 	case "memory":
-		backend = cache.NewLocalCache[string]()
+		backend = state.NewLocalCache[string]()
 	case "memcached":
-		backend = cache.MemcachedCache[string]{
+		backend = state.MemcachedCache[string]{
 			Client: memcache.New(cfg.MemcachedConfiguration.Addr),
 		}
 	case "redis":
-		backend = cache.RedisCache[string]{
+		backend = state.RedisCache[string]{
 			Client: redis.NewClient(&redis.Options{
 				Addr:     cfg.RedisConfiguration.Addr,
 				DB:       cfg.RedisConfiguration.Database,

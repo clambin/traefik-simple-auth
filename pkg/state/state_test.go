@@ -3,7 +3,6 @@ package state
 import (
 	"context"
 	"encoding/hex"
-	"github.com/clambin/traefik-simple-auth/pkg/cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -12,7 +11,7 @@ import (
 
 func TestStates(t *testing.T) {
 	c := States{
-		Cache:     cache.NewLocalCache[string](),
+		Cache:     NewLocalCache[string](),
 		Namespace: "github.com/clambin/traefik-simple-auth|state",
 		TTL:       500 * time.Millisecond,
 	}
@@ -36,5 +35,5 @@ func TestStates(t *testing.T) {
 	assert.Zero(t, count)
 
 	_, err = c.Validate(ctx, state)
-	require.ErrorIs(t, err, cache.ErrNotFound)
+	require.ErrorIs(t, err, ErrNotFound)
 }

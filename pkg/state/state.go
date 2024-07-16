@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"github.com/clambin/traefik-simple-auth/pkg/cache"
 	"time"
 )
 
@@ -16,7 +15,7 @@ const stateSize = 32 // 256 bits
 
 // States maintains a (random) state that is associated with a value.
 type States struct {
-	cache.Cache[string]
+	Cache[string]
 	TTL       time.Duration
 	Namespace string
 }
