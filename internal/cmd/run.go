@@ -6,6 +6,7 @@ import (
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
+	"github.com/clambin/traefik-simple-auth/pkg/cache"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
@@ -69,16 +70,16 @@ func runHTTPServer(ctx context.Context, addr string, handler http.Handler) error
 }
 
 func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
-	var backend state.Backend[string]
+	var backend cache.Cache[string]
 	switch cfg.Backend {
 	case "memory":
-		backend = state.NewLocalCache[string]()
+		backend = cache.NewLocalCache[string]()
 	case "memcached":
-		backend = state.MemcachedCache[string]{
+		backend = cache.MemcachedCache[string]{
 			Client: memcache.New(cfg.MemcachedConfiguration.Addr),
 		}
 	case "redis":
-		backend = state.RedisCache[string]{
+		backend = cache.RedisCache[string]{
 			Client: redis.NewClient(&redis.Options{
 				Addr:     cfg.RedisConfiguration.Addr,
 				DB:       cfg.RedisConfiguration.Database,
@@ -91,7 +92,7 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States[string] {
 	}
 
 	return state.States[string]{
-		Backend:   backend,
+		Cache:     backend,
 		Namespace: "github.com/clambin/traefik-simple-auth|state",
 		TTL:       10 * time.Minute,
 	}

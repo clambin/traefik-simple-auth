@@ -5,6 +5,7 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server/extractor"
 	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
+	"github.com/clambin/traefik-simple-auth/pkg/cache"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
@@ -35,8 +36,8 @@ func TestServer_Panics(t *testing.T) {
 		}
 		sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 		stateStore := state.States[string]{
-			Backend: state.NewLocalCache[string](),
-			TTL:     time.Minute,
+			Cache: cache.NewLocalCache[string](),
+			TTL:   time.Minute,
 		}
 		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, slog.Default())
 	}()
@@ -259,7 +260,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 		Whitelist:     list,
 	}
 	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
-	stateStore := state.States[string]{TTL: time.Minute, Backend: state.NewLocalCache[string]()}
+	stateStore := state.States[string]{TTL: time.Minute, Cache: cache.NewLocalCache[string]()}
 	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, slog.Default())
 }
 
@@ -324,7 +325,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Provider:  "google",
 	}
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-	stateStore := state.States[string]{TTL: time.Minute, Backend: state.NewLocalCache[string]()}
+	stateStore := state.States[string]{TTL: time.Minute, Cache: cache.NewLocalCache[string]()}
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
 	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
