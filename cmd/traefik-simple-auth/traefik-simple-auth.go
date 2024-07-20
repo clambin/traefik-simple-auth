@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/cmd"
-	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/prometheus/client_golang/prometheus"
 	"log/slog"
 	"os"

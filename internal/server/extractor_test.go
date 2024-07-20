@@ -1,4 +1,4 @@
-package extractor
+package server
 
 import (
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
@@ -14,7 +14,7 @@ import (
 func TestSessionExtractor(t *testing.T) {
 	s := sessions.New("_auth", []byte("secret"), time.Hour)
 	l := slog.Default()
-	extractor := SessionExtractor(s, l)
+	extractor := sessionExtractor(s, l)
 	validSession := s.Session("foo@example.com")
 	expiredSession := s.SessionWithExpiration("foo@example.com", -time.Hour)
 
@@ -59,7 +59,7 @@ func TestSessionExtractor(t *testing.T) {
 
 			h := extractor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Helper()
-				userSession, ok := GetSession(r)
+				userSession, ok := getSession(r)
 				tt.wantOK(t, ok)
 				if !ok {
 					return

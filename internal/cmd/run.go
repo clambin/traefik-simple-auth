@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
+	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
-	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
@@ -92,7 +92,7 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States {
 
 	return state.States{
 		Cache:     backend,
-		Namespace: "github.com/clambin/traefik-simple-auth|state",
+		Namespace: "github.com/clambin/traefik-simple-auth",
 		TTL:       10 * time.Minute,
 	}
 }

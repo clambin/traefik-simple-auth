@@ -2,9 +2,8 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/server/extractor"
-	"github.com/clambin/traefik-simple-auth/internal/server/testutils"
+	"github.com/clambin/traefik-simple-auth/internal/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
@@ -102,7 +101,7 @@ func TestForwardAuthHandler(t *testing.T) {
 			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target, "/")
 			w := httptest.NewRecorder()
 			if tt.args.session != nil {
-				r = extractor.WithSession(r, *tt.args.session)
+				r = withSession(r, *tt.args.session)
 			}
 
 			h.ServeHTTP(w, r)
@@ -126,7 +125,7 @@ func TestLogoutHandler(t *testing.T) {
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
 		session := sessionStore.Session("foo@example.com")
-		r = extractor.WithSession(r, session)
+		r = withSession(r, session)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)

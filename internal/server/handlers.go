@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"github.com/clambin/traefik-simple-auth/internal/server/extractor"
 	"github.com/clambin/traefik-simple-auth/internal/server/logging"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
@@ -33,7 +32,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		}
 
 		// validate that the request has a valid session cookie
-		if sess, ok := extractor.GetSession(r); ok {
+		if sess, ok := getSession(r); ok {
 			logger.Debug("allowing valid request", slog.String("email", sess.Email))
 			w.Header().Set("X-Forwarded-User", sess.Email)
 			w.WriteHeader(http.StatusOK)
@@ -66,7 +65,7 @@ func LogoutHandler(domains domains.Domains, sessionStore sessions.Sessions, logg
 		logger.Debug("request received", "request", logging.Request(r))
 
 		// remove the cached cookie
-		session, ok := extractor.GetSession(r)
+		session, ok := getSession(r)
 		if !ok {
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return

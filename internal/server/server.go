@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/server/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/oauth"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"

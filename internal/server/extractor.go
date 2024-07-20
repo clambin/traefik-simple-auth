@@ -1,4 +1,4 @@
-package extractor
+package server
 
 import (
 	"context"
@@ -12,12 +12,12 @@ type ctxSessionKey string
 
 var sessionKey ctxSessionKey = "sessionKey"
 
-// SessionExtractor validates the session cookie from the request and, if valid, adds the session to the request's context.
-func SessionExtractor(sessions sessions.Sessions, logger *slog.Logger) func(next http.Handler) http.Handler {
+// sessionExtractor validates the session cookie from the request and, if valid, adds the session to the request's context.
+func sessionExtractor(sessions sessions.Sessions, logger *slog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if userSession, err := sessions.Validate(r); err == nil {
-				r = WithSession(r, userSession)
+				r = withSession(r, userSession)
 			} else if !errors.Is(err, http.ErrNoCookie) {
 				logger.Warn("received invalid session cookie", "err", err)
 			}
@@ -26,12 +26,13 @@ func SessionExtractor(sessions sessions.Sessions, logger *slog.Logger) func(next
 	}
 }
 
-// GetSession returns the session from the request's context, if it exists.
-func GetSession(r *http.Request) (sessions.Session, bool) {
+// getSession returns the session from the request's context, if it exists.
+func getSession(r *http.Request) (sessions.Session, bool) {
 	userSession, ok := r.Context().Value(sessionKey).(sessions.Session)
 	return userSession, ok
 }
 
-func WithSession(r *http.Request, userSession sessions.Session) *http.Request {
+// withSession returns a request with the userSession added to its context
+func withSession(r *http.Request, userSession sessions.Session) *http.Request {
 	return r.WithContext(context.WithValue(r.Context(), sessionKey, userSession))
 }
