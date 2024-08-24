@@ -79,18 +79,18 @@ func (s Sessions) Cookie(session Session, domain string) *http.Cookie {
 }
 
 func (s Sessions) ActiveUsers() map[string]int {
-	activeUsers := make(map[string]int)
-	for _, key := range s.sessions.GetKeys() {
+	activeUsers := make(map[string]int, s.sessions.Len())
+	for _, key := range s.sessions.Keys() {
 		activeSession, _ := s.sessions.Get(key)
 		if !activeSession.expired() {
-			activeUsers[activeSession.Email] = activeUsers[activeSession.Email] + 1
+			activeUsers[activeSession.Email]++
 		}
 	}
 	return activeUsers
 }
 
 func (s Sessions) Contains(email string) bool {
-	for _, key := range s.sessions.GetKeys() {
+	for _, key := range s.sessions.Keys() {
 		sess, _ := s.sessions.Get(key)
 		if sess.Email == email {
 			return true

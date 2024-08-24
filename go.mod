@@ -1,17 +1,15 @@
 module github.com/clambin/traefik-simple-auth
 
-go 1.22
-
-toolchain go1.22.5
+go 1.23.0
 
 require (
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
-	github.com/clambin/go-common/cache v0.5.0
+	github.com/clambin/go-common/cache v0.6.0
 	github.com/clambin/go-common/http v0.5.1
 	github.com/clambin/go-common/testutils v0.1.0
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
-	github.com/prometheus/client_golang v1.20.1
+	github.com/prometheus/client_golang v1.20.2
 	github.com/redis/go-redis/v9 v9.6.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/oauth2 v0.22.0
