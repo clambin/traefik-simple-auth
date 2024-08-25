@@ -19,6 +19,7 @@ import (
 
 func Run(ctx context.Context, cfg configuration.Configuration, registry prometheus.Registerer, version string, logger *slog.Logger) error {
 	logger.Info("traefik-simple-auth starting", "version", version)
+	defer logger.Info("traefik-simple-auth stopped")
 
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	registry.MustRegister(metrics)
@@ -27,14 +28,13 @@ func Run(ctx context.Context, cfg configuration.Configuration, registry promethe
 	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)
 
 	var g errgroup.Group
-	runServer(ctx, &g, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()})
-	runServer(ctx, &g, &http.Server{Addr: cfg.Addr, Handler: s})
+	runHTTPServer(ctx, &g, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()})
+	runHTTPServer(ctx, &g, &http.Server{Addr: cfg.Addr, Handler: s})
 
-	logger.Info("traefik-simple-auth stopped")
 	return g.Wait()
 }
 
-func runServer(ctx context.Context, g *errgroup.Group, s *http.Server) {
+func runHTTPServer(ctx context.Context, g *errgroup.Group, s *http.Server) {
 	subCtx, cancel := context.WithCancel(ctx)
 	g.Go(func() error {
 		defer cancel()

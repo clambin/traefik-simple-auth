@@ -95,8 +95,8 @@ func (m MemcachedCache[T]) Len(_ context.Context) (int, error) {
 	return 0, nil
 }
 
-func (l MemcachedCache[T]) Ping(_ context.Context) error {
-	return l.Client.Ping()
+func (m MemcachedCache[T]) Ping(_ context.Context) error {
+	return m.Client.Ping()
 }
 
 // memcached takes only []byte, so encoded the generic value.
