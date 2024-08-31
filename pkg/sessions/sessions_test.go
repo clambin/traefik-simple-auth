@@ -115,3 +115,17 @@ func TestSessions_ActiveUsers(t *testing.T) {
 
 	assert.Equal(t, map[string]int{"foo@example.com": 2}, sessions.ActiveUsers())
 }
+
+func BenchmarkSessions_ActiveUsers(b *testing.B) {
+	sessions := New("_name", []byte("secret"), time.Hour)
+	_ = sessions.Session("foo@example.com")
+	_ = sessions.SessionWithExpiration("foo@example.com", 30*time.Minute)
+	_ = sessions.SessionWithExpiration("bar@example.com", -time.Hour)
+	b.ResetTimer()
+	for range b.N {
+		users := sessions.ActiveUsers()
+		if count := len(users); count != 1 {
+			b.Fatalf("expected 1 users, got: %v", count)
+		}
+	}
+}

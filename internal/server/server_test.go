@@ -350,11 +350,9 @@ func Benchmark_getOriginalTarget(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	b.Run("old", func(b *testing.B) {
-		for range b.N {
-			_ = getOriginalTarget(r)
-		}
-	})
+	for range b.N {
+		_ = getOriginalTarget(r)
+	}
 }
 
 func Benchmark_header_get(b *testing.B) {
@@ -380,4 +378,28 @@ func Benchmark_header_get(b *testing.B) {
 			}
 		}
 	})
+}
+
+func BenchmarkForwardAuthHandler(b *testing.B) {
+	whiteList, _ := whitelist.New([]string{"foo@example.com"})
+	config := configuration.Configuration{
+		Domains:   domains.Domains{"example.com"},
+		Whitelist: whiteList,
+		Provider:  "google",
+	}
+	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
+	stateStore := state.States{TTL: time.Minute, Cache: state.NewLocalCache[string]()}
+	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
+	session := sessionStore.Session("foo@example.com")
+
+	req := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	req.AddCookie(sessionStore.Cookie(session, string(config.Domains[0])))
+	b.ResetTimer()
+	for range b.N {
+		resp := httptest.NewRecorder()
+		s.ServeHTTP(resp, req)
+		if resp.Code != http.StatusOK {
+			b.Fatal("unexpected status code", resp.Code)
+		}
+	}
 }

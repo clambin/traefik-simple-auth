@@ -79,11 +79,9 @@ func (s Sessions) Cookie(session Session, domain string) *http.Cookie {
 }
 
 func (s Sessions) ActiveUsers() map[string]int {
-	activeUsers := make(map[string]int, s.sessions.Len())
-	for _, activeSession := range s.sessions.Iterate() {
-		if !activeSession.expired() {
-			activeUsers[activeSession.Email]++
-		}
+	activeUsers := make(map[string]int)
+	for _, activeUser := range s.sessions.Iterate() {
+		activeUsers[activeUser.Email]++
 	}
 	return activeUsers
 }
