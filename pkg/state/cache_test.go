@@ -3,97 +3,66 @@ package state
 import (
 	"context"
 	"errors"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/bradfitz/gomemcache/memcache"
 	gcc "github.com/clambin/go-common/cache"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
-func Test_newCache(t *testing.T) {
+func Test_cache(t *testing.T) {
+	rd := miniredis.RunT(t)
 	tests := []struct {
-		name        string
-		cfg         Configuration
-		shouldPanic bool
+		name   string
+		cfg    Configuration
+		panics bool
 	}{
 		{
-			name:        "empty",
-			shouldPanic: true,
+			name:   "invalid",
+			cfg:    Configuration{CacheType: "invalid"},
+			panics: true,
 		},
 		{
-			name:        "invalid",
-			cfg:         Configuration{CacheType: "invalid"},
-			shouldPanic: true,
-		},
-		{
-			name: "memory",
+			name: "local cache",
 			cfg:  Configuration{CacheType: "memory"},
-		},
-		{
-			name: "redis",
-			cfg:  Configuration{CacheType: "redis"},
 		},
 		{
 			name: "memcached",
 			cfg:  Configuration{CacheType: "memcached"},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.shouldPanic {
-				assert.Panics(t, func() { newCache[string](tt.cfg) })
-				return
-			}
-			c := newCache[string](tt.cfg)
-			assert.NotNil(t, c)
-		})
-	}
-}
-
-func TestCache(t *testing.T) {
-	tests := []struct {
-		name  string
-		cache cache[string]
-	}{
-		{
-			name: "local cache",
-			cache: localCache[string]{
-				values: gcc.New[string, string](0, 0),
-			},
-		},
-		{
-			name: "memcached",
-			cache: memcachedCache[string]{
-				Client: &fakeMemcachedClient{c: localCache[string]{values: gcc.New[string, string](0, 0)}},
-			},
-		},
 		{
 			name: "redis",
-			cache: redisCache[string]{
-				Client: &fakeRedisClient{c: localCache[string]{values: gcc.New[string, string](0, 0)}},
-			},
+			cfg:  Configuration{CacheType: "redis", RedisConfiguration: RedisConfiguration{Addr: rd.Addr()}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			if tt.panics {
+				assert.Panics(t, func() { newCache[string](tt.cfg) })
+				return
+			}
+
+			c := newCache[string](tt.cfg)
+			if tt.cfg.CacheType == "memcached" {
+				c = memcachedCache[string]{Client: &fakeMemcachedClient{c: localCache[string]{values: gcc.New[string, string](0, 0)}}}
+			}
 
 			ctx := context.Background()
-			count, err := tt.cache.Len(ctx)
+			count, err := c.Len(ctx)
 			assert.NoError(t, err)
 			assert.Zero(t, count)
 
-			assert.NoError(t, tt.cache.Add(ctx, "key", "value", time.Hour))
-			value, err := tt.cache.GetDel(ctx, "key")
+			assert.NoError(t, c.Add(ctx, "key", "value", time.Hour))
+			value, err := c.GetDel(ctx, "key")
 			assert.NoError(t, err)
 			assert.Equal(t, "value", value)
-			_, err = tt.cache.GetDel(ctx, "key")
+			_, err = c.GetDel(ctx, "key")
 			assert.ErrorIs(t, err, ErrNotFound)
 
-			assert.NoError(t, tt.cache.Ping(ctx))
+			assert.NoError(t, c.Ping(ctx))
 		})
 	}
 }
@@ -144,34 +113,4 @@ func (f *fakeMemcachedClient) Get(key string) (*memcache.Item, error) {
 func (f *fakeMemcachedClient) Delete(key string) error {
 	f.c.values.Remove(key)
 	return nil
-}
-
-var _ redisClient = fakeRedisClient{}
-
-type fakeRedisClient struct {
-	c localCache[string]
-}
-
-func (f fakeRedisClient) Ping(ctx context.Context) *redis.StatusCmd {
-	cmd := redis.NewStatusCmd(ctx)
-	cmd.SetErr(nil)
-	return cmd
-}
-
-func (f fakeRedisClient) Set(ctx context.Context, key string, value any, ttl time.Duration) *redis.StatusCmd {
-	err := f.c.Add(ctx, key, string(value.([]byte)), ttl)
-	cmd := redis.NewStatusCmd(ctx)
-	cmd.SetErr(err)
-	return cmd
-}
-
-func (f fakeRedisClient) GetDel(ctx context.Context, key string) *redis.StringCmd {
-	val, err := f.c.GetDel(ctx, key)
-	if errors.Is(err, ErrNotFound) {
-		err = redis.Nil
-	}
-	cmd := redis.NewStringCmd(ctx)
-	cmd.SetErr(err)
-	cmd.SetVal(val)
-	return cmd
 }
