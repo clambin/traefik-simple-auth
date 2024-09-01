@@ -92,9 +92,10 @@ func TestGetConfiguration(t *testing.T) {
 				Addr:              ":8080",
 				PromAddr:          ":9090",
 				SessionCookieName: "_traefik_simple_auth",
+				SessionExpiration: 30 * 24 * time.Hour,
 				CacheConfiguration: CacheConfiguration{
 					Backend: "memory",
-					TTL:     30 * 24 * time.Hour,
+					TTL:     10 * time.Minute,
 				},
 				Secret:        []byte("secret\n"),
 				Provider:      "google",

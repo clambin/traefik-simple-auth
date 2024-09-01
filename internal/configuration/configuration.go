@@ -16,7 +16,7 @@ var (
 	addr               = flag.String("addr", ":8080", "The address to listen on for HTTP requests")
 	promAddr           = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
 	sessionCookieName  = flag.String("session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
-	expiry             = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
+	sessionExpiration  = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
 	authPrefix         = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
 	domainsString      = flag.String("domains", "", "Comma-separated list of domains to allow access")
 	users              = flag.String("users", "", "Comma-separated list of usernames to allow access")
@@ -46,6 +46,7 @@ type Configuration struct {
 	ClientID          string
 	ClientSecret      string
 	AuthPrefix        string
+	SessionExpiration time.Duration
 	CacheConfiguration
 }
 
@@ -79,9 +80,10 @@ func GetConfiguration() (Configuration, error) {
 		ClientID:          *clientId,
 		ClientSecret:      *clientSecret,
 		AuthPrefix:        *authPrefix,
+		SessionExpiration: *sessionExpiration,
 		CacheConfiguration: CacheConfiguration{
 			Backend: *cacheBackend,
-			TTL:     *expiry,
+			TTL:     10 * time.Minute,
 			MemcachedConfiguration: MemcachedConfiguration{
 				Addr: *cacheMemcachedAddr,
 			},

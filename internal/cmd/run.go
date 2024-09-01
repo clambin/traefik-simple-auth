@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"log/slog"
 	"net/http"
-	"time"
 )
 
 func Run(ctx context.Context, cfg configuration.Configuration, registry prometheus.Registerer, version string, logger *slog.Logger) error {
@@ -23,7 +22,7 @@ func Run(ctx context.Context, cfg configuration.Configuration, registry promethe
 
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	registry.MustRegister(metrics)
-	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.TTL)
+	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.SessionExpiration)
 	stateStore := makeStateStore(cfg.CacheConfiguration)
 	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)
 
@@ -77,6 +76,6 @@ func makeStateStore(cfg configuration.CacheConfiguration) state.States {
 	return state.States{
 		Cache:     backend,
 		Namespace: "github.com/clambin/traefik-simple-auth",
-		TTL:       5 * time.Minute,
+		TTL:       cfg.TTL,
 	}
 }
