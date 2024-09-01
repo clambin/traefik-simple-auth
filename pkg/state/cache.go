@@ -5,38 +5,55 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/clambin/go-common/cache"
+	gcc "github.com/clambin/go-common/cache"
 	"github.com/redis/go-redis/v9"
 	"time"
 )
 
 var ErrNotFound = errors.New("not found")
 
-type Cache[T any] interface {
+type cache[T any] interface {
 	Add(context.Context, string, T, time.Duration) error
 	GetDel(context.Context, string) (T, error)
 	Len(context.Context) (int, error)
 	Ping(context.Context) error
 }
 
-var _ Cache[string] = &LocalCache[string]{}
-
-type LocalCache[T any] struct {
-	values *cache.Cache[string, T]
-}
-
-func NewLocalCache[T any]() LocalCache[T] {
-	return LocalCache[T]{
-		values: cache.New[string, T](0, 0),
+func newCache[T any](configuration Configuration) cache[T] {
+	switch configuration.CacheType {
+	case "memory":
+		return localCache[T]{
+			values: gcc.New[string, T](0, 0),
+		}
+	case "memcached":
+		return memcachedCache[T]{
+			Client: memcache.New(configuration.MemcachedConfiguration.Addr),
+		}
+	case "redis":
+		return redisCache[T]{
+			Client: redis.NewClient(&redis.Options{
+				Addr:     configuration.RedisConfiguration.Addr,
+				Username: configuration.RedisConfiguration.Username,
+				Password: configuration.RedisConfiguration.Password,
+				DB:       configuration.RedisConfiguration.Database,
+			})}
+	default:
+		panic("Unsupported cache type: " + configuration.CacheType)
 	}
 }
 
-func (l LocalCache[T]) Add(_ context.Context, state string, value T, duration time.Duration) error {
+var _ cache[string] = &localCache[string]{}
+
+type localCache[T any] struct {
+	values *gcc.Cache[string, T]
+}
+
+func (l localCache[T]) Add(_ context.Context, state string, value T, duration time.Duration) error {
 	l.values.AddWithExpiry(state, value, duration)
 	return nil
 }
 
-func (l LocalCache[T]) GetDel(_ context.Context, key string) (T, error) {
+func (l localCache[T]) GetDel(_ context.Context, key string) (T, error) {
 	var err error
 	val, ok := l.values.GetAndRemove(key)
 	if !ok {
@@ -45,26 +62,26 @@ func (l LocalCache[T]) GetDel(_ context.Context, key string) (T, error) {
 	return val, err
 }
 
-func (l LocalCache[T]) Len(_ context.Context) (int, error) {
+func (l localCache[T]) Len(_ context.Context) (int, error) {
 	return l.values.Len(), nil
 }
 
-func (l LocalCache[T]) Ping(context.Context) error {
+func (l localCache[T]) Ping(context.Context) error {
 	return nil
 }
 
-type MemcachedCache[T any] struct {
-	Client MemcachedClient
+type memcachedCache[T any] struct {
+	Client memcachedClient
 }
 
-type MemcachedClient interface {
+type memcachedClient interface {
 	Set(*memcache.Item) error
 	Get(string) (*memcache.Item, error)
 	Delete(string) error
 	Ping() error
 }
 
-func (m MemcachedCache[T]) Add(_ context.Context, key string, value T, ttl time.Duration) error {
+func (m memcachedCache[T]) Add(_ context.Context, key string, value T, ttl time.Duration) error {
 	val, err := encode[T](value)
 	if err == nil {
 		err = m.Client.Set(&memcache.Item{
@@ -76,7 +93,7 @@ func (m MemcachedCache[T]) Add(_ context.Context, key string, value T, ttl time.
 	return err
 }
 
-func (m MemcachedCache[T]) GetDel(_ context.Context, key string) (T, error) {
+func (m memcachedCache[T]) GetDel(_ context.Context, key string) (T, error) {
 	item, err := m.Client.Get(key)
 	if err == nil {
 		err = m.Client.Delete(key)
@@ -91,11 +108,11 @@ func (m MemcachedCache[T]) GetDel(_ context.Context, key string) (T, error) {
 	return decode[T](item.Value)
 }
 
-func (m MemcachedCache[T]) Len(_ context.Context) (int, error) {
+func (m memcachedCache[T]) Len(_ context.Context) (int, error) {
 	return 0, nil
 }
 
-func (m MemcachedCache[T]) Ping(_ context.Context) error {
+func (m memcachedCache[T]) Ping(_ context.Context) error {
 	return m.Client.Ping()
 }
 
@@ -110,19 +127,19 @@ func decode[T any](value []byte) (v T, err error) {
 	return v, err
 }
 
-var _ Cache[string] = RedisCache[string]{}
+var _ cache[string] = redisCache[string]{}
 
-type RedisCache[T any] struct {
-	Client RedisClient
+type redisCache[T any] struct {
+	Client redisClient
 }
 
-type RedisClient interface {
+type redisClient interface {
 	Set(context.Context, string, any, time.Duration) *redis.StatusCmd
 	GetDel(context.Context, string) *redis.StringCmd
 	Ping(context.Context) *redis.StatusCmd
 }
 
-func (r RedisCache[T]) Add(ctx context.Context, key string, value T, ttl time.Duration) error {
+func (r redisCache[T]) Add(ctx context.Context, key string, value T, ttl time.Duration) error {
 	val, err := encode[T](value)
 	if err == nil {
 		err = r.Client.Set(ctx, key, val, ttl).Err()
@@ -130,7 +147,7 @@ func (r RedisCache[T]) Add(ctx context.Context, key string, value T, ttl time.Du
 	return err
 }
 
-func (r RedisCache[T]) GetDel(ctx context.Context, key string) (T, error) {
+func (r redisCache[T]) GetDel(ctx context.Context, key string) (T, error) {
 	val, err := r.Client.GetDel(ctx, key).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
@@ -142,10 +159,10 @@ func (r RedisCache[T]) GetDel(ctx context.Context, key string) (T, error) {
 	return decode[T]([]byte(val))
 }
 
-func (r RedisCache[T]) Len(_ context.Context) (int, error) {
+func (r redisCache[T]) Len(_ context.Context) (int, error) {
 	return 0, nil
 }
 
-func (r RedisCache[T]) Ping(ctx context.Context) error {
+func (r redisCache[T]) Ping(ctx context.Context) error {
 	return r.Client.Ping(ctx).Err()
 }

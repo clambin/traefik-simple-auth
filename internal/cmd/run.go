@@ -3,14 +3,12 @@ package cmd
 import (
 	"context"
 	"errors"
-	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 	"log/slog"
 	"net/http"
@@ -23,7 +21,7 @@ func Run(ctx context.Context, cfg configuration.Configuration, registry promethe
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	registry.MustRegister(metrics)
 	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.SessionExpiration)
-	stateStore := makeStateStore(cfg.CacheConfiguration)
+	stateStore := state.New(cfg.StateConfiguration)
 	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)
 
 	var g errgroup.Group
@@ -49,33 +47,4 @@ func runHTTPServer(ctx context.Context, g *errgroup.Group, s *http.Server) {
 		}
 		return nil
 	})
-}
-
-func makeStateStore(cfg configuration.CacheConfiguration) state.States {
-	var backend state.Cache[string]
-	switch cfg.Backend {
-	case "memory":
-		backend = state.NewLocalCache[string]()
-	case "memcached":
-		backend = state.MemcachedCache[string]{
-			Client: memcache.New(cfg.MemcachedConfiguration.Addr),
-		}
-	case "redis":
-		backend = state.RedisCache[string]{
-			Client: redis.NewClient(&redis.Options{
-				Addr:     cfg.RedisConfiguration.Addr,
-				DB:       cfg.RedisConfiguration.Database,
-				Username: cfg.RedisConfiguration.Username,
-				Password: cfg.RedisConfiguration.Password,
-			}),
-		}
-	default:
-		panic("unknown backend: " + cfg.Backend)
-	}
-
-	return state.States{
-		Cache:     backend,
-		Namespace: "github.com/clambin/traefik-simple-auth",
-		TTL:       cfg.TTL,
-	}
 }

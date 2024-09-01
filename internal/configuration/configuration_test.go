@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
+	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -93,9 +94,10 @@ func TestGetConfiguration(t *testing.T) {
 				PromAddr:          ":9090",
 				SessionCookieName: "_traefik_simple_auth",
 				SessionExpiration: 30 * 24 * time.Hour,
-				CacheConfiguration: CacheConfiguration{
-					Backend: "memory",
-					TTL:     10 * time.Minute,
+				StateConfiguration: state.Configuration{
+					CacheType: "memory",
+					Namespace: "github.com/clambin/traefik-simple-auth/state",
+					TTL:       10 * time.Minute,
 				},
 				Secret:        []byte("secret\n"),
 				Provider:      "google",

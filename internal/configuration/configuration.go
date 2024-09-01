@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
+	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"strings"
 	"time"
@@ -25,7 +26,7 @@ var (
 	clientId           = flag.String("client-id", "", "OAuth2 Client ID")
 	clientSecret       = flag.String("client-secret", "", "OAuth2 Client Secret")
 	secret             = flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
-	cacheBackend       = flag.String("cache", "memory", "The backend to use for caching")
+	cacheBackend       = flag.String("cache", "memory", "The backend to use for caching CSFR states. memory, memcached and redis are supported")
 	cacheMemcachedAddr = flag.String("cache-memcached-addr", "", "memcached address to use (only used when cache backend is memcached)")
 	cacheRedisAddr     = flag.String("cache-redis-addr", "", "redis address to use (only used when cache backend is redis)")
 	cacheRedisDatabase = flag.Int("cache-redis-database", 0, "redis database to use (only used when cache backend is redis)")
@@ -34,38 +35,20 @@ var (
 )
 
 type Configuration struct {
-	Debug             bool
-	Addr              string
-	PromAddr          string
-	SessionCookieName string
-	Secret            []byte
-	Provider          string
-	OIDCIssuerURL     string
-	Domains           domains.Domains
-	Whitelist         whitelist.Whitelist
-	ClientID          string
-	ClientSecret      string
-	AuthPrefix        string
-	SessionExpiration time.Duration
-	CacheConfiguration
-}
-
-type CacheConfiguration struct {
-	Backend string
-	TTL     time.Duration
-	RedisConfiguration
-	MemcachedConfiguration
-}
-
-type RedisConfiguration struct {
-	Addr     string
-	Database int
-	Username string
-	Password string
-}
-
-type MemcachedConfiguration struct {
-	Addr string
+	Debug              bool
+	Addr               string
+	PromAddr           string
+	SessionCookieName  string
+	Secret             []byte
+	Provider           string
+	OIDCIssuerURL      string
+	Domains            domains.Domains
+	Whitelist          whitelist.Whitelist
+	ClientID           string
+	ClientSecret       string
+	AuthPrefix         string
+	SessionExpiration  time.Duration
+	StateConfiguration state.Configuration
 }
 
 func GetConfiguration() (Configuration, error) {
@@ -81,13 +64,14 @@ func GetConfiguration() (Configuration, error) {
 		ClientSecret:      *clientSecret,
 		AuthPrefix:        *authPrefix,
 		SessionExpiration: *sessionExpiration,
-		CacheConfiguration: CacheConfiguration{
-			Backend: *cacheBackend,
-			TTL:     10 * time.Minute,
-			MemcachedConfiguration: MemcachedConfiguration{
+		StateConfiguration: state.Configuration{
+			CacheType: *cacheBackend,
+			Namespace: "github.com/clambin/traefik-simple-auth/state",
+			TTL:       10 * time.Minute,
+			MemcachedConfiguration: state.MemcachedConfiguration{
 				Addr: *cacheMemcachedAddr,
 			},
-			RedisConfiguration: RedisConfiguration{
+			RedisConfiguration: state.RedisConfiguration{
 				Addr:     *cacheRedisAddr,
 				Database: *cacheRedisDatabase,
 				Username: *cacheRedisUsername,

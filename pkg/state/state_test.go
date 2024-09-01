@@ -10,11 +10,11 @@ import (
 )
 
 func TestStates(t *testing.T) {
-	c := States{
-		Cache:     NewLocalCache[string](),
-		Namespace: "github.com/clambin/traefik-simple-auth",
+	c := New(Configuration{
+		CacheType: "memory",
+		Namespace: "github.com/clambin/traefik-simple-auth/states",
 		TTL:       500 * time.Millisecond,
-	}
+	})
 
 	ctx := context.Background()
 	state, err := c.Add(ctx, "foo")
@@ -36,4 +36,6 @@ func TestStates(t *testing.T) {
 
 	_, err = c.Validate(ctx, state)
 	require.ErrorIs(t, err, ErrNotFound)
+
+	assert.NoError(t, c.Ping(ctx))
 }

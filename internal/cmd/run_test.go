@@ -6,6 +6,7 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
+	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -44,9 +45,9 @@ func TestRun(t *testing.T) {
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
-		CacheConfiguration: configuration.CacheConfiguration{
-			TTL:     time.Hour,
-			Backend: "memory",
+		StateConfiguration: state.Configuration{
+			TTL:       time.Hour,
+			CacheType: "memory",
 		},
 	}
 	g.Go(func() error {
@@ -125,9 +126,9 @@ func TestRun_Fail(t *testing.T) {
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
-		CacheConfiguration: configuration.CacheConfiguration{
-			TTL:     time.Hour,
-			Backend: "memory",
+		StateConfiguration: state.Configuration{
+			TTL:       time.Hour,
+			CacheType: "memory",
 		},
 	}
 	assert.Error(t, Run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default()))

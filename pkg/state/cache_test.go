@@ -4,32 +4,75 @@ import (
 	"context"
 	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
-	"github.com/clambin/go-common/cache"
+	gcc "github.com/clambin/go-common/cache"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
+func Test_newCache(t *testing.T) {
+	tests := []struct {
+		name        string
+		cfg         Configuration
+		shouldPanic bool
+	}{
+		{
+			name:        "empty",
+			shouldPanic: true,
+		},
+		{
+			name:        "invalid",
+			cfg:         Configuration{CacheType: "invalid"},
+			shouldPanic: true,
+		},
+		{
+			name: "memory",
+			cfg:  Configuration{CacheType: "memory"},
+		},
+		{
+			name: "redis",
+			cfg:  Configuration{CacheType: "redis"},
+		},
+		{
+			name: "memcached",
+			cfg:  Configuration{CacheType: "memcached"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.shouldPanic {
+				assert.Panics(t, func() { newCache[string](tt.cfg) })
+				return
+			}
+			c := newCache[string](tt.cfg)
+			assert.NotNil(t, c)
+		})
+	}
+}
+
 func TestCache(t *testing.T) {
 	tests := []struct {
 		name  string
-		cache Cache[string]
+		cache cache[string]
 	}{
 		{
-			name:  "local cache",
-			cache: NewLocalCache[string](),
+			name: "local cache",
+			cache: localCache[string]{
+				values: gcc.New[string, string](0, 0),
+			},
 		},
 		{
-			name: "memcache",
-			cache: MemcachedCache[string]{
-				Client: &fakeMemcachedClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
+			name: "memcached",
+			cache: memcachedCache[string]{
+				Client: &fakeMemcachedClient{c: localCache[string]{values: gcc.New[string, string](0, 0)}},
 			},
 		},
 		{
 			name: "redis",
-			cache: RedisCache[string]{
-				Client: &fakeRedisClient{c: LocalCache[string]{values: cache.New[string, string](0, 0)}},
+			cache: redisCache[string]{
+				Client: &fakeRedisClient{c: localCache[string]{values: gcc.New[string, string](0, 0)}},
 			},
 		},
 	}
@@ -58,14 +101,14 @@ func TestCache(t *testing.T) {
 func BenchmarkCache(b *testing.B) {
 	ctx := context.Background()
 	b.Run("string", func(b *testing.B) {
-		c := NewLocalCache[string]()
+		c := newCache[string](Configuration{CacheType: "memory"})
 		for range b.N {
 			_ = c.Add(ctx, "key", "value", time.Hour)
 			_, _ = c.GetDel(ctx, "key")
 		}
 	})
 	b.Run("int", func(b *testing.B) {
-		c := NewLocalCache[int]()
+		c := newCache[int](Configuration{CacheType: "memory"})
 		for range b.N {
 			_ = c.Add(ctx, "key", 1, time.Hour)
 			_, _ = c.GetDel(ctx, "key")
@@ -73,10 +116,10 @@ func BenchmarkCache(b *testing.B) {
 	})
 }
 
-var _ MemcachedClient = &fakeMemcachedClient{}
+var _ memcachedClient = &fakeMemcachedClient{}
 
 type fakeMemcachedClient struct {
-	c LocalCache[string]
+	c localCache[string]
 }
 
 func (f *fakeMemcachedClient) Ping() error {
@@ -103,10 +146,10 @@ func (f *fakeMemcachedClient) Delete(key string) error {
 	return nil
 }
 
-var _ RedisClient = fakeRedisClient{}
+var _ redisClient = fakeRedisClient{}
 
 type fakeRedisClient struct {
-	c LocalCache[string]
+	c localCache[string]
 }
 
 func (f fakeRedisClient) Ping(ctx context.Context) *redis.StatusCmd {

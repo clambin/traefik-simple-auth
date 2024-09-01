@@ -152,7 +152,7 @@ func HealthHandler(sessions sessions.Sessions, states state.States, logger *slog
 			return
 		}
 
-		if err = states.Cache.Ping(r.Context()); err != nil {
+		if err = states.Ping(r.Context()); err != nil {
 			logger.Warn("cache ping failed", "err", err)
 			http.Error(w, "state cache not healthy", http.StatusServiceUnavailable)
 			return

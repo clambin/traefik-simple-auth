@@ -33,10 +33,7 @@ func TestServer_Panics(t *testing.T) {
 			Domains:  domains.Domains{"example.com"},
 		}
 		sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-		stateStore := state.States{
-			Cache: state.NewLocalCache[string](),
-			TTL:   time.Minute,
-		}
+		stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, slog.Default())
 	}()
 	assert.True(t, panics)
@@ -258,7 +255,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 		Whitelist:     list,
 	}
 	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
-	stateStore := state.States{TTL: time.Minute, Cache: state.NewLocalCache[string]()}
+	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, slog.Default())
 }
 
@@ -323,7 +320,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Provider:  "google",
 	}
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-	stateStore := state.States{TTL: time.Minute, Cache: state.NewLocalCache[string]()}
+	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
 	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
@@ -388,7 +385,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 		Provider:  "google",
 	}
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-	stateStore := state.States{TTL: time.Minute, Cache: state.NewLocalCache[string]()}
+	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	session := sessionStore.Session("foo@example.com")
 
