@@ -203,9 +203,18 @@ Usage:
   -auth-prefix string
         prefix to construct the authRedirect URL from the domain (default "auth")
   -cache string
-        The backend to use for caching (default "memory")
+        The backend to use for caching CSFR states. memory, memcached and redis are supported (default "memory")
   -cache-memcached-addr string
         memcached address to use (only used when cache backend is memcached)
+  -cache-redis-addr string
+        redis address to use (only used when cache backend is redis)
+  -cache-redis-database int
+        redis database to use (only used when cache backend is redis)
+  -cache-redis-password string
+        Redis password (only used when cache backend is redis)
+  -cache-redis-username string
+        Redis username (only used when cache backend is redis)
+
   -client-id string
         OAuth2 Client ID
   -client-secret string
@@ -245,11 +254,15 @@ Usage:
 - `cache`
 
   Defines how the State is shared between the forwardAuth and authCallback handlers. Default is `memory`, meaning the state is cached locally in memory.
-  To support running multiple instances of traefik-simple-auth, this can be switched to `memcached`, which will use an (external) memcached server instead.
+  To support running multiple instances of traefik-simple-auth, this can be switched to `memcached` or `redis`, which uses an (external) server instead.
 
 - `-cache-memcached-addr`
 
   Address of the memcached instance to use. Only used when `cache` is `memcached`.
+
+- `cache-redis-addr`, `cache-redis-username`, `cache-redis-password`, `cache-redis-database`
+
+  Address, username, password and database number to use. Only used when `cache` is `redis`. 
 
 - `client-id`
 
