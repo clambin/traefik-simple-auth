@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
@@ -12,14 +13,23 @@ import (
 	"golang.org/x/sync/errgroup"
 	"log/slog"
 	"net/http"
+	"os"
 )
 
-func Run(ctx context.Context, cfg configuration.Configuration, registry prometheus.Registerer, version string, logger *slog.Logger) error {
+func Main(ctx context.Context, r prometheus.Registerer, version string) error {
+	cfg, err := configuration.GetConfiguration()
+	if err != nil {
+		return fmt.Errorf("invalid configuration: %w", err)
+	}
+	return Run(ctx, cfg, r, version, cfg.Logger(os.Stderr))
+}
+
+func Run(ctx context.Context, cfg configuration.Configuration, r prometheus.Registerer, version string, logger *slog.Logger) error {
 	logger.Info("traefik-simple-auth starting", "version", version)
 	defer logger.Info("traefik-simple-auth stopped")
 
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
-	registry.MustRegister(metrics)
+	r.MustRegister(metrics)
 	sessionStore := sessions.New(cfg.SessionCookieName, cfg.Secret, cfg.SessionExpiration)
 	stateStore := state.New(cfg.StateConfiguration)
 	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)

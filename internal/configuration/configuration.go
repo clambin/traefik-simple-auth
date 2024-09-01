@@ -8,6 +8,8 @@ import (
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
+	"io"
+	"log/slog"
 	"strings"
 	"time"
 )
@@ -96,4 +98,12 @@ func GetConfiguration() (Configuration, error) {
 		return Configuration{}, errors.New("must specify both client-id and client-secret")
 	}
 	return cfg, nil
+}
+
+func (c Configuration) Logger(w io.Writer) *slog.Logger {
+	var opts slog.HandlerOptions
+	if c.Debug {
+		opts = slog.HandlerOptions{Level: slog.LevelDebug}
+	}
+	return slog.New(slog.NewJSONHandler(w, &opts))
 }

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"bytes"
 	"github.com/clambin/traefik-simple-auth/pkg/domains"
 	"github.com/clambin/traefik-simple-auth/pkg/state"
 	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
@@ -125,4 +126,18 @@ func TestGetConfiguration(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConfiguration_Logger(t *testing.T) {
+	var cfg Configuration
+	var out bytes.Buffer
+
+	l := cfg.Logger(&out)
+	l.Debug("debug message")
+	assert.Empty(t, out.String())
+
+	cfg.Debug = true
+	l = cfg.Logger(&out)
+	l.Debug("debug message")
+	assert.Contains(t, out.String(), `"msg":"debug message"`)
 }
