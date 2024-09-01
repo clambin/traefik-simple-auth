@@ -102,7 +102,7 @@ func AuthCallbackHandler(
 		encodedState := r.URL.Query().Get("state")
 		targetURL, err := states.Validate(r.Context(), encodedState)
 		if err != nil {
-			logger.Warn("invalid state. Dropping request ...", "err", err)
+			logger.Warn("rejecting login request: invalid state", "err", err)
 			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
@@ -117,11 +117,11 @@ func AuthCallbackHandler(
 		if err != nil {
 			var oauthErr *oauth2.RetrieveError
 			if errors.As(err, &oauthErr) {
-				logger.Warn("failed to retrieve code", "code", oauthErr.ErrorCode, "desc", oauthErr.ErrorDescription)
+				logger.Warn("rejecting login request: failed to retrieve code", "code", oauthErr.ErrorCode, "desc", oauthErr.ErrorDescription)
 				http.Error(w, "Invalid code", http.StatusUnauthorized)
 				return
 			}
-			logger.Error("failed to log in", "err", err)
+			logger.Error("rejecting login request: failed to log in", "err", err)
 			http.Error(w, "oauth2 failed", http.StatusBadGateway)
 			return
 		}
@@ -129,13 +129,13 @@ func AuthCallbackHandler(
 
 		// Check that the user's email address is in the whitelist.
 		if !whitelist.Match(user) {
-			logger.Warn("not a valid user. rejecting ...", "user", user)
+			logger.Warn("rejecting login request: not a valid user", "user", user)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
 		// GetUserEmailAddress successful. Create a session and redirect the user to the final destination.
-		logger.Info("user logged in. redirecting ...", "user", user, "url", targetURL)
+		logger.Info("user logged in", "user", user, "url", targetURL)
 		session := sessions.Session(user)
 		http.SetCookie(w, sessions.Cookie(session, string(domain)))
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
@@ -145,16 +145,16 @@ func AuthCallbackHandler(
 func HealthHandler(sessions sessions.Sessions, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		if err := states.Ping(r.Context()); err != nil {
+			logger.Warn("cache ping failed", "err", err)
+			http.Error(w, "state cache not healthy", http.StatusServiceUnavailable)
+			return
+		}
+
 		stateCount, err := states.Count(r.Context())
 		if err != nil {
 			logger.Warn("error counting states", "err", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		if err = states.Ping(r.Context()); err != nil {
-			logger.Warn("cache ping failed", "err", err)
-			http.Error(w, "state cache not healthy", http.StatusServiceUnavailable)
 			return
 		}
 
