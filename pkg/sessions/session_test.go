@@ -64,7 +64,7 @@ func TestSession_validate(t *testing.T) {
 		{
 			name: "invalid mac",
 			session: Session{
-				Email:      validSession.Email,
+				Key:        validSession.Key,
 				expiration: validSession.expiration,
 				mac:        append([]byte("0000"), validSession.mac[4:]...),
 			},

@@ -15,8 +15,8 @@ func TestSessionExtractor(t *testing.T) {
 	s := sessions.New("_auth", []byte("secret"), time.Hour)
 	l := slog.Default()
 	extractor := sessionExtractor(s, l)
-	validSession := s.Session("foo@example.com")
-	expiredSession := s.SessionWithExpiration("foo@example.com", -time.Hour)
+	validSession := s.NewSession("foo@example.com")
+	expiredSession := s.NewSessionWithExpiration("foo@example.com", -time.Hour)
 
 	tests := []struct {
 		name      string
@@ -43,7 +43,7 @@ func TestSessionExtractor(t *testing.T) {
 			name:      "valid cookie",
 			cookie:    s.Cookie(validSession, "example.com"),
 			wantOK:    require.True,
-			wantEmail: validSession.Email,
+			wantEmail: validSession.Key,
 		},
 	}
 
@@ -64,7 +64,7 @@ func TestSessionExtractor(t *testing.T) {
 				if !ok {
 					return
 				}
-				assert.Equal(t, tt.wantEmail, userSession.Email)
+				assert.Equal(t, tt.wantEmail, userSession.Key)
 			}))
 			h.ServeHTTP(w, r)
 		})

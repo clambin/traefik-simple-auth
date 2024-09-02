@@ -59,8 +59,8 @@ func (m Metrics) Measure(r *http.Request, statusCode int, duration time.Duration
 	if path != OAUTHPath && path != OAUTHPath+"/logout" {
 		path = "/"
 	}
-	m.requestCounter.WithLabelValues(sess.Email, r.URL.Host, path, code).Inc()
-	m.requestDuration.WithLabelValues(sess.Email, r.URL.Host, path, code).Observe(duration.Seconds())
+	m.requestCounter.WithLabelValues(sess.Key, r.URL.Host, path, code).Inc()
+	m.requestDuration.WithLabelValues(sess.Key, r.URL.Host, path, code).Observe(duration.Seconds())
 }
 
 func (m Metrics) Describe(ch chan<- *prometheus.Desc) {

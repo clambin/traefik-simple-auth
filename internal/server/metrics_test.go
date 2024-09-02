@@ -29,7 +29,7 @@ func TestServer_withMetrics(t *testing.T) {
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
-	sess := sessionStore.Session("foo@example.com")
+	sess := sessionStore.NewSession("foo@example.com")
 	r = testutils.ForwardAuthRequest(http.MethodGet, "example.org", "/foo")
 	r.AddCookie(sessionStore.Cookie(sess, "example.com"))
 	w = httptest.NewRecorder()
@@ -59,9 +59,9 @@ func TestMetrics_Collect_ActiveUsers(t *testing.T) {
 	metrics := NewMetrics("", "", map[string]string{"provider": "foo"})
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 
-	sessionStore.Session("foo@example.com")
-	sessionStore.SessionWithExpiration("foo@example.com", 30*time.Minute)
-	sessionStore.Session("bar@example.com")
+	sessionStore.NewSession("foo@example.com")
+	sessionStore.NewSessionWithExpiration("foo@example.com", 30*time.Minute)
+	sessionStore.NewSession("bar@example.com")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

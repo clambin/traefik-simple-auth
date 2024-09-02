@@ -60,7 +60,7 @@ func TestSessions_Validate(t *testing.T) {
 				return
 			}
 			assert.NoError(t, session.validate(secret))
-			assert.Equal(t, tt.wantEmail, session.Email)
+			assert.Equal(t, tt.wantEmail, session.Key)
 			assert.Equal(t, 1, s.Count())
 			assert.True(t, s.Contains(tt.wantEmail))
 		})
@@ -87,7 +87,7 @@ func TestSessions_DeleteSession(t *testing.T) {
 	secret := []byte("secret")
 	s := New("_name", secret, time.Hour)
 
-	session := s.Session("foo@example.com")
+	session := s.NewSession("foo@example.com")
 	assert.NoError(t, session.validate(secret))
 	assert.Equal(t, 1, s.sessions.Len())
 
@@ -97,7 +97,7 @@ func TestSessions_DeleteSession(t *testing.T) {
 
 func TestSessions_Cookie(t *testing.T) {
 	sessions := New("_name", []byte("secret"), time.Hour)
-	s := Session{Email: "foo@example.com", expiration: time.Date(2024, time.April, 24, 0, 0, 0, 0, time.UTC), mac: []byte("1234")}
+	s := Session{Key: "foo@example.com", expiration: time.Date(2024, time.April, 24, 0, 0, 0, 0, time.UTC), mac: []byte("1234")}
 	w := httptest.NewRecorder()
 	http.SetCookie(w, sessions.Cookie(s, "example.com"))
 	assert.Equal(t, "_name=313233340000000066284b80foo@example.com; Path=/; Domain=example.com; Expires=Wed, 24 Apr 2024 00:00:00 GMT; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
@@ -109,18 +109,18 @@ func TestSessions_Cookie(t *testing.T) {
 
 func TestSessions_ActiveUsers(t *testing.T) {
 	sessions := New("_name", []byte("secret"), time.Hour)
-	_ = sessions.Session("foo@example.com")
-	_ = sessions.SessionWithExpiration("foo@example.com", 30*time.Minute)
-	_ = sessions.SessionWithExpiration("bar@example.com", -time.Hour)
+	_ = sessions.NewSession("foo@example.com")
+	_ = sessions.NewSessionWithExpiration("foo@example.com", 30*time.Minute)
+	_ = sessions.NewSessionWithExpiration("bar@example.com", -time.Hour)
 
 	assert.Equal(t, map[string]int{"foo@example.com": 2}, sessions.ActiveUsers())
 }
 
 func BenchmarkSessions_ActiveUsers(b *testing.B) {
 	sessions := New("_name", []byte("secret"), time.Hour)
-	_ = sessions.Session("foo@example.com")
-	_ = sessions.SessionWithExpiration("foo@example.com", 30*time.Minute)
-	_ = sessions.SessionWithExpiration("bar@example.com", -time.Hour)
+	_ = sessions.NewSession("foo@example.com")
+	_ = sessions.NewSessionWithExpiration("foo@example.com", 30*time.Minute)
+	_ = sessions.NewSessionWithExpiration("bar@example.com", -time.Hour)
 	b.ResetTimer()
 	for range b.N {
 		users := sessions.ActiveUsers()

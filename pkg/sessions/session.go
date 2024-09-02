@@ -17,18 +17,19 @@ var (
 	ErrSessionExpired = errors.New("session expired")
 )
 
+// Session represents one session in the Sessions store, identified by its Key.
 type Session struct {
-	Email      string
+	Key        string
 	expiration time.Time
 	mac        []byte
 }
 
-func newSession(email string, expiration time.Duration, secret []byte) Session {
+func newSession(key string, expiration time.Duration, secret []byte) Session {
 	expiry := time.Now().Add(expiration)
 	return Session{
-		Email:      email,
+		Key:        key,
 		expiration: expiry,
-		mac:        calculateMAC(secret, []byte(email), binary.BigEndian.AppendUint64(nil, uint64(expiry.Unix()))),
+		mac:        calculateMAC(secret, []byte(key), binary.BigEndian.AppendUint64(nil, uint64(expiry.Unix()))),
 	}
 }
 func sessionFromCookie(c *http.Cookie) (Session, error) {
@@ -54,28 +55,24 @@ func sessionFromCookie(c *http.Cookie) (Session, error) {
 	value = value[encodedMACSize+encodedTimeSize:]
 	mac := bin[:macSize]
 
-	return Session{Email: value, expiration: time.Unix(int64(binary.BigEndian.Uint64(bin[macSize:])), 0), mac: mac}, nil
+	return Session{Key: value, expiration: time.Unix(int64(binary.BigEndian.Uint64(bin[macSize:])), 0), mac: mac}, nil
 }
 
 func (s Session) encode() string {
 	ts := make([]byte, 8)
 	binary.BigEndian.PutUint64(ts, uint64(s.expiration.Unix()))
-	return hex.EncodeToString(s.mac) + hex.EncodeToString(ts) + s.Email
+	return hex.EncodeToString(s.mac) + hex.EncodeToString(ts) + s.Key
 }
 
 func (s Session) validate(secret []byte) error {
-	mac := calculateMAC(secret, []byte(s.Email), binary.BigEndian.AppendUint64(nil, uint64(s.expiration.Unix())))
+	mac := calculateMAC(secret, []byte(s.Key), binary.BigEndian.AppendUint64(nil, uint64(s.expiration.Unix())))
 	if !bytes.Equal(s.mac, mac) {
 		return ErrInvalidMAC
 	}
-	if s.expired() {
+	if s.expiration.Before(time.Now()) {
 		return ErrSessionExpired
 	}
 	return nil
-}
-
-func (s Session) expired() bool {
-	return s.expiration.Before(time.Now())
 }
 
 func calculateMAC(secret []byte, parts ...[]byte) []byte {

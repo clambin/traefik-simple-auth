@@ -44,7 +44,7 @@ func TestForwardAuthHandler(t *testing.T) {
 	t.Cleanup(cancel)
 
 	sessionStore, _, _, h := setupServer(ctx, t, nil)
-	validSession := sessionStore.Session("foo@example.com")
+	validSession := sessionStore.NewSession("foo@example.com")
 
 	type args struct {
 		target  string
@@ -70,7 +70,7 @@ func TestForwardAuthHandler(t *testing.T) {
 				session: &validSession,
 			},
 			want: http.StatusOK,
-			user: validSession.Email,
+			user: validSession.Key,
 		},
 		{
 			name: "invalid domain",
@@ -87,7 +87,7 @@ func TestForwardAuthHandler(t *testing.T) {
 				session: &validSession,
 			},
 			want: http.StatusOK,
-			user: validSession.Email,
+			user: validSession.Key,
 		},
 	}
 
@@ -121,7 +121,7 @@ func TestLogoutHandler(t *testing.T) {
 
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
-		session := sessionStore.Session("foo@example.com")
+		session := sessionStore.NewSession("foo@example.com")
 		r = withSession(r, session)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
@@ -221,7 +221,7 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, `{"sessions":0,"states":0}
 `, w.Body.String())
 
-	sessionStore.Session("foo@example.com")
+	sessionStore.NewSession("foo@example.com")
 	_, _ = stateStore.Add(ctx, "https://example.com")
 
 	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
@@ -322,7 +322,7 @@ func Benchmark_authHandler(b *testing.B) {
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
-	sess := sessionStore.SessionWithExpiration("foo@example.com", time.Hour)
+	sess := sessionStore.NewSessionWithExpiration("foo@example.com", time.Hour)
 	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	r.AddCookie(sessionStore.Cookie(sess, string(config.Domains[0])))
 	w := httptest.NewRecorder()
@@ -387,7 +387,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
-	session := sessionStore.Session("foo@example.com")
+	session := sessionStore.NewSession("foo@example.com")
 
 	req := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
 	req.AddCookie(sessionStore.Cookie(session, string(config.Domains[0])))

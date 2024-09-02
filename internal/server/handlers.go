@@ -33,8 +33,8 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 		// validate that the request has a valid session cookie
 		if sess, ok := getSession(r); ok {
-			logger.Debug("allowing valid request", slog.String("email", sess.Email))
-			w.Header().Set("X-Forwarded-User", sess.Email)
+			logger.Debug("allowing valid request", slog.String("email", sess.Key))
+			w.Header().Set("X-Forwarded-User", sess.Key)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -79,7 +79,7 @@ func LogoutHandler(domains domains.Domains, sessionStore sessions.Sessions, logg
 		http.SetCookie(w, sessionStore.Cookie(sessions.Session{}, string(domain)))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
-		logger.Info("user has been logged out", "user", session.Email)
+		logger.Info("user has been logged out", "user", session.Key)
 	})
 }
 
@@ -136,7 +136,7 @@ func AuthCallbackHandler(
 
 		// GetUserEmailAddress successful. Create a session and redirect the user to the final destination.
 		logger.Info("user logged in", "user", user, "url", targetURL)
-		session := sessions.Session(user)
+		session := sessions.NewSession(user)
 		http.SetCookie(w, sessions.Cookie(session, string(domain)))
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
 	})
