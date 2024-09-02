@@ -175,3 +175,29 @@ func doDirect(c *http.Client, target string, sessionCookieName string) (int, str
 	}
 	return resp.StatusCode, redirectURL, cookie, nil
 }
+
+func Test_runHTTPServer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error)
+	s := &http.Server{Addr: ":8888", Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })}
+	go func() {
+		errCh <- runHTTPServer(ctx, s)
+	}()
+
+	assert.Eventually(t, func() bool {
+		resp, err := http.Get("http://localhost:8888")
+		return err == nil && resp.StatusCode == http.StatusOK
+	}, time.Second, 10*time.Millisecond)
+
+	cancel()
+	assert.NoError(t, <-errCh)
+
+	_, err := http.Get("http://localhost:8888")
+	assert.Error(t, err)
+
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	s = &http.Server{Addr: "invalid:1", Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })}
+	err = runHTTPServer(ctx, s)
+	assert.Error(t, err)
+}

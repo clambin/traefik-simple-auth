@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 )
 
 func Main(ctx context.Context, r prometheus.Registerer, version string) error {
@@ -35,26 +36,32 @@ func Run(ctx context.Context, cfg configuration.Configuration, r prometheus.Regi
 	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)
 
 	var g errgroup.Group
-	runHTTPServer(ctx, &g, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()})
-	runHTTPServer(ctx, &g, &http.Server{Addr: cfg.Addr, Handler: s})
-
+	g.Go(func() error { return runHTTPServer(ctx, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()}) })
+	g.Go(func() error { return runHTTPServer(ctx, &http.Server{Addr: cfg.Addr, Handler: s}) })
 	return g.Wait()
 }
 
-func runHTTPServer(ctx context.Context, g *errgroup.Group, s *http.Server) {
+func runHTTPServer(ctx context.Context, s *http.Server) error {
 	subCtx, cancel := context.WithCancel(ctx)
-	g.Go(func() error {
-		defer cancel()
-		if err := s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			return err
-		}
-		return nil
-	})
-	g.Go(func() error {
+	errCh := make(chan error)
+	go func() {
 		<-subCtx.Done()
-		if err := s.Shutdown(context.Background()); !errors.Is(err, http.ErrServerClosed) {
-			return err
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer shutdownCancel()
+		err := s.Shutdown(shutdownCtx)
+		if err != nil {
+			err = fmt.Errorf("http server failed to stop: %w", err)
 		}
-		return nil
-	})
+		errCh <- err
+	}()
+
+	err := s.ListenAndServe()
+	if errors.Is(err, http.ErrServerClosed) {
+		err = nil
+	}
+	if err != nil {
+		err = fmt.Errorf("http server failed to start: %w", err)
+	}
+	cancel()
+	return errors.Join(err, <-errCh)
 }
