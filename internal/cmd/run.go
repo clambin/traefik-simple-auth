@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	gchttp "github.com/clambin/go-common/http"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/clambin/traefik-simple-auth/pkg/sessions"
@@ -14,7 +14,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"time"
 )
 
 func Main(ctx context.Context, r prometheus.Registerer, version string) error {
@@ -36,32 +35,9 @@ func Run(ctx context.Context, cfg configuration.Configuration, r prometheus.Regi
 	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)
 
 	var g errgroup.Group
-	g.Go(func() error { return runHTTPServer(ctx, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()}) })
-	g.Go(func() error { return runHTTPServer(ctx, &http.Server{Addr: cfg.Addr, Handler: s}) })
+	g.Go(func() error {
+		return gchttp.RunServer(ctx, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()})
+	})
+	g.Go(func() error { return gchttp.RunServer(ctx, &http.Server{Addr: cfg.Addr, Handler: s}) })
 	return g.Wait()
-}
-
-func runHTTPServer(ctx context.Context, s *http.Server) error {
-	subCtx, cancel := context.WithCancel(ctx)
-	errCh := make(chan error)
-	go func() {
-		<-subCtx.Done()
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer shutdownCancel()
-		err := s.Shutdown(shutdownCtx)
-		if err != nil {
-			err = fmt.Errorf("http server failed to stop: %w", err)
-		}
-		errCh <- err
-	}()
-
-	err := s.ListenAndServe()
-	if errors.Is(err, http.ErrServerClosed) {
-		err = nil
-	}
-	if err != nil {
-		err = fmt.Errorf("http server failed to start: %w", err)
-	}
-	cancel()
-	return errors.Join(err, <-errCh)
 }
