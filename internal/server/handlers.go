@@ -40,7 +40,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		}
 
 		// no valid session cookie found. redirect to oauth handler.
-		logger.Warn("no valid session found. redirecting.", slog.String("url", r.URL.String()))
+		logger.Warn("no valid session found. redirecting.", slog.String("url", r.URL.String()), slog.String("method", r.Method))
 
 		// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 		// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
