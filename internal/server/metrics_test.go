@@ -2,8 +2,8 @@ package server
 
 import (
 	"context"
+	"github.com/clambin/traefik-simple-auth/internal/sessions"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/clambin/traefik-simple-auth/pkg/sessions"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"net/http"

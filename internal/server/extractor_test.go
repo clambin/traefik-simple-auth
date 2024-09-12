@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/clambin/traefik-simple-auth/pkg/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/sessions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"log/slog"

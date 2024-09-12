@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"errors"
-	"github.com/clambin/traefik-simple-auth/pkg/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/sessions"
 	"log/slog"
 	"net/http"
 )

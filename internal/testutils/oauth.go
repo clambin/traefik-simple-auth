@@ -2,7 +2,7 @@ package testutils
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/pkg/oauth"
+	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"golang.org/x/oauth2"
 )
 

@@ -3,12 +3,12 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"github.com/clambin/traefik-simple-auth/internal/server/logging"
-	"github.com/clambin/traefik-simple-auth/pkg/domains"
-	"github.com/clambin/traefik-simple-auth/pkg/oauth"
-	"github.com/clambin/traefik-simple-auth/pkg/sessions"
-	"github.com/clambin/traefik-simple-auth/pkg/state"
-	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
+	"github.com/clambin/traefik-simple-auth/internal/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
@@ -32,14 +32,15 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		}
 
 		// validate that the request has a valid session cookie
-		if sess, ok := getSession(r); ok {
-			logger.Debug("allowing valid request", slog.String("email", sess.Key))
-			w.Header().Set("X-Forwarded-User", sess.Key)
+		if session, ok := getSession(r); ok {
+			logger.Debug("allowing valid request", slog.String("email", session.Key))
+			w.Header().Set("X-Forwarded-User", session.Key)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
 		// no valid session cookie found. redirect to oauth handler.
+		logger.Warn("no valid session found. redirecting.", slog.String("url", r.URL.String()))
 
 		// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 		// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.

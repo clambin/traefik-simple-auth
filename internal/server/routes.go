@@ -2,11 +2,11 @@ package server
 
 import (
 	"github.com/clambin/go-common/http/middleware"
-	"github.com/clambin/traefik-simple-auth/pkg/domains"
-	"github.com/clambin/traefik-simple-auth/pkg/oauth"
-	"github.com/clambin/traefik-simple-auth/pkg/sessions"
-	"github.com/clambin/traefik-simple-auth/pkg/state"
-	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
+	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/oauth"
+	"github.com/clambin/traefik-simple-auth/internal/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"log/slog"
 	"net/http"
 )

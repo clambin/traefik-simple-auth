@@ -6,8 +6,8 @@ import (
 	gchttp "github.com/clambin/go-common/http"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
-	"github.com/clambin/traefik-simple-auth/pkg/sessions"
-	"github.com/clambin/traefik-simple-auth/pkg/state"
+	"github.com/clambin/traefik-simple-auth/internal/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
@@ -38,6 +38,8 @@ func Run(ctx context.Context, cfg configuration.Configuration, r prometheus.Regi
 	g.Go(func() error {
 		return gchttp.RunServer(ctx, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()})
 	})
-	g.Go(func() error { return gchttp.RunServer(ctx, &http.Server{Addr: cfg.Addr, Handler: s}) })
+	g.Go(func() error {
+		return gchttp.RunServer(ctx, &http.Server{Addr: cfg.Addr, Handler: s})
+	})
 	return g.Wait()
 }
