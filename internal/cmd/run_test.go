@@ -51,7 +51,7 @@ func TestRun(t *testing.T) {
 		},
 	}
 	g.Go(func() error {
-		return Run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default())
+		return run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default())
 	})
 
 	assert.Eventually(t, func() bool {
@@ -131,7 +131,7 @@ func TestRun_Fail(t *testing.T) {
 			CacheType: "memory",
 		},
 	}
-	assert.Error(t, Run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default()))
+	assert.Error(t, run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default()))
 }
 
 func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, string, error) {

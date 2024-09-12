@@ -21,10 +21,10 @@ func Main(ctx context.Context, r prometheus.Registerer, version string) error {
 	if err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
-	return Run(ctx, cfg, r, version, cfg.Logger(os.Stderr))
+	return run(ctx, cfg, r, version, cfg.Logger(os.Stderr))
 }
 
-func Run(ctx context.Context, cfg configuration.Configuration, r prometheus.Registerer, version string, logger *slog.Logger) error {
+func run(ctx context.Context, cfg configuration.Configuration, r prometheus.Registerer, version string, logger *slog.Logger) error {
 	logger.Info("traefik-simple-auth starting", "version", version)
 	defer logger.Info("traefik-simple-auth stopped")
 

@@ -13,8 +13,7 @@ import (
 
 func TestSessionExtractor(t *testing.T) {
 	s := sessions.New("_auth", []byte("secret"), time.Hour)
-	l := slog.Default()
-	extractor := sessionExtractor(s, l)
+	extractor := sessionExtractor(s, slog.Default())
 	validSession := s.NewSession("foo@example.com")
 	expiredSession := s.NewSessionWithExpiration("foo@example.com", -time.Hour)
 

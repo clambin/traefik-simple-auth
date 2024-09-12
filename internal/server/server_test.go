@@ -21,22 +21,15 @@ import (
 )
 
 func TestServer_Panics(t *testing.T) {
-	var panics bool
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				panics = true
-			}
-		}()
-		cfg := configuration.Configuration{
-			Provider: "foobar",
-			Domains:  domains.Domains{"example.com"},
-		}
-		sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-		stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
+	cfg := configuration.Configuration{
+		Provider: "foobar",
+		Domains:  domains.Domains{"example.com"},
+	}
+	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
+	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
+	assert.Panics(t, func() {
 		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, slog.Default())
-	}()
-	assert.True(t, panics)
+	})
 }
 
 func TestForwardAuthHandler(t *testing.T) {
