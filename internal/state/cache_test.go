@@ -2,56 +2,65 @@ package state
 
 import (
 	"context"
-	"github.com/alicebob/miniredis/v2"
-	"github.com/daangn/minimemcached"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"strconv"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"testing"
 	"time"
 )
 
 func Test_cache(t *testing.T) {
-	rd := miniredis.RunT(t)
-	mc, err := minimemcached.Run(&minimemcached.Config{Port: 0})
-	require.NoError(t, err)
-	t.Cleanup(mc.Close)
-
 	tests := []struct {
-		name   string
-		cfg    Configuration
-		panics bool
+		name      string
+		cacheType string
+		panics    bool
 	}{
 		{
-			name:   "invalid",
-			cfg:    Configuration{CacheType: "invalid"},
-			panics: true,
+			name:      "invalid",
+			cacheType: "invalid",
+			panics:    true,
 		},
 		{
-			name: "local cache",
-			cfg:  Configuration{CacheType: "memory"},
+			name:      "local cache",
+			cacheType: "memory",
 		},
 		{
-			name: "memcached",
-			cfg:  Configuration{CacheType: "memcached", MemcachedConfiguration: MemcachedConfiguration{Addr: "localhost:" + strconv.Itoa(int(mc.Port()))}},
+			name:      "memcached",
+			cacheType: "memcached",
 		},
 		{
-			name: "redis",
-			cfg:  Configuration{CacheType: "redis", RedisConfiguration: RedisConfiguration{Addr: rd.Addr()}},
+			name:      "redis",
+			cacheType: "redis",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			cfg := Configuration{CacheType: tt.cacheType}
 			if tt.panics {
-				assert.Panics(t, func() { newCache[string](tt.cfg) })
+				assert.Panics(t, func() { newCache[string](cfg) })
 				return
 			}
 
-			c := newCache[string](tt.cfg)
-
 			ctx := context.Background()
+			switch tt.cacheType {
+			case "memcached":
+				c, ep, err := startContainer(ctx, memcachedReq)
+				require.NoError(t, err)
+				cfg.MemcachedConfiguration.Addr = ep
+				t.Cleanup(func() { _ = c.Terminate(ctx) })
+			case "redis":
+				c, ep, err := startContainer(ctx, redisReq)
+				require.NoError(t, err)
+				cfg.RedisConfiguration.Addr = ep
+				t.Cleanup(func() { _ = c.Terminate(ctx) })
+			}
+
+			c := newCache[string](cfg)
+
 			count, err := c.Len(ctx)
 			assert.NoError(t, err)
 			assert.Zero(t, count)
@@ -84,4 +93,34 @@ func BenchmarkCache(b *testing.B) {
 			_, _ = c.GetDel(ctx, "key")
 		}
 	})
+}
+
+var (
+	redisReq = testcontainers.ContainerRequest{
+		Image:        "redis:latest",
+		ExposedPorts: []string{"6379/tcp"},
+		WaitingFor:   wait.ForLog("Ready to accept connections"),
+	}
+	memcachedReq = testcontainers.ContainerRequest{
+		Image:        "memcached:latest",
+		ExposedPorts: []string{"11211/tcp"},
+		WaitingFor:   wait.ForExposedPort(),
+	}
+)
+
+func startContainer(ctx context.Context, req testcontainers.ContainerRequest) (testcontainers.Container, string, error) {
+	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+		//Logger:           log.Default(),
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	endpoint, err := c.Endpoint(ctx, "")
+	if err != nil {
+		_ = c.Terminate(ctx)
+		return nil, "", err
+	}
+	return c, endpoint, nil
 }
