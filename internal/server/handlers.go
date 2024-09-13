@@ -21,7 +21,7 @@ import (
 // forwards the request to the originally requested destination.
 func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", logging.Request(r))
+		logger.Debug("request received", "request", (*logging.Request)(r))
 
 		// check that the request is for one of the configured domains
 		domain, ok := domains.Domain(r.URL)
@@ -42,9 +42,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 		// no valid session cookie found. redirect to oauth handler.
 		logger.Warn("redirecting: no valid session found",
-			slog.String("method", r.Method),
-			slog.String("url", r.URL.String()),
-			slog.String("user-agent", r.UserAgent()),
+			slog.Any("request", (*logging.RejectedRequest)(r)),
 			slog.String("email", session.Key),
 			slog.Any("err", err),
 		)
@@ -70,7 +68,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
 func LogoutHandler(domains domains.Domains, sessionStore sessions.Sessions, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", logging.Request(r))
+		logger.Debug("request received", "request", (*logging.Request)(r))
 
 		// remove the cached cookie
 		session, err := getSession(r)
@@ -105,7 +103,7 @@ func AuthCallbackHandler(
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", logging.Request(r))
+		logger.Debug("request received", "request", (*logging.Request)(r))
 
 		// Look up the (random) state. This tells us that the request is valid and where to forward the request to.
 		encodedState := r.URL.Query().Get("state")
