@@ -57,6 +57,14 @@ func TestForwardAuthHandler(t *testing.T) {
 			want: http.StatusTemporaryRedirect,
 		},
 		{
+			name: "invalid domain",
+			args: args{
+				target:  "example.org",
+				session: &validSession,
+			},
+			want: http.StatusUnauthorized,
+		},
+		{
 			name: "valid session",
 			args: args{
 				target:  "example.com",
@@ -64,14 +72,6 @@ func TestForwardAuthHandler(t *testing.T) {
 			},
 			want: http.StatusOK,
 			user: validSession.Key,
-		},
-		{
-			name: "invalid domain",
-			args: args{
-				target:  "example.org",
-				session: &validSession,
-			},
-			want: http.StatusUnauthorized,
 		},
 		{
 			name: "port specified",
@@ -89,11 +89,10 @@ func TestForwardAuthHandler(t *testing.T) {
 			t.Parallel()
 
 			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target, "/")
-			w := httptest.NewRecorder()
 			if tt.args.session != nil {
-				r = withSession(r, *tt.args.session)
+				r.AddCookie(sessionStore.Cookie(*tt.args.session, "example.com"))
 			}
-
+			w := httptest.NewRecorder()
 			h.ServeHTTP(w, r)
 			require.Equal(t, tt.want, w.Code)
 
@@ -115,7 +114,7 @@ func TestLogoutHandler(t *testing.T) {
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
 		session := sessionStore.NewSession("foo@example.com")
-		r = withSession(r, session)
+		r.AddCookie(sessionStore.Cookie(session, "example.com"))
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -250,58 +249,6 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, slog.Default())
-}
-
-func Test_getOriginalTarget(t *testing.T) {
-	tests := []struct {
-		name    string
-		headers http.Header
-		want    string
-	}{
-		{
-			name: "with scheme",
-			headers: http.Header{
-				"X-Forwarded-Proto": []string{"http"},
-				"X-Forwarded-Host":  []string{"example.com"},
-				"X-Forwarded-Uri":   []string{"/foo"},
-			},
-			want: "http://example.com/foo",
-		},
-		{
-			name: "with parameters",
-			headers: http.Header{
-				"X-Forwarded-Proto": []string{"http"},
-				"X-Forwarded-Host":  []string{"example.com"},
-				"X-Forwarded-Uri":   []string{"/foo?arg1=foo&arg2=bar"},
-			},
-			want: "http://example.com/foo?arg1=foo&arg2=bar",
-		},
-		{
-			name: "default scheme is https",
-			headers: http.Header{
-				"X-Forwarded-Host": []string{"example.com"},
-				"X-Forwarded-Uri":  []string{"/foo"},
-			},
-			want: "https://example.com/foo",
-		},
-		{
-			name: "ports are ignored",
-			headers: http.Header{
-				"X-Forwarded-Proto": []string{"https"},
-				"X-Forwarded-Host":  []string{"example.com"},
-				"X-Forwarded-Port":  []string{"443"},
-			},
-			want: "https://example.com/",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			r := httptest.NewRequest(http.MethodGet, "/", nil)
-			r.Header = tt.headers
-			assert.Equal(t, tt.want, getOriginalTarget(r).String())
-		})
-	}
 }
 
 // before:

@@ -68,11 +68,13 @@ func (s Sessions) Validate(r *http.Request) (Session, error) {
 	if cachedSession, ok := s.sessions.Get(string(userSession.mac)); ok {
 		return cachedSession, nil
 	}
-	if err = userSession.validate(s.secret); err != nil {
-		return Session{}, err
+	if err = userSession.validate(s.secret); err == nil {
+		// the cookie contains a valid session, but we don't have it in memory.
+		// we must have restarted since the session was issued.
+		// store the session with the remaining expiration time.
+		s.sessions.AddWithExpiry(string(userSession.mac), userSession, time.Until(userSession.expiration))
 	}
-	s.sessions.AddWithExpiry(string(userSession.mac), userSession, time.Until(userSession.expiration))
-	return userSession, nil
+	return userSession, err
 }
 
 // Cookie returns a cookie for the given session and domain.

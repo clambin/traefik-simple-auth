@@ -4,7 +4,6 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/sessions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,35 +12,35 @@ import (
 
 func TestSessionExtractor(t *testing.T) {
 	s := sessions.New("_auth", []byte("secret"), time.Hour)
-	extractor := sessionExtractor(s, slog.Default())
+	extractor := sessionExtractor(s)
 	validSession := s.NewSession("foo@example.com")
 	expiredSession := s.NewSessionWithExpiration("foo@example.com", -time.Hour)
 
 	tests := []struct {
 		name      string
 		cookie    *http.Cookie
-		wantOK    require.BoolAssertionFunc
+		wantErr   require.ErrorAssertionFunc
 		wantEmail string
 	}{
 		{
-			name:   "no cookie",
-			cookie: nil,
-			wantOK: require.False,
+			name:    "no cookie",
+			cookie:  nil,
+			wantErr: require.Error,
 		},
 		{
-			name:   "bad cookie",
-			cookie: &http.Cookie{Name: s.SessionCookieName, Value: "bad-value"},
-			wantOK: require.False,
+			name:    "bad cookie",
+			cookie:  &http.Cookie{Name: s.SessionCookieName, Value: "bad-value"},
+			wantErr: require.Error,
 		},
 		{
-			name:   "expired session",
-			cookie: s.Cookie(expiredSession, "example.com"),
-			wantOK: require.False,
+			name:    "expired session",
+			cookie:  s.Cookie(expiredSession, "example.com"),
+			wantErr: require.Error,
 		},
 		{
 			name:      "valid cookie",
 			cookie:    s.Cookie(validSession, "example.com"),
-			wantOK:    require.True,
+			wantErr:   require.NoError,
 			wantEmail: validSession.Key,
 		},
 	}
@@ -58,9 +57,9 @@ func TestSessionExtractor(t *testing.T) {
 
 			h := extractor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Helper()
-				userSession, ok := getSession(r)
-				tt.wantOK(t, ok)
-				if !ok {
+				userSession, err := getSession(r)
+				tt.wantErr(t, err)
+				if err != nil {
 					return
 				}
 				assert.Equal(t, tt.wantEmail, userSession.Key)

@@ -7,9 +7,11 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
-// newForwardAuthHandler returns a http.Handler that servers the auth request ("/") and the logout request ("/_oauth/logout)
+// newForwardAuthHandler returns a http.Handler that serves the auth request ("/") and the logout request ("/_oauth/logout)
 func newForwardAuthHandler(
 	domains domains.Domains,
 	oauthHandlers map[domains.Domain]oauth.Handler,
@@ -20,9 +22,11 @@ func newForwardAuthHandler(
 ) http.Handler {
 	mux := http.NewServeMux()
 	addForwardAuthRoutes(mux, domains, oauthHandlers, sessions, states, logger)
-	return traefikForwardAuthParser(
-		forwardAuthMiddleware(sessions, metrics, logger)(
-			mux,
+	return sessionExtractor(sessions)( // extract the session cookie and store it in the request context
+		withMetrics(metrics)( // record request metrics
+			traefikForwardAuthParser( // restore the original request
+				mux, // handle forwardAuth or logout
+			),
 		),
 	)
 }
@@ -39,21 +43,35 @@ func addForwardAuthRoutes(
 	mux.Handle(OAUTHPath+"/logout", LogoutHandler(domains, sessions, logger.With("handler", "logout")))
 }
 
-// forwardAuthMiddleware returns a middleware that extracts the session cookie (if it exists) and measures the request metrics
-func forwardAuthMiddleware(sessions sessions.Sessions, m *Metrics, logger *slog.Logger) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return sessionExtractor(sessions, logger.With("middleware", "sessionExtractor"))( // extract & validate the session cookie from the request
-			withMetrics(m)( // measure request metrics
-				next,
-			),
-		)
-	}
-}
-
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
 func traefikForwardAuthParser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.URL = getOriginalTarget(r)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func getOriginalTarget(r *http.Request) *url.URL {
+	hdr := r.Header
+	path := getHeaderValue(hdr, "X-Forwarded-Uri", "/")
+	var rawQuery string
+	if n := strings.Index(path, "?"); n > 0 {
+		rawQuery = path[n+1:]
+		path = path[:n]
+	}
+
+	return &url.URL{
+		Scheme:   getHeaderValue(hdr, "X-Forwarded-Proto", "https"),
+		Host:     getHeaderValue(hdr, "X-Forwarded-Host", ""),
+		Path:     path,
+		RawQuery: rawQuery,
+	}
+}
+
+func getHeaderValue(h map[string][]string, key string, defaultValue string) string {
+	val, ok := h[key]
+	if !ok || len(val) == 0 {
+		return defaultValue
+	}
+	return val[0]
 }

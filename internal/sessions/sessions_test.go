@@ -75,7 +75,7 @@ func BenchmarkSessions_Validate(b *testing.B) {
 		Name:  "_name",
 		Value: newSession("foo@example.com", time.Hour, secret).encode(),
 	})
-
+	b.ResetTimer()
 	for range b.N {
 		if _, err := s.Validate(r); err != nil {
 			b.Fatal(err)

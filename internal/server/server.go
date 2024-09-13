@@ -9,8 +9,6 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"log/slog"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 )
 
@@ -70,29 +68,4 @@ func makeAuthURL(authPrefix string, domain domains.Domain, OAUTHPath string) str
 		dot = "."
 	}
 	return "https://" + authPrefix + dot + string(domain) + OAUTHPath
-}
-
-func getOriginalTarget(r *http.Request) *url.URL {
-	hdr := r.Header
-	path := getHeaderValue(hdr, "X-Forwarded-Uri", "/")
-	var rawQuery string
-	if n := strings.Index(path, "?"); n > 0 {
-		rawQuery = path[n+1:]
-		path = path[:n]
-	}
-
-	return &url.URL{
-		Scheme:   getHeaderValue(hdr, "X-Forwarded-Proto", "https"),
-		Host:     getHeaderValue(hdr, "X-Forwarded-Host", ""),
-		Path:     path,
-		RawQuery: rawQuery,
-	}
-}
-
-func getHeaderValue(h map[string][]string, key string, defaultValue string) string {
-	val, ok := h[key]
-	if !ok || len(val) == 0 {
-		return defaultValue
-	}
-	return val[0]
 }
