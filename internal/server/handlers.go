@@ -3,12 +3,12 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"github.com/clambin/traefik-simple-auth/internal/server/logging"
-	"github.com/clambin/traefik-simple-auth/pkg/domains"
-	"github.com/clambin/traefik-simple-auth/pkg/oauth"
-	"github.com/clambin/traefik-simple-auth/pkg/sessions"
-	"github.com/clambin/traefik-simple-auth/pkg/state"
-	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
+	"github.com/clambin/traefik-simple-auth/internal/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
@@ -32,14 +32,21 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		}
 
 		// validate that the request has a valid session cookie
-		if sess, ok := getSession(r); ok {
-			logger.Debug("allowing valid request", slog.String("email", sess.Key))
-			w.Header().Set("X-Forwarded-User", sess.Key)
+		session, err := getSession(r)
+		if err == nil {
+			logger.Debug("allowing valid request", slog.String("email", session.Key))
+			w.Header().Set("X-Forwarded-User", session.Key)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
 		// no valid session cookie found. redirect to oauth handler.
+		logger.Warn("redirecting: no valid session found",
+			slog.String("method", r.Method),
+			slog.String("url", r.URL.String()),
+			slog.String("email", session.Key),
+			slog.Any("err", err),
+		)
 
 		// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 		// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
@@ -52,7 +59,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 		// Redirect the user to the oauth2 provider to select the account to authenticate the request.
 		authCodeURL := oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
-		logger.Debug("redirecting ...", slog.String("authCodeURL", authCodeURL))
+		logger.Debug("redirecting", slog.String("authCodeURL", authCodeURL))
 		// TODO: possible clear the session cookie, so it's removed from the user's browser?
 		http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 	})
@@ -65,8 +72,9 @@ func LogoutHandler(domains domains.Domains, sessionStore sessions.Sessions, logg
 		logger.Debug("request received", "request", logging.Request(r))
 
 		// remove the cached cookie
-		session, ok := getSession(r)
-		if !ok {
+		session, err := getSession(r)
+		if err != nil {
+			logger.Warn("rejecting: no valid session found", slog.String("url", r.URL.String()), slog.String("email", session.Key), slog.Any("err", err))
 			http.Error(w, "Invalid session", http.StatusUnauthorized)
 			return
 		}

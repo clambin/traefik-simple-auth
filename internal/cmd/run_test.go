@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
+	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/clambin/traefik-simple-auth/pkg/domains"
-	"github.com/clambin/traefik-simple-auth/pkg/state"
-	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
+	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -51,7 +51,7 @@ func TestRun(t *testing.T) {
 		},
 	}
 	g.Go(func() error {
-		return Run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default())
+		return run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default())
 	})
 
 	assert.Eventually(t, func() bool {
@@ -131,11 +131,11 @@ func TestRun_Fail(t *testing.T) {
 			CacheType: "memory",
 		},
 	}
-	assert.Error(t, Run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default()))
+	assert.Error(t, run(ctx, cfg, prometheus.NewRegistry(), "dev", slog.Default()))
 }
 
 func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, string, error) {
-	req := testutils.ForwardAuthRequest(http.MethodGet, "www.example.com", "/")
+	req := testutils.ForwardAuthRequest(http.MethodGet, "https://www.example.com/")
 	var err error
 	if req.URL, err = url.Parse(target); err != nil {
 		return 0, "", fmt.Errorf("url: %w", err)

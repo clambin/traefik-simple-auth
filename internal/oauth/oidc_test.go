@@ -2,12 +2,11 @@ package oauth
 
 import (
 	"context"
+	"github.com/oauth2-proxy/mockoidc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"log/slog"
 	"testing"
-
-	"github.com/oauth2-proxy/mockoidc"
 )
 
 func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {

@@ -2,9 +2,9 @@ package configuration
 
 import (
 	"bytes"
-	"github.com/clambin/traefik-simple-auth/pkg/domains"
-	"github.com/clambin/traefik-simple-auth/pkg/state"
-	"github.com/clambin/traefik-simple-auth/pkg/whitelist"
+	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
