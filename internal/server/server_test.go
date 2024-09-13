@@ -288,7 +288,7 @@ func Benchmark_getOriginalTarget(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		_ = getOriginalTarget(r)
+		_, _ = getOriginalTarget(r)
 	}
 }
 

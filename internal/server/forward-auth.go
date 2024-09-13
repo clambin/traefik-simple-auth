@@ -46,13 +46,12 @@ func addForwardAuthRoutes(
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
 func traefikForwardAuthParser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: restore original method
-		r.URL = getOriginalTarget(r)
+		r.Method, r.URL = getOriginalTarget(r)
 		next.ServeHTTP(w, r)
 	})
 }
 
-func getOriginalTarget(r *http.Request) *url.URL {
+func getOriginalTarget(r *http.Request) (string, *url.URL) {
 	hdr := r.Header
 	path := getHeaderValue(hdr, "X-Forwarded-Uri", "/")
 	var rawQuery string
@@ -61,7 +60,7 @@ func getOriginalTarget(r *http.Request) *url.URL {
 		path = path[:n]
 	}
 
-	return &url.URL{
+	return getHeaderValue(hdr, "X-Forwarded-Method", http.MethodGet), &url.URL{
 		Scheme:   getHeaderValue(hdr, "X-Forwarded-Proto", "https"),
 		Host:     getHeaderValue(hdr, "X-Forwarded-Host", ""),
 		Path:     path,
