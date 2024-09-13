@@ -11,8 +11,9 @@ import (
 	"net/http"
 )
 
-func addRoutes(
+func addServerRoutes(
 	mux *http.ServeMux,
+	forwardAuthHandler http.Handler,
 	domains domains.Domains,
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
@@ -21,16 +22,7 @@ func addRoutes(
 	metrics *Metrics,
 	logger *slog.Logger,
 ) {
-	mux.Handle("/",
-		forwardAuthMiddleware(sessions, metrics, logger)(
-			ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth")),
-		),
-	)
-	mux.Handle(OAUTHPath+"/logout",
-		forwardAuthMiddleware(sessions, metrics, logger)(
-			LogoutHandler(domains, sessions, logger.With("handler", "logout")),
-		),
-	)
+	mux.Handle("/", forwardAuthHandler)
 	mux.Handle(OAUTHPath,
 		withMetrics(metrics)(
 			AuthCallbackHandler(
@@ -44,16 +36,6 @@ func addRoutes(
 		),
 	)
 	mux.Handle("/health", HealthHandler(sessions, states, logger.With("handler", "health")))
-}
-
-func forwardAuthMiddleware(sessions sessions.Sessions, m *Metrics, logger *slog.Logger) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return sessionExtractor(sessions, logger.With("middleware", "sessionExtractor"))( // extract & validate the session cookie from the request
-			withMetrics(m)( // measure request metrics
-				next,
-			),
-		)
-	}
 }
 
 func withMetrics(m *Metrics) func(next http.Handler) http.Handler {

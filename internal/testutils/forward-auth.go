@@ -1,6 +1,8 @@
 package testutils
 
-import "net/http"
+import (
+	"net/http"
+)
 
 func ForwardAuthRequest(method, host, uri string) *http.Request {
 	req, _ := http.NewRequest(http.MethodGet, "https://traefik/", nil)
