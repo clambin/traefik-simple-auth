@@ -52,14 +52,14 @@ func TestForwardAuthHandler(t *testing.T) {
 		{
 			name: "missing session",
 			args: args{
-				target: "example.com",
+				target: "https://example.com",
 			},
 			want: http.StatusTemporaryRedirect,
 		},
 		{
 			name: "invalid domain",
 			args: args{
-				target:  "example.org",
+				target:  "https://example.org",
 				session: &validSession,
 			},
 			want: http.StatusUnauthorized,
@@ -67,7 +67,7 @@ func TestForwardAuthHandler(t *testing.T) {
 		{
 			name: "valid session",
 			args: args{
-				target:  "example.com",
+				target:  "https://example.com",
 				session: &validSession,
 			},
 			want: http.StatusOK,
@@ -76,7 +76,7 @@ func TestForwardAuthHandler(t *testing.T) {
 		{
 			name: "port specified",
 			args: args{
-				target:  "example.com:443",
+				target:  "https://example.com:443",
 				session: &validSession,
 			},
 			want: http.StatusOK,
@@ -88,7 +88,7 @@ func TestForwardAuthHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target, "/")
+			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target)
 			if tt.args.session != nil {
 				r.AddCookie(sessionStore.Cookie(*tt.args.session, "example.com"))
 			}
@@ -112,7 +112,7 @@ func TestLogoutHandler(t *testing.T) {
 	sessionStore, _, _, s := setupServer(ctx, t, nil)
 
 	t.Run("logging out clears the session cookie", func(t *testing.T) {
-		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
+		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
 		session := sessionStore.NewSession("foo@example.com")
 		r.AddCookie(sessionStore.Cookie(session, "example.com"))
 		w := httptest.NewRecorder()
@@ -123,7 +123,7 @@ func TestLogoutHandler(t *testing.T) {
 	})
 
 	t.Run("must be logged in to log out", func(t *testing.T) {
-		r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/_oauth/logout")
+		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
@@ -263,7 +263,7 @@ func Benchmark_authHandler(b *testing.B) {
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	sess := sessionStore.NewSessionWithExpiration("foo@example.com", time.Hour)
-	r := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	r.AddCookie(sessionStore.Cookie(sess, string(config.Domains[0])))
 	w := httptest.NewRecorder()
 
@@ -329,7 +329,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
 	session := sessionStore.NewSession("foo@example.com")
 
-	req := testutils.ForwardAuthRequest(http.MethodGet, "example.com", "/foo")
+	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	req.AddCookie(sessionStore.Cookie(session, string(config.Domains[0])))
 	b.ResetTimer()
 	for range b.N {

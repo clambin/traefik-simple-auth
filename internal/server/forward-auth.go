@@ -46,6 +46,7 @@ func addForwardAuthRoutes(
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
 func traefikForwardAuthParser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: restore original method
 		r.URL = getOriginalTarget(r)
 		next.ServeHTTP(w, r)
 	})

@@ -135,7 +135,7 @@ func TestRun_Fail(t *testing.T) {
 }
 
 func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, string, error) {
-	req := testutils.ForwardAuthRequest(http.MethodGet, "www.example.com", "/")
+	req := testutils.ForwardAuthRequest(http.MethodGet, "https://www.example.com/")
 	var err error
 	if req.URL, err = url.Parse(target); err != nil {
 		return 0, "", fmt.Errorf("url: %w", err)
