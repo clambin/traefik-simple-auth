@@ -44,6 +44,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		logger.Warn("redirecting: no valid session found",
 			slog.String("method", r.Method),
 			slog.String("url", r.URL.String()),
+			slog.String("user-agent", r.UserAgent()),
 			slog.String("email", session.Key),
 			slog.Any("err", err),
 		)
