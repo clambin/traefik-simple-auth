@@ -21,3 +21,15 @@ func Test_loggedRequest(t *testing.T) {
 `
 	assert.Equal(t, want, out.String())
 }
+
+func Benchmark_loggedRequest(b *testing.B) {
+	r, _ := http.NewRequest(http.MethodGet, "https://example.com/", nil)
+	r.Header.Add("X-Forwarded-For", "127.0.0.1:0")
+	var out bytes.Buffer
+	l := logtest.NewTextLogger(&out, slog.LevelInfo)
+	b.ResetTimer()
+	for range b.N {
+		l.Info("request", "r", Request(r))
+		out.Reset()
+	}
+}
