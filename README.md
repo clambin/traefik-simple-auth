@@ -135,7 +135,7 @@ spec:
     - host: auth.example.com
       http:
         paths:
-          - path: /
+          - path: /_oauth
             pathType: Prefix
             backend:
               service:
