@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"github.com/clambin/traefik-simple-auth/internal/domains"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"github.com/clambin/traefik-simple-auth/internal/sessions"
@@ -53,25 +54,18 @@ func traefikForwardAuthParser(next http.Handler) http.Handler {
 
 func getOriginalTarget(r *http.Request) (string, *url.URL) {
 	hdr := r.Header
-	path := getHeaderValue(hdr, "X-Forwarded-Uri", "/")
+	path := cmp.Or(hdr.Get("X-Forwarded-Uri"), "/")
 	var rawQuery string
 	if n := strings.Index(path, "?"); n > 0 {
 		rawQuery = path[n+1:]
 		path = path[:n]
 	}
 
-	return getHeaderValue(hdr, "X-Forwarded-Method", http.MethodGet), &url.URL{
-		Scheme:   getHeaderValue(hdr, "X-Forwarded-Proto", "https"),
-		Host:     getHeaderValue(hdr, "X-Forwarded-Host", ""),
-		Path:     path,
-		RawQuery: rawQuery,
-	}
-}
-
-func getHeaderValue(h map[string][]string, key string, defaultValue string) string {
-	val, ok := h[key]
-	if !ok || len(val) == 0 {
-		return defaultValue
-	}
-	return val[0]
+	return cmp.Or(hdr.Get("X-Forwarded-Method"), http.MethodGet),
+		&url.URL{
+			Scheme:   cmp.Or(hdr.Get("X-Forwarded-Proto"), "https"),
+			Host:     cmp.Or(hdr.Get("X-Forwarded-Host"), ""),
+			Path:     path,
+			RawQuery: rawQuery,
+		}
 }
