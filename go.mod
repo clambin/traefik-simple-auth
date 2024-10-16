@@ -10,7 +10,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
 	github.com/prometheus/client_golang v1.20.5
-	github.com/redis/go-redis/v9 v9.6.1
+	github.com/redis/go-redis/v9 v9.6.2
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.33.0
 	golang.org/x/oauth2 v0.23.0
