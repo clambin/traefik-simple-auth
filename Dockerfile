@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build \
     -ldflags="-X main.version=$VERSION" \
     -o traefik-simple-auth \
-    cmd/traefik-simple-auth/traefik-simple-auth.go
+    .
 
 FROM alpine
 
