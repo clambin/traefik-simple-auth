@@ -8,7 +8,6 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -47,12 +46,12 @@ func addForwardAuthRoutes(
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
 func traefikForwardAuthParser(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Method, r.URL = getOriginalTarget(r)
+		restoreOriginalRequest(r)
 		next.ServeHTTP(w, r)
 	})
 }
 
-func getOriginalTarget(r *http.Request) (string, *url.URL) {
+func restoreOriginalRequest(r *http.Request) {
 	hdr := r.Header
 	path := cmp.Or(hdr.Get("X-Forwarded-Uri"), "/")
 	var rawQuery string
@@ -61,11 +60,9 @@ func getOriginalTarget(r *http.Request) (string, *url.URL) {
 		path = path[:n]
 	}
 
-	return cmp.Or(hdr.Get("X-Forwarded-Method"), http.MethodGet),
-		&url.URL{
-			Scheme:   cmp.Or(hdr.Get("X-Forwarded-Proto"), "https"),
-			Host:     cmp.Or(hdr.Get("X-Forwarded-Host"), ""),
-			Path:     path,
-			RawQuery: rawQuery,
-		}
+	r.Method = cmp.Or(hdr.Get("X-Forwarded-Method"), http.MethodGet)
+	r.URL.Scheme = cmp.Or(hdr.Get("X-Forwarded-Proto"), "https")
+	r.URL.Host = cmp.Or(hdr.Get("X-Forwarded-Host"), "")
+	r.URL.Path = path
+	r.URL.RawQuery = rawQuery
 }

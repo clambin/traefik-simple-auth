@@ -73,9 +73,9 @@ func Test_getOriginalTarget(t *testing.T) {
 			t.Parallel()
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.Header = tt.headers
-			method, addr := getOriginalTarget(r)
-			assert.Equal(t, tt.wantMethod, method)
-			assert.Equal(t, tt.wantAddr, addr.String())
+			restoreOriginalRequest(r)
+			assert.Equal(t, tt.wantMethod, r.Method)
+			assert.Equal(t, tt.wantAddr, r.URL.String())
 		})
 	}
 }

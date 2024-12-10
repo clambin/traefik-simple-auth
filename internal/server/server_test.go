@@ -277,6 +277,8 @@ func Benchmark_authHandler(b *testing.B) {
 
 // before:
 // Benchmark_getOriginalTarget-16           6152596               195.7 ns/op           144 B/op          1 allocs/op
+// after:
+// Benchmark_getOriginalTarget-16           8318185               143.0 ns/op             0 B/op          0 allocs/op
 func Benchmark_getOriginalTarget(b *testing.B) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header = http.Header{
@@ -288,13 +290,13 @@ func Benchmark_getOriginalTarget(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		method, target := getOriginalTarget(r)
-		if method != http.MethodPost {
-			b.Fatal("unexpected method", method)
+		restoreOriginalRequest(r)
+		if r.Method != http.MethodPost {
+			b.Fatal("unexpected method", r.Method)
 		}
 		// target.String() is too slow for this benchmark
-		if target.Scheme != "https" || target.Host != "example.com" || target.Path != "/foo" || target.RawQuery != "arg1=bar" {
-			b.Fatal("unexpected target", target.String())
+		if r.URL.Scheme != "https" || r.URL.Host != "example.com" || r.URL.Path != "/foo" || r.URL.RawQuery != "arg1=bar" {
+			b.Fatal("unexpected target", r.URL.String())
 		}
 	}
 }
