@@ -11,7 +11,6 @@ import (
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -28,7 +27,7 @@ func TestServer_Panics(t *testing.T) {
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	assert.Panics(t, func() {
-		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, slog.Default())
+		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, testutils.DiscardLogger)
 	})
 }
 
@@ -248,7 +247,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (sessions.
 	}
 	sessionStore := sessions.New("_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, slog.Default())
+	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, testutils.DiscardLogger)
 }
 
 // before:
@@ -261,7 +260,7 @@ func Benchmark_authHandler(b *testing.B) {
 	}
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
+	s := New(context.Background(), sessionStore, stateStore, config, nil, testutils.DiscardLogger)
 	sess := sessionStore.NewSessionWithExpiration("foo@example.com", time.Hour)
 	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	r.AddCookie(sessionStore.Cookie(sess, string(config.Domains[0])))
@@ -326,7 +325,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 	}
 	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	s := New(context.Background(), sessionStore, stateStore, config, nil, slog.Default())
+	s := New(context.Background(), sessionStore, stateStore, config, nil, testutils.DiscardLogger)
 	session := sessionStore.NewSession("foo@example.com")
 
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")

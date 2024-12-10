@@ -6,7 +6,6 @@ require (
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
 	github.com/clambin/go-common/cache v0.7.1
 	github.com/clambin/go-common/http v0.6.0
-	github.com/clambin/go-common/testutils v0.2.0
 	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
 	github.com/prometheus/client_golang v1.20.5

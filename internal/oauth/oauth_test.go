@@ -2,8 +2,8 @@ package oauth
 
 import (
 	"context"
+	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/stretchr/testify/assert"
-	"log/slog"
 	"net/http"
 	"testing"
 )
@@ -42,7 +42,7 @@ func TestNewHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := NewHandler(ctx, tt.provider, tt.serviceURL, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.Default())
+			_, err := NewHandler(ctx, tt.provider, tt.serviceURL, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", testutils.DiscardLogger)
 			tt.wantErr(t, err)
 		})
 	}
