@@ -276,18 +276,26 @@ func Benchmark_authHandler(b *testing.B) {
 }
 
 // before:
-// Benchmark_getOriginalTarget/new-16              20134730                58.27 ns/op          144 B/op          1 allocs/op
+// Benchmark_getOriginalTarget-16           6152596               195.7 ns/op           144 B/op          1 allocs/op
 func Benchmark_getOriginalTarget(b *testing.B) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header = http.Header{
-		"X-Forwarded-Proto": []string{"https"},
-		"X-Forwarded-Host":  []string{"example.com"},
-		"X-Forwarded-Uri":   []string{"/foo?arg1=bar"},
+		"X-Forwarded-Method": []string{http.MethodPost},
+		"X-Forwarded-Proto":  []string{"https"},
+		"X-Forwarded-Host":   []string{"example.com"},
+		"X-Forwarded-Uri":    []string{"/foo?arg1=bar"},
 	}
 
 	b.ResetTimer()
 	for range b.N {
-		_, _ = getOriginalTarget(r)
+		method, target := getOriginalTarget(r)
+		if method != http.MethodPost {
+			b.Fatal("unexpected method", method)
+		}
+		// target.String() is too slow for this benchmark
+		if target.Scheme != "https" || target.Host != "example.com" || target.Path != "/foo" || target.RawQuery != "arg1=bar" {
+			b.Fatal("unexpected target", target.String())
+		}
 	}
 }
 

@@ -13,10 +13,10 @@ import (
 
 // Sessions maintains a list of user sessions.
 type Sessions struct {
+	sessions          *cache.Cache[string, Session]
 	SessionCookieName string
 	secret            []byte
 	expiration        time.Duration
-	sessions          *cache.Cache[string, Session]
 }
 
 // New returns an empty Sessions store.

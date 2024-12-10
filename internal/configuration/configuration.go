@@ -37,20 +37,20 @@ var (
 )
 
 type Configuration struct {
-	Debug              bool
+	Whitelist          whitelist.Whitelist
 	Addr               string
 	PromAddr           string
 	SessionCookieName  string
-	Secret             []byte
 	Provider           string
 	OIDCIssuerURL      string
-	Domains            domains.Domains
-	Whitelist          whitelist.Whitelist
 	ClientID           string
 	ClientSecret       string
 	AuthPrefix         string
-	SessionExpiration  time.Duration
+	Secret             []byte
+	Domains            domains.Domains
 	StateConfiguration state.Configuration
+	SessionExpiration  time.Duration
+	Debug              bool
 }
 
 func GetConfiguration() (Configuration, error) {

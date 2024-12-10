@@ -11,8 +11,8 @@ type ctxSessionKey string
 var sessionKey = ctxSessionKey("sessionKey")
 
 type sessionInfo struct {
-	session sessions.Session
 	err     error
+	session sessions.Session
 }
 
 // sessionExtractor validates the session cookie from the request and, if valid, adds the session to the request's context.
