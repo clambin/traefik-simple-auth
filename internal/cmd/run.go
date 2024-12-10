@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	gchttp "github.com/clambin/go-common/http"
+	httputils "github.com/clambin/go-common/httputils"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/clambin/traefik-simple-auth/internal/sessions"
@@ -36,10 +36,10 @@ func run(ctx context.Context, cfg configuration.Configuration, r prometheus.Regi
 
 	var g errgroup.Group
 	g.Go(func() error {
-		return gchttp.RunServer(ctx, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()})
+		return httputils.RunServer(ctx, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()})
 	})
 	g.Go(func() error {
-		return gchttp.RunServer(ctx, &http.Server{Addr: cfg.Addr, Handler: s})
+		return httputils.RunServer(ctx, &http.Server{Addr: cfg.Addr, Handler: s})
 	})
 	return g.Wait()
 }

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/clambin/go-common/http/metrics"
+	"github.com/clambin/go-common/httputils/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"strconv"
