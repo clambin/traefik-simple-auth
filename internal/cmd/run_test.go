@@ -14,8 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 )
@@ -36,6 +38,7 @@ func TestRun(t *testing.T) {
 		Addr:              ":8081",
 		PromAddr:          ":9091",
 		SessionCookieName: "_auth",
+		SessionExpiration: time.Hour,
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
@@ -49,8 +52,11 @@ func TestRun(t *testing.T) {
 			CacheType: "memory",
 		},
 	}
+	//l := testutils.DiscardLogger
+	l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 	g.Go(func() error {
-		return run(ctx, cfg, prometheus.NewRegistry(), "dev", testutils.DiscardLogger)
+		return run(ctx, cfg, prometheus.NewRegistry(), "dev", l)
 	})
 
 	assert.Eventually(t, func() bool {
@@ -95,7 +101,7 @@ func TestRun(t *testing.T) {
 	require.NoError(t, err)
 	body, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	assert.Equal(t, "{\"sessions\":1,\"states\":0}\n", string(body))
+	assert.Equal(t, "{\"states\":0}\n", string(body))
 
 	cancel()
 	assert.NoError(t, g.Wait())

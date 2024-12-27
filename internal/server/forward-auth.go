@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"github.com/clambin/traefik-simple-auth/internal/domains"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/session"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"log/slog"
 	"net/http"
@@ -15,14 +15,14 @@ import (
 func newForwardAuthHandler(
 	domains domains.Domains,
 	oauthHandlers map[domains.Domain]oauth.Handler,
-	sessions sessions.Sessions,
+	sessions session.Sessions,
 	states state.States,
 	metrics *Metrics,
 	logger *slog.Logger,
 ) http.Handler {
 	mux := http.NewServeMux()
 	addForwardAuthRoutes(mux, domains, oauthHandlers, sessions, states, logger)
-	return sessionExtractor(sessions)( // extract the session cookie and store it in the request context
+	return sessionExtractor(sessions)( // validate the JWT cookie and store it in the request context
 		withMetrics(metrics)( // record request metrics
 			traefikForwardAuthParser( // restore the original request
 				mux, // handle forwardAuth or logout
@@ -35,7 +35,7 @@ func addForwardAuthRoutes(
 	mux *http.ServeMux,
 	domains domains.Domains,
 	oauthHandlers map[domains.Domain]oauth.Handler,
-	sessions sessions.Sessions,
+	sessions session.Sessions,
 	states state.States,
 	logger *slog.Logger,
 ) {

@@ -6,17 +6,18 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/domains"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"github.com/clambin/traefik-simple-auth/internal/server/logging"
-	"github.com/clambin/traefik-simple-auth/internal/sessions"
+	"github.com/clambin/traefik-simple-auth/internal/session"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // The ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
-// has a valid session (stored in a http.Cookie). If so, it returns http.StatusOK.   If not, it redirects the request
+// has a valid cookie (stored in a http.Cookie). If so, it returns http.StatusOK.   If not, it redirects the request
 // to the configured oauth provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
 // forwards the request to the originally requested destination.
 func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
@@ -31,20 +32,19 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 			return
 		}
 
-		// validate that the request has a valid session cookie
-		session, err := getSession(r)
-		if err == nil {
-			logger.Debug("allowing valid request", slog.String("email", session.Key))
-			w.Header().Set("X-Forwarded-User", session.Key)
+		// validate that the request has a valid JWT cookie
+		info := getSession(r)
+		if info.err == nil {
+			logger.Debug("allowing valid request", slog.String("email", info.email))
+			w.Header().Set("X-Forwarded-User", info.email)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		// no valid session cookie found. redirect to oauth handler.
-		logger.Warn("redirecting: no valid session found",
+		// no valid JWT cookie found. redirect to oauth handler.
+		logger.Warn("redirecting: no valid cookie found",
 			slog.Any("request", (*logging.RejectedRequest)(r)),
-			slog.String("email", session.Key),
-			slog.Any("err", err),
+			slog.Any("err", info.err),
 		)
 
 		// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
@@ -59,47 +59,47 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		// Redirect the user to the oauth2 provider to select the account to authenticate the request.
 		authCodeURL := oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 		logger.Debug("redirecting", slog.String("authCodeURL", authCodeURL))
-		// TODO: possible clear the session cookie, so it's removed from the user's browser?
+		// TODO: possible clear the cookie, so it's removed from the user's browser?
 		http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 	})
 }
 
-// LogoutHandler logs out the user: it removes the session from the session store and sends an empty Cookie to the user.
+// LogoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
-func LogoutHandler(domains domains.Domains, sessionStore sessions.Sessions, logger *slog.Logger) http.Handler {
+func LogoutHandler(domains domains.Domains, sessions session.Sessions, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*logging.Request)(r))
 
 		// remove the cached cookie
-		session, err := getSession(r)
-		if err != nil {
-			logger.Warn("rejecting: no valid session found", slog.String("url", r.URL.String()), slog.String("email", session.Key), slog.Any("err", err))
-			http.Error(w, "Invalid session", http.StatusUnauthorized)
+		info := getSession(r)
+		if info.err != nil {
+			logger.Warn("rejecting: no valid cookie found",
+				slog.String("url", r.URL.String()),
+				slog.Any("err", info.err),
+			)
+			http.Error(w, "Invalid cookie", http.StatusUnauthorized)
 			return
 		}
 
-		// delete the session
-		sessionStore.DeleteSession(session)
-
-		// Write a blank session cookie to override the current valid one.
+		// Write a blank cookie to override/clear the current valid one.
 		domain, _ := domains.Domain(r.URL)
-		http.SetCookie(w, sessionStore.Cookie(sessions.Session{}, string(domain)))
+		http.SetCookie(w, sessions.Cookie("", time.Time{}, string(domain)))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
-		logger.Info("user has been logged out", "user", session.Key)
+		logger.Info("user has been logged out", "user", info.email)
 	})
 }
 
 // The AuthCallbackHandler implements the oauth callback, initiated by ForwardAuthHandler's redirectToAuth method.
 // It validates that the request came from us (by checking the state parameter), determines the user's email address,
-// checks that that user is on the whitelist, creates a session Cookie for the user and redirects the user to the
+// checks that that user is on the whitelist, creates a JWT Cookie for the user and redirects the user to the
 // target that originally initiated the oauth flow.
 func AuthCallbackHandler(
 	domains domains.Domains,
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
 	states state.States,
-	sessions sessions.Sessions,
+	sessions session.Sessions,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -141,15 +141,15 @@ func AuthCallbackHandler(
 			return
 		}
 
-		// GetUserEmailAddress successful. Create a session and redirect the user to the final destination.
+		// GetUserEmailAddress successful. Create a cookie and redirect the user to the final destination.
 		logger.Info("user logged in", "user", user, "url", targetURL)
-		session := sessions.NewSession(user)
-		http.SetCookie(w, sessions.Cookie(session, string(domain)))
+		c, _ := sessions.JWTCookie(user, string(domain))
+		http.SetCookie(w, c)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
 	})
 }
 
-func HealthHandler(sessions sessions.Sessions, states state.States, logger *slog.Logger) http.Handler {
+func HealthHandler(states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := states.Ping(r.Context()); err != nil {
@@ -166,11 +166,9 @@ func HealthHandler(sessions sessions.Sessions, states state.States, logger *slog
 		}
 
 		health := struct {
-			Sessions int `json:"sessions"`
-			States   int `json:"states"`
+			States int `json:"states"`
 		}{
-			Sessions: sessions.Count(),
-			States:   stateCount,
+			States: stateCount,
 		}
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(health)

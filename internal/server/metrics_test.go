@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/sessions"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
@@ -10,7 +9,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestServer_withMetrics(t *testing.T) {
@@ -29,15 +27,16 @@ func TestServer_withMetrics(t *testing.T) {
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
-	sess := sessionStore.NewSession("foo@example.com")
 	r = testutils.ForwardAuthRequest(http.MethodGet, "https://example.org/foo")
-	r.AddCookie(sessionStore.Cookie(sess, "example.com"))
+	c, _ := sessionStore.JWTCookie("foo@example.com", "example.org")
+	r.AddCookie(c)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
 	r = testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
-	r.AddCookie(sessionStore.Cookie(sess, "example.com"))
+	c, _ = sessionStore.JWTCookie("foo@example.com", "example.com")
+	r.AddCookie(c)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -53,28 +52,4 @@ http_requests_total{code="401",host="example.org",path="/",provider="foo",user="
 `), "http_requests_total"))
 
 	assert.Equal(t, 4, testutil.CollectAndCount(metrics, "http_request_duration_seconds"))
-}
-
-func TestMetrics_Collect_ActiveUsers(t *testing.T) {
-	metrics := NewMetrics("", "", map[string]string{"provider": "foo"})
-	sessionStore := sessions.New("traefik_simple_auth", []byte("secret"), time.Hour)
-
-	sessionStore.NewSession("foo@example.com")
-	sessionStore.NewSessionWithExpiration("foo@example.com", 30*time.Minute)
-	sessionStore.NewSession("bar@example.com")
-
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	go monitorSessions(ctx, metrics, sessionStore, 100*time.Millisecond)
-
-	assert.Eventually(t, func() bool {
-		return testutil.CollectAndCount(metrics) > 0
-	}, time.Second, time.Millisecond)
-
-	assert.NoError(t, testutil.CollectAndCompare(metrics, strings.NewReader(`
-# HELP active_users number of active users
-# TYPE active_users gauge
-active_users{provider="foo",user="bar@example.com"} 1
-active_users{provider="foo",user="foo@example.com"} 2
-`), "active_users"))
 }
