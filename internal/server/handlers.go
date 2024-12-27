@@ -144,6 +144,7 @@ func AuthCallbackHandler(
 		// GetUserEmailAddress successful. Create a cookie and redirect the user to the final destination.
 		logger.Info("user logged in", "user", user, "url", targetURL)
 		c, _ := authenticator.JWTCookie(user, string(domain))
+		logger.Debug("sending cookie to user", "user", user, "cookie", c)
 		http.SetCookie(w, c)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
 	})
