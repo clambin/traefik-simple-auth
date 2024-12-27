@@ -40,9 +40,9 @@ func (s Authenticator) Cookie(token string, expires time.Time, domain string) *h
 func (s Authenticator) makeToken(userID string) (string, error) {
 	// Define claims
 	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(s.Expiration).Unix(),
-		"iat":     time.Now().Unix(),
+		"sub": userID,
+		"exp": time.Now().Add(s.Expiration).Unix(),
+		"iat": time.Now().Unix(),
 	}
 
 	// Create a new token
@@ -69,17 +69,14 @@ func (s Authenticator) Validate(r *http.Request) (string, error) {
 		}
 		return s.Secret, nil
 	})
-	if err != nil {
+	if err != nil || !token.Valid { // Valid is only true if err == nil ?!?
 		return "", fmt.Errorf("parse jwt: %w", err)
 	}
-	if !token.Valid {
-		return "", fmt.Errorf("invalid jwt token")
-	}
 
-	// Extract claims
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", fmt.Errorf("invalid jwt claims type: %T", token.Claims)
+	// Extract User Id
+	userId, err := token.Claims.GetSubject()
+	if err != nil {
+		return "", fmt.Errorf("jwt subject: %w", err)
 	}
-	return claims["user_id"].(string), nil
+	return userId, nil
 }

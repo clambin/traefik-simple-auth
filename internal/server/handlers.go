@@ -152,7 +152,6 @@ func AuthCallbackHandler(
 
 func HealthHandler(states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		if err := states.Ping(r.Context()); err != nil {
 			logger.Warn("cache ping failed", "err", err)
 			http.Error(w, "state cache not healthy", http.StatusServiceUnavailable)
@@ -171,6 +170,7 @@ func HealthHandler(states state.States, logger *slog.Logger) http.Handler {
 		}{
 			States: stateCount,
 		}
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(health)
 	})
