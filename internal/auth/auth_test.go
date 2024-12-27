@@ -1,4 +1,4 @@
-package session
+package auth
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestJWT(t *testing.T) {
-	s := Sessions{
+	s := Authenticator{
 		Secret:     []byte("secret"),
 		CookieName: "_auth",
 		Expiration: time.Hour,

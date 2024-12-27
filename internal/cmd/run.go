@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
-	httputils "github.com/clambin/go-common/httputils"
+	"github.com/clambin/go-common/httputils"
+	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
-	"github.com/clambin/traefik-simple-auth/internal/session"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -30,14 +30,14 @@ func run(ctx context.Context, cfg configuration.Configuration, r prometheus.Regi
 
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	r.MustRegister(metrics)
-	sessionStore := session.Sessions{
+	authenticator := auth.Authenticator{
 		Secret:     cfg.Secret,
 		CookieName: cfg.SessionCookieName,
 		Expiration: cfg.SessionExpiration,
 	}
 
 	stateStore := state.New(cfg.StateConfiguration)
-	s := server.New(ctx, sessionStore, stateStore, cfg, metrics, logger)
+	s := server.New(ctx, authenticator, stateStore, cfg, metrics, logger)
 
 	var g errgroup.Group
 	g.Go(func() error {

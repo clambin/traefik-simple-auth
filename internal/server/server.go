@@ -2,10 +2,10 @@ package server
 
 import (
 	"context"
+	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/domains"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/session"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"log/slog"
 	"net/http"
@@ -15,19 +15,19 @@ const OAUTHPath = "/_oauth"
 
 // New returns a new http.Handler that handles traefik's forward-auth requests, and the associated oauth flow.
 // It panics if config.Provider is invalid.
-func New(ctx context.Context, sessions session.Sessions, states state.States, config configuration.Configuration, metrics *Metrics, logger *slog.Logger) http.Handler {
+func New(ctx context.Context, authenticator auth.Authenticator, states state.States, config configuration.Configuration, metrics *Metrics, logger *slog.Logger) http.Handler {
 	logger = logger.With("provider", config.Provider)
 	oauthHandlers := buildOAuthHandlers(ctx, config, logger)
 
 	// create the server router
 	r := http.NewServeMux()
 	addServerRoutes(r,
-		newForwardAuthHandler(config.Domains, oauthHandlers, sessions, states, metrics, logger),
+		newForwardAuthHandler(config.Domains, oauthHandlers, authenticator, states, metrics, logger),
 		config.Domains,
 		config.Whitelist,
 		oauthHandlers,
 		states,
-		sessions,
+		authenticator,
 		metrics,
 		logger,
 	)

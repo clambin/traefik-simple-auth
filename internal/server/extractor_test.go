@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/clambin/traefik-simple-auth/internal/session"
+	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -11,13 +11,13 @@ import (
 )
 
 func TestSessionExtractor(t *testing.T) {
-	s := session.Sessions{
+	a := auth.Authenticator{
 		Secret:     []byte("secret"),
 		CookieName: "_auth",
 		Expiration: time.Hour,
 	}
-	extractor := sessionExtractor(s)
-	validCookie, _ := s.JWTCookie("foo@example.com", "example.com")
+	extractor := authExtractor(a)
+	validCookie, _ := a.JWTCookie("foo@example.com", "example.com")
 
 	tests := []struct {
 		name      string
@@ -32,7 +32,7 @@ func TestSessionExtractor(t *testing.T) {
 		},
 		{
 			name:    "bad cookie",
-			cookie:  s.Cookie("invalid-token", time.Now().Add(time.Hour), "example.com"),
+			cookie:  a.Cookie("invalid-token", time.Now().Add(time.Hour), "example.com"),
 			wantErr: require.Error,
 		},
 		{
@@ -55,7 +55,7 @@ func TestSessionExtractor(t *testing.T) {
 
 			h := extractor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Helper()
-				info := getSession(r)
+				info := getUserInfo(r)
 				tt.wantErr(t, info.err)
 				if info.err != nil {
 					return

@@ -53,7 +53,7 @@ func NewMetrics(namespace, subsystem string, constLabels prometheus.Labels, buck
 }
 
 func (m Metrics) Measure(r *http.Request, statusCode int, duration time.Duration) {
-	info := getSession(r)
+	info := getUserInfo(r)
 	code := strconv.Itoa(statusCode)
 	path := r.URL.Path
 	if path != OAUTHPath && path != OAUTHPath+"/logout" {

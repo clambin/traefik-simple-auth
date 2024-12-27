@@ -3,10 +3,10 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/domains"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"github.com/clambin/traefik-simple-auth/internal/server/logging"
-	"github.com/clambin/traefik-simple-auth/internal/session"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"golang.org/x/oauth2"
@@ -33,7 +33,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		}
 
 		// validate that the request has a valid JWT cookie
-		info := getSession(r)
+		info := getUserInfo(r)
 		if info.err == nil {
 			logger.Debug("allowing valid request", slog.String("email", info.email))
 			w.Header().Set("X-Forwarded-User", info.email)
@@ -66,12 +66,12 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 // LogoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
-func LogoutHandler(domains domains.Domains, sessions session.Sessions, logger *slog.Logger) http.Handler {
+func LogoutHandler(domains domains.Domains, authenticator auth.Authenticator, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*logging.Request)(r))
 
 		// remove the cached cookie
-		info := getSession(r)
+		info := getUserInfo(r)
 		if info.err != nil {
 			logger.Warn("rejecting: no valid cookie found",
 				slog.String("url", r.URL.String()),
@@ -83,7 +83,7 @@ func LogoutHandler(domains domains.Domains, sessions session.Sessions, logger *s
 
 		// Write a blank cookie to override/clear the current valid one.
 		domain, _ := domains.Domain(r.URL)
-		http.SetCookie(w, sessions.Cookie("", time.Time{}, string(domain)))
+		http.SetCookie(w, authenticator.Cookie("", time.Time{}, string(domain)))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		logger.Info("user has been logged out", "user", info.email)
@@ -99,7 +99,7 @@ func AuthCallbackHandler(
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
 	states state.States,
-	sessions session.Sessions,
+	authenticator auth.Authenticator,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +143,7 @@ func AuthCallbackHandler(
 
 		// GetUserEmailAddress successful. Create a cookie and redirect the user to the final destination.
 		logger.Info("user logged in", "user", user, "url", targetURL)
-		c, _ := sessions.JWTCookie(user, string(domain))
+		c, _ := authenticator.JWTCookie(user, string(domain))
 		http.SetCookie(w, c)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
 	})

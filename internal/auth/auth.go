@@ -1,4 +1,4 @@
-package session
+package auth
 
 import (
 	"fmt"
@@ -7,15 +7,15 @@ import (
 	"time"
 )
 
-// Sessions creates and validate JWT tokens inside a Cookie of an HTTP request / response.
-type Sessions struct {
+// Authenticator creates and validate JWT tokens inside a Cookie of an HTTP request / response.
+type Authenticator struct {
 	Secret     []byte
 	CookieName string
 	Expiration time.Duration
 }
 
 // JWTCookie returns an HTTP Cookie with a new JWT.
-func (s Sessions) JWTCookie(userID string, domain string) (*http.Cookie, error) {
+func (s Authenticator) JWTCookie(userID string, domain string) (*http.Cookie, error) {
 	token, err := s.makeToken(userID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to make token: %w", err)
@@ -24,7 +24,7 @@ func (s Sessions) JWTCookie(userID string, domain string) (*http.Cookie, error) 
 }
 
 // Cookie returns a new HTTP Cookie for the provided token, expiration time and domain.
-func (s Sessions) Cookie(token string, expires time.Time, domain string) *http.Cookie {
+func (s Authenticator) Cookie(token string, expires time.Time, domain string) *http.Cookie {
 	return &http.Cookie{
 		Name:     s.CookieName,
 		Value:    token,
@@ -37,7 +37,7 @@ func (s Sessions) Cookie(token string, expires time.Time, domain string) *http.C
 	}
 }
 
-func (s Sessions) makeToken(userID string) (string, error) {
+func (s Authenticator) makeToken(userID string) (string, error) {
 	// Define claims
 	claims := jwt.MapClaims{
 		"user_id": userID,
@@ -54,7 +54,7 @@ func (s Sessions) makeToken(userID string) (string, error) {
 
 // Validate extracts the JWT from the HTTP requests, validates it and returns the User ID.
 // It returns an error if the JWT is missing or invalid.
-func (s Sessions) Validate(r *http.Request) (string, error) {
+func (s Authenticator) Validate(r *http.Request) (string, error) {
 	// retrieve the cookie
 	cookie, err := r.Cookie(s.CookieName)
 	if err != nil {

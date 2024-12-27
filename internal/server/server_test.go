@@ -2,9 +2,9 @@ package server
 
 import (
 	"context"
+	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/domains"
-	"github.com/clambin/traefik-simple-auth/internal/session"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
@@ -24,14 +24,14 @@ func TestServer_Panics(t *testing.T) {
 		Provider: "foobar",
 		Domains:  domains.Domains{"example.com"},
 	}
-	sessionStore := session.Sessions{
+	authenticator := auth.Authenticator{
 		CookieName: "_traefik-simple-auth",
 		Secret:     []byte("secret"),
 		Expiration: time.Hour,
 	}
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	assert.Panics(t, func() {
-		_ = New(context.Background(), sessionStore, stateStore, cfg, nil, testutils.DiscardLogger)
+		_ = New(context.Background(), authenticator, stateStore, cfg, nil, testutils.DiscardLogger)
 	})
 }
 
@@ -228,7 +228,7 @@ func TestHealthHandler(t *testing.T) {
 
 }
 
-func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (session.Sessions, state.States, *mockoidc.MockOIDC, http.Handler) {
+func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
@@ -248,14 +248,14 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (session.S
 		Domains:       domains.Domains{"example.com"},
 		Whitelist:     list,
 	}
-	sessionStore := session.Sessions{
+	authenticator := auth.Authenticator{
 		CookieName: "_auth",
 		Secret:     []byte("secret"),
 		Expiration: time.Hour,
 	}
 
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	return sessionStore, stateStore, oidcServer, New(ctx, sessionStore, stateStore, cfg, metrics, testutils.DiscardLogger)
+	return authenticator, stateStore, oidcServer, New(ctx, authenticator, stateStore, cfg, metrics, testutils.DiscardLogger)
 }
 
 // before:
@@ -266,15 +266,15 @@ func Benchmark_authHandler(b *testing.B) {
 		Whitelist: map[string]struct{}{"foo@example.com": {}},
 		Provider:  "google",
 	}
-	sessionStore := session.Sessions{
+	authenticator := auth.Authenticator{
 		CookieName: "_traefik-simple-auth",
 		Secret:     []byte("secret"),
 		Expiration: time.Hour,
 	}
 
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	s := New(context.Background(), sessionStore, stateStore, config, nil, testutils.DiscardLogger)
-	c, _ := sessionStore.JWTCookie("foo@example.com", "example.com")
+	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
+	c, _ := authenticator.JWTCookie("foo@example.com", "example.com")
 	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	r.AddCookie(c)
 	w := httptest.NewRecorder()
@@ -339,6 +339,8 @@ func Benchmark_header_get(b *testing.B) {
 	})
 }
 
+// Now:
+// BenchmarkForwardAuthHandler-16            168307              6983 ns/op            4272 B/op         72 allocs/op
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := whitelist.New([]string{"foo@example.com"})
 	config := configuration.Configuration{
@@ -346,14 +348,14 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 		Whitelist: whiteList,
 		Provider:  "google",
 	}
-	sessionStore := session.Sessions{
+	authenticator := auth.Authenticator{
 		CookieName: "_traefik-simple-auth",
 		Secret:     []byte("secret"),
 		Expiration: time.Hour,
 	}
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	s := New(context.Background(), sessionStore, stateStore, config, nil, testutils.DiscardLogger)
-	c, _ := sessionStore.JWTCookie("foo@example.com", "example.com")
+	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
+	c, _ := authenticator.JWTCookie("foo@example.com", "example.com")
 
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	req.AddCookie(c)

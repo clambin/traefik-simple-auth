@@ -2,9 +2,9 @@ package server
 
 import (
 	"github.com/clambin/go-common/httputils/middleware"
+	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/domains"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/session"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"log/slog"
@@ -18,7 +18,7 @@ func addServerRoutes(
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
 	states state.States,
-	sessions session.Sessions,
+	authenticator auth.Authenticator,
 	metrics *Metrics,
 	logger *slog.Logger,
 ) {
@@ -30,7 +30,7 @@ func addServerRoutes(
 				whitelist,
 				oauthHandlers,
 				states,
-				sessions,
+				authenticator,
 				logger.With("handler", "authCallback"),
 			),
 		),
