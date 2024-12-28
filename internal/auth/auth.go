@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
@@ -62,21 +63,21 @@ func (s Authenticator) Validate(r *http.Request) (string, error) {
 	}
 
 	// Parse and validate the JWT
-	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (any, error) {
 		// Validate the signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, jwt.ErrSignatureInvalid
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); ok {
+			return s.Secret, nil
 		}
-		return s.Secret, nil
+		return nil, jwt.ErrSignatureInvalid
 	})
 	if err != nil || !token.Valid { // Valid is only true if err == nil ?!?
 		return "", fmt.Errorf("parse jwt: %w", err)
 	}
 
 	// Extract User Id
-	userId, err := token.Claims.GetSubject()
-	if err != nil {
-		return "", fmt.Errorf("jwt subject: %w", err)
+	userId, _ := token.Claims.GetSubject()
+	if userId == "" {
+		return "", errors.New("jwt: subject missing")
 	}
 	return userId, nil
 }

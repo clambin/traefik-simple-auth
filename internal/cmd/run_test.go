@@ -96,6 +96,10 @@ func TestRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, code)
 
+	resp, err := http.Get("http://localhost:9091/metrics")
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 	cancel()
 	assert.NoError(t, g.Wait())
 }
