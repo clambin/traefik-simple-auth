@@ -16,18 +16,33 @@ type Authenticator struct {
 }
 
 // JWTCookie returns an HTTP Cookie with a new JWT.
-func (s Authenticator) JWTCookie(userID string, domain string) (*http.Cookie, error) {
-	token, err := s.makeToken(userID)
-	if err != nil {
-		return nil, fmt.Errorf("unable to make token: %w", err)
+func (a Authenticator) JWTCookie(userID string, domain string) (c *http.Cookie, err error) {
+	var token string
+	if token, err = a.makeToken(userID); err == nil {
+		c = a.Cookie(token, time.Now().Add(a.Expiration), domain)
 	}
-	return s.Cookie(token, time.Now().Add(s.Expiration), domain), nil
+	return c, err
+}
+
+func (a Authenticator) makeToken(userID string) (string, error) {
+	// Define claims
+	claims := jwt.MapClaims{
+		"sub": userID,
+		"exp": time.Now().Add(a.Expiration).Unix(),
+		"iat": time.Now().Unix(),
+	}
+
+	// Create a new token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign the token with the secret key
+	return token.SignedString(a.Secret)
 }
 
 // Cookie returns a new HTTP Cookie for the provided token, expiration time and domain.
-func (s Authenticator) Cookie(token string, expires time.Time, domain string) *http.Cookie {
+func (a Authenticator) Cookie(token string, expires time.Time, domain string) *http.Cookie {
 	return &http.Cookie{
-		Name:     s.CookieName,
+		Name:     a.CookieName,
 		Value:    token,
 		Expires:  expires,
 		Path:     "/",
@@ -38,38 +53,17 @@ func (s Authenticator) Cookie(token string, expires time.Time, domain string) *h
 	}
 }
 
-func (s Authenticator) makeToken(userID string) (string, error) {
-	// Define claims
-	claims := jwt.MapClaims{
-		"sub": userID,
-		"exp": time.Now().Add(s.Expiration).Unix(),
-		"iat": time.Now().Unix(),
-	}
-
-	// Create a new token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Sign the token with the secret key
-	return token.SignedString(s.Secret)
-}
-
 // Validate extracts the JWT from the HTTP requests, validates it and returns the User ID.
 // It returns an error if the JWT is missing or invalid.
-func (s Authenticator) Validate(r *http.Request) (string, error) {
+func (a Authenticator) Validate(r *http.Request) (string, error) {
 	// retrieve the cookie
-	cookie, err := r.Cookie(s.CookieName)
+	cookie, err := r.Cookie(a.CookieName)
 	if err != nil {
 		return "", fmt.Errorf("cookie not found: %w", err)
 	}
 
 	// Parse and validate the JWT
-	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (any, error) {
-		// Validate the signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); ok {
-			return s.Secret, nil
-		}
-		return nil, jwt.ErrSignatureInvalid
-	})
+	token, err := jwt.Parse(cookie.Value, a.getKey, jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil || !token.Valid { // Valid is only true if err == nil ?!?
 		return "", fmt.Errorf("parse jwt: %w", err)
 	}
@@ -80,4 +74,11 @@ func (s Authenticator) Validate(r *http.Request) (string, error) {
 		return "", errors.New("jwt: subject missing")
 	}
 	return userId, nil
+}
+
+func (a Authenticator) getKey(token *jwt.Token) (any, error) {
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
+	}
+	return a.Secret, nil
 }
