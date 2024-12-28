@@ -40,7 +40,7 @@ func TestForwardAuthHandler(t *testing.T) {
 	t.Cleanup(cancel)
 
 	sessionStore, _, _, h := setupServer(ctx, t, nil)
-	validSession, _ := sessionStore.JWTCookie("foo@example.com", "example.com")
+	validSession, _ := sessionStore.CookieWithSignedToken("foo@example.com", "example.com")
 
 	type args struct {
 		target string
@@ -116,7 +116,7 @@ func TestLogoutHandler(t *testing.T) {
 
 	t.Run("logging out clears the browser's cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
-		c, _ := sessionStore.JWTCookie("foo@example.com", "example.com")
+		c, _ := sessionStore.CookieWithSignedToken("foo@example.com", "example.com")
 		r.AddCookie(c)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
@@ -274,7 +274,7 @@ func Benchmark_authHandler(b *testing.B) {
 
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
-	c, _ := authenticator.JWTCookie("foo@example.com", "example.com")
+	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	r.AddCookie(c)
 	w := httptest.NewRecorder()
@@ -355,7 +355,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 	}
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
-	c, _ := authenticator.JWTCookie("foo@example.com", "example.com")
+	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	req.AddCookie(c)

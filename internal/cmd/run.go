@@ -35,7 +35,6 @@ func run(ctx context.Context, cfg configuration.Configuration, r prometheus.Regi
 		CookieName: cfg.SessionCookieName,
 		Expiration: cfg.SessionExpiration,
 	}
-
 	stateStore := state.New(cfg.StateConfiguration)
 	s := server.New(ctx, authenticator, stateStore, cfg, metrics, logger)
 

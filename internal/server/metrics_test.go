@@ -28,14 +28,14 @@ func TestServer_withMetrics(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
 	r = testutils.ForwardAuthRequest(http.MethodGet, "https://example.org/foo")
-	c, _ := sessionStore.JWTCookie("foo@example.com", "example.org")
+	c, _ := sessionStore.CookieWithSignedToken("foo@example.com", "example.org")
 	r.AddCookie(c)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 
 	r = testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
-	c, _ = sessionStore.JWTCookie("foo@example.com", "example.com")
+	c, _ = sessionStore.CookieWithSignedToken("foo@example.com", "example.com")
 	r.AddCookie(c)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
