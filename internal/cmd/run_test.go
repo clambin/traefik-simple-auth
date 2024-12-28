@@ -13,9 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
-	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 )
@@ -35,7 +36,8 @@ func TestRun(t *testing.T) {
 		Debug:             true,
 		Addr:              ":8081",
 		PromAddr:          ":9091",
-		SessionCookieName: "_auth",
+		SessionCookieName: "_traefik_auth_session",
+		SessionExpiration: time.Hour,
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
@@ -49,8 +51,11 @@ func TestRun(t *testing.T) {
 			CacheType: "memory",
 		},
 	}
+	//l := testutils.DiscardLogger
+	l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 	g.Go(func() error {
-		return run(ctx, cfg, prometheus.NewRegistry(), "dev", testutils.DiscardLogger)
+		return run(ctx, cfg, prometheus.NewRegistry(), "dev", l)
 	})
 
 	assert.Eventually(t, func() bool {
@@ -63,7 +68,7 @@ func TestRun(t *testing.T) {
 		Transport:     http.DefaultTransport,
 	}
 
-	// not logged in. server responds with a redirect, pointing to the oauth provider
+	// no cookie provided. server responds with a redirect, pointing to the oauth provider
 	code, location, err := doForwardAuth(&c, "http://localhost:8081/", nil)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusTemporaryRedirect, code)
@@ -84,18 +89,16 @@ func TestRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusTemporaryRedirect, code)
 	require.NotNil(t, cookie)
+	assert.Equal(t, cfg.SessionCookieName, cookie.Name)
 
 	// try again, now with the session cookie. this time, we are authenticated.
 	code, _, err = doForwardAuth(&c, "http://localhost:8081/", cookie)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, code)
 
-	// health now gives us 1 session. the state has been deleted.
-	resp, err := http.Get("http://localhost:8081/health")
+	resp, err := http.Get("http://localhost:9091/metrics")
 	require.NoError(t, err)
-	body, _ := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
-	assert.Equal(t, "{\"sessions\":1,\"states\":0}\n", string(body))
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	cancel()
 	assert.NoError(t, g.Wait())

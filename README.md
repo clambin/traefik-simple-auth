@@ -8,6 +8,10 @@
 
 A simple, up-to-date, re-implementation of traefik-forward-auth.
 
+## ⚠️ Breaking change in v0.10.0
+v0.10.0 uses JWT tokens as user authentication mechanism, which is not backward compatible with previous releases.
+Users are advised to log out before upgrading to minimize impact.
+
 ## Contents
 
 - [Goals](#goals)
@@ -214,7 +218,6 @@ Usage:
         Redis password (only used when cache backend is redis)
   -cache-redis-username string
         Redis username (only used when cache backend is redis)
-
   -client-id string
         OAuth2 Client ID
   -client-secret string

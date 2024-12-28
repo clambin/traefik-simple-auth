@@ -7,6 +7,7 @@ require (
 	github.com/clambin/go-common/cache v0.7.1
 	github.com/clambin/go-common/httputils v0.1.2
 	github.com/coreos/go-oidc/v3 v3.11.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
 	github.com/prometheus/client_golang v1.20.5
 	github.com/redis/go-redis/v9 v9.7.0
@@ -40,7 +41,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/kr/text v0.2.0 // indirect
