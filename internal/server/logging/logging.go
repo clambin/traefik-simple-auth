@@ -29,9 +29,12 @@ var _ slog.LogValuer = &RejectedRequest{}
 type RejectedRequest http.Request
 
 func (r *RejectedRequest) LogValue() slog.Value {
-	return slog.GroupValue(
-		slog.String("method", r.Method),
-		slog.String("url", r.URL.String()),
-		slog.String("user-agent", ((*http.Request)(r)).UserAgent()),
-	)
+	values := make([]slog.Attr, 3, 4)
+	values[0] = slog.String("method", r.Method)
+	values[1] = slog.String("url", r.URL.String())
+	values[2] = slog.String("user-agent", ((*http.Request)(r)).UserAgent())
+	if referer := ((*http.Request)(r)).Referer(); referer != "" {
+		values = append(values, slog.String("referer", referer))
+	}
+	return slog.GroupValue(values...)
 }
