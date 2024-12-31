@@ -22,19 +22,16 @@ type userInfo struct {
 func authExtractor(authenticator auth.Authenticator) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Validate the JWT token in the cookie. If the cookie is invalid, userInfo.err will indicate the reason.
 			var info userInfo
 			info.email, info.err = authenticator.Validate(r)
-			next.ServeHTTP(w, withUserInfo(r, info))
+			// Call the next handler with the auth info added to the request's context
+			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), authKey, info)))
 		})
 	}
 }
 
-// withUserInfo returns a request with the userInfo added to its context.  If the cookie failed authentication, userInfo.err will indicate the reason.
-func withUserInfo(r *http.Request, info userInfo) *http.Request {
-	return r.WithContext(context.WithValue(r.Context(), authKey, info))
-}
-
-// getUserInfo returns the cookie from the request's context. If no valid cookie was found, err indicates the reason.
+// getUserInfo returns the token from the request's context. If no valid token was found, err indicates the reason.
 func getUserInfo(r *http.Request) userInfo {
 	info, ok := r.Context().Value(authKey).(userInfo)
 	if !ok {
