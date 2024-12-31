@@ -53,7 +53,7 @@ func (a Authenticator) Cookie(token string, expiration time.Duration, domain str
 		Domain:   domain,
 		HttpOnly: true,
 		Secure:   true,
-		//SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteStrictMode,
 	}
 }
 
