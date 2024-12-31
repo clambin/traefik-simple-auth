@@ -53,7 +53,7 @@ func (a Authenticator) Cookie(token string, expiration time.Duration, domain str
 		Domain:   domain,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		//SameSite: http.SameSiteStrictMode,
 	}
 }
 
@@ -63,7 +63,7 @@ func (a Authenticator) Validate(r *http.Request) (string, error) {
 	// retrieve the cookie
 	cookie, err := r.Cookie(a.CookieName)
 	if err != nil {
-		return "", fmt.Errorf("cookie not found: %w", err)
+		return "", err
 	}
 
 	// Parse and validate the JWT. We only accept HMAC256, since that's what we created.
