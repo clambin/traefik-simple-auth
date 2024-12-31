@@ -17,7 +17,7 @@ func TestSessionExtractor(t *testing.T) {
 		Expiration: time.Hour,
 	}
 	extractor := authExtractor(a)
-	validCookie, _ := a.JWTCookie("foo@example.com", "example.com")
+	validCookie, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
 
 	tests := []struct {
 		name      string
@@ -32,7 +32,7 @@ func TestSessionExtractor(t *testing.T) {
 		},
 		{
 			name:    "bad cookie",
-			cookie:  a.Cookie("invalid-token", time.Now().Add(time.Hour), "example.com"),
+			cookie:  a.Cookie("invalid-token", time.Hour, "example.com"),
 			wantErr: require.Error,
 		},
 		{

@@ -13,7 +13,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"time"
 )
 
 // The ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
@@ -83,7 +82,7 @@ func LogoutHandler(domains domains.Domains, authenticator auth.Authenticator, lo
 
 		// Write a blank cookie to override/clear the current valid one.
 		domain, _ := domains.Domain(r.URL)
-		http.SetCookie(w, authenticator.Cookie("", time.Time{}, string(domain)))
+		http.SetCookie(w, authenticator.Cookie("", 0, string(domain)))
 
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		logger.Info("user has been logged out", "user", info.email)
@@ -143,7 +142,7 @@ func AuthCallbackHandler(
 
 		// GetUserEmailAddress successful. Create a cookie and redirect the user to the final destination.
 		logger.Info("user logged in", "user", user, "url", targetURL)
-		c, _ := authenticator.JWTCookie(user, string(domain))
+		c, _ := authenticator.CookieWithSignedToken(user, string(domain))
 		logger.Debug("sending cookie to user", "user", user, "cookie", c)
 		http.SetCookie(w, c)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)

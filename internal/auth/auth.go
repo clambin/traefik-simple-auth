@@ -8,23 +8,23 @@ import (
 	"time"
 )
 
-// Authenticator creates and validate JWT tokens inside a Cookie of an HTTP request / response.
+// Authenticator creates and validate JWT tokens inside a http.Cookie.
 type Authenticator struct {
-	Secret     []byte
 	CookieName string
+	Secret     []byte
 	Expiration time.Duration
 }
 
-// JWTCookie returns an HTTP Cookie with a new JWT.
-func (a Authenticator) JWTCookie(userID string, domain string) (c *http.Cookie, err error) {
+// CookieWithSignedToken returns a http.Cookie with a signed token.
+func (a Authenticator) CookieWithSignedToken(userID string, domain string) (c *http.Cookie, err error) {
 	var token string
-	if token, err = a.makeToken(userID); err == nil {
-		c = a.Cookie(token, time.Now().Add(a.Expiration), domain)
+	if token, err = a.makeSignedToken(userID); err == nil {
+		c = a.Cookie(token, a.Expiration, domain)
 	}
 	return c, err
 }
 
-func (a Authenticator) makeToken(userID string) (string, error) {
+func (a Authenticator) makeSignedToken(userID string) (string, error) {
 	// Define claims
 	claims := jwt.MapClaims{
 		"sub": userID,
@@ -39,30 +39,30 @@ func (a Authenticator) makeToken(userID string) (string, error) {
 	return token.SignedString(a.Secret)
 }
 
-// Cookie returns a new HTTP Cookie for the provided token, expiration time and domain.
-func (a Authenticator) Cookie(token string, expires time.Time, domain string) *http.Cookie {
+// Cookie returns a new http.Cookie for the provided token, expiration time and domain.
+func (a Authenticator) Cookie(token string, expiration time.Duration, domain string) *http.Cookie {
 	return &http.Cookie{
 		Name:     a.CookieName,
 		Value:    token,
-		Expires:  expires,
+		MaxAge:   int(expiration.Seconds()),
 		Path:     "/",
 		Domain:   domain,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		//SameSite: http.SameSiteStrictMode,
 	}
 }
 
-// Validate extracts the JWT from the HTTP requests, validates it and returns the User ID.
+// Validate extracts the JWT from an http.Request, validates it and returns the User ID.
 // It returns an error if the JWT is missing or invalid.
 func (a Authenticator) Validate(r *http.Request) (string, error) {
 	// retrieve the cookie
 	cookie, err := r.Cookie(a.CookieName)
 	if err != nil {
-		return "", fmt.Errorf("cookie not found: %w", err)
+		return "", err
 	}
 
-	// Parse and validate the JWT
+	// Parse and validate the JWT. We only accept HMAC256, since that's what we created.
 	token, err := jwt.Parse(cookie.Value, a.getKey, jwt.WithValidMethods([]string{"HS256"}))
 	if err != nil || !token.Valid { // Valid is only true if err == nil ?!?
 		return "", fmt.Errorf("parse jwt: %w", err)

@@ -39,8 +39,8 @@ func TestForwardAuthHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	sessionStore, _, _, h := setupServer(ctx, t, nil)
-	validSession, _ := sessionStore.JWTCookie("foo@example.com", "example.com")
+	authenticator, _, _, h := setupServer(ctx, t, nil)
+	validSession, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 
 	type args struct {
 		target string
@@ -112,17 +112,17 @@ func TestForwardAuthHandler(t *testing.T) {
 func TestLogoutHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	sessionStore, _, _, s := setupServer(ctx, t, nil)
+	authenticator, _, _, s := setupServer(ctx, t, nil)
 
 	t.Run("logging out clears the browser's cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
-		c, _ := sessionStore.JWTCookie("foo@example.com", "example.com")
+		c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 		r.AddCookie(c)
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "You have been logged out\n", w.Body.String())
-		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure; SameSite=Strict", w.Header().Get("Set-Cookie"))
+		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
 	})
 
 	t.Run("must be logged in to log out", func(t *testing.T) {
@@ -168,7 +168,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	_, stateStore, oidcServer, server := setupServer(ctx, t, nil)
+	_, states, oidcServer, server := setupServer(ctx, t, nil)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -176,7 +176,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 			//t.Parallel()
 			oauthState := tt.state
 			if oauthState == "" {
-				oauthState, _ = stateStore.Add(ctx, "https://example.com/foo")
+				oauthState, _ = states.Add(ctx, "https://example.com/foo")
 			}
 
 			code := tt.code
@@ -205,26 +205,24 @@ func TestAuthCallbackHandler(t *testing.T) {
 
 func TestHealthHandler(t *testing.T) {
 	ctx := context.Background()
-	_, stateStore, _, server := setupServer(ctx, t, nil)
+	_, states, _, server := setupServer(ctx, t, nil)
 
 	r, _ := http.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 	server.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	assert.Equal(t, `{"states":0}
-`, w.Body.String())
+	assert.Equal(t, "{\"states\":0}\n", w.Body.String())
 
 	//sessionStore.NewSession("foo@example.com")
-	_, _ = stateStore.Add(ctx, "https://example.com")
+	_, _ = states.Add(ctx, "https://example.com")
 
 	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
 	w = httptest.NewRecorder()
 	server.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	assert.Equal(t, `{"states":1}
-`, w.Body.String())
+	assert.Equal(t, "{\"states\":1}\n", w.Body.String())
 
 }
 
@@ -274,7 +272,7 @@ func Benchmark_authHandler(b *testing.B) {
 
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
-	c, _ := authenticator.JWTCookie("foo@example.com", "example.com")
+	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	r.AddCookie(c)
 	w := httptest.NewRecorder()
@@ -314,6 +312,8 @@ func Benchmark_getOriginalTarget(b *testing.B) {
 	}
 }
 
+// Benchmark_header_get/header.Get-16              86203075                13.77 ns/op            0 B/op          0 allocs/op
+// Benchmark_header_get/direct-16                  315107350                3.767 ns/op           0 B/op          0 allocs/op
 func Benchmark_header_get(b *testing.B) {
 	const headerName = "X-Foo"
 	const headerValue = "bar"
@@ -339,7 +339,7 @@ func Benchmark_header_get(b *testing.B) {
 	})
 }
 
-// Now:
+// Current:
 // BenchmarkForwardAuthHandler-16            168307              6983 ns/op            4272 B/op         72 allocs/op
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := whitelist.New([]string{"foo@example.com"})
@@ -353,9 +353,9 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 		Secret:     []byte("secret"),
 		Expiration: time.Hour,
 	}
-	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
-	c, _ := authenticator.JWTCookie("foo@example.com", "example.com")
+	states := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
+	s := New(context.Background(), authenticator, states, config, nil, testutils.DiscardLogger)
+	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	req.AddCookie(c)
