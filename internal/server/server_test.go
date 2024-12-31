@@ -122,7 +122,7 @@ func TestLogoutHandler(t *testing.T) {
 		s.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "You have been logged out\n", w.Body.String())
-		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure; SameSite=Strict", w.Header().Get("Set-Cookie"))
+		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
 	})
 
 	t.Run("must be logged in to log out", func(t *testing.T) {

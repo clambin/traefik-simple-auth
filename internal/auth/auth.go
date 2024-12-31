@@ -41,14 +41,10 @@ func (a Authenticator) makeSignedToken(userID string) (string, error) {
 
 // Cookie returns a new http.Cookie for the provided token, expiration time and domain.
 func (a Authenticator) Cookie(token string, expiration time.Duration, domain string) *http.Cookie {
-	var expires time.Time
-	if expiration != 0 {
-		expires = time.Now().Add(expiration)
-	}
 	return &http.Cookie{
 		Name:     a.CookieName,
 		Value:    token,
-		Expires:  expires,
+		MaxAge:   int(expiration.Seconds()),
 		Path:     "/",
 		Domain:   domain,
 		HttpOnly: true,
