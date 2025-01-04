@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/domains"
@@ -26,7 +25,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		// check that the request is for one of the configured domains
 		domain, ok := domains.Domain(r.URL)
 		if !ok {
-			logger.Warn("host doesn't match any configured domains", slog.String("host", r.URL.Host))
+			logger.Warn("host doesn't match any configured domains", "host", r.URL.Host)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
@@ -34,7 +33,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		// validate that the request has a valid JWT cookie
 		info := getUserInfo(r)
 		if info.err == nil {
-			logger.Debug("allowing valid request", slog.String("email", info.email))
+			logger.Debug("allowing valid request", "email", info.email)
 			w.Header().Set("X-Forwarded-User", info.email)
 			w.WriteHeader(http.StatusOK)
 			return
@@ -42,22 +41,22 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 		// no valid JWT cookie found. redirect to oauth handler.
 		logger.Warn("redirecting: no valid cookie found",
-			slog.Any("request", (*logging.RejectedRequest)(r)),
-			slog.Any("err", info.err),
+			"request", (*logging.RejectedRequest)(r),
+			"err", info.err,
 		)
 
 		// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
 		// authCallbackHandler uses the random state to retrieve the final destination, thereby validating that the request came from us.
 		encodedState, err := states.Add(r.Context(), r.URL.String())
 		if err != nil {
-			logger.Warn("error adding state", slog.String("error", err.Error()))
+			logger.Warn("error adding state", "err", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
 
 		// Redirect the user to the oauth2 provider to select the account to authenticate the request.
 		authCodeURL := oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
-		logger.Debug("redirecting", slog.String("authCodeURL", authCodeURL))
+		logger.Debug("redirecting", "authCodeURL", authCodeURL)
 		// TODO: possible clear the cookie, so it's removed from the user's browser?
 		http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
 	})
@@ -73,8 +72,8 @@ func LogoutHandler(domains domains.Domains, authenticator auth.Authenticator, lo
 		info := getUserInfo(r)
 		if info.err != nil {
 			logger.Warn("rejecting: no valid cookie found",
-				slog.String("url", r.URL.String()),
-				slog.Any("err", info.err),
+				"request", (*logging.Request)(r),
+				"err", info.err,
 			)
 			http.Error(w, "Invalid cookie", http.StatusUnauthorized)
 			return
@@ -84,8 +83,8 @@ func LogoutHandler(domains domains.Domains, authenticator auth.Authenticator, lo
 		domain, _ := domains.Domain(r.URL)
 		http.SetCookie(w, authenticator.Cookie("", 0, string(domain)))
 
-		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 		logger.Info("user has been logged out", "user", info.email)
+		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 	})
 }
 
@@ -108,7 +107,10 @@ func AuthCallbackHandler(
 		encodedState := r.URL.Query().Get("state")
 		targetURL, err := states.Validate(r.Context(), encodedState)
 		if err != nil {
-			logger.Warn("rejecting login request: invalid state", "err", err)
+			logger.Warn("rejecting login request: invalid state",
+				"request", (*logging.Request)(r),
+				"err", err,
+			)
 			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
@@ -123,7 +125,10 @@ func AuthCallbackHandler(
 		if err != nil {
 			var oauthErr *oauth2.RetrieveError
 			if errors.As(err, &oauthErr) {
-				logger.Warn("rejecting login request: failed to retrieve code", "code", oauthErr.ErrorCode, "desc", oauthErr.ErrorDescription)
+				logger.Warn("rejecting login request: failed to retrieve code",
+					"code", oauthErr.ErrorCode,
+					"desc", oauthErr.ErrorDescription,
+				)
 				http.Error(w, "Invalid code", http.StatusUnauthorized)
 				return
 			}
@@ -140,7 +145,7 @@ func AuthCallbackHandler(
 			return
 		}
 
-		// GetUserEmailAddress successful. Create a cookie and redirect the user to the final destination.
+		// Valid user. Create a cookie and redirect the user to the final destination.
 		logger.Info("user logged in", "user", user, "url", targetURL)
 		c, _ := authenticator.CookieWithSignedToken(user, string(domain))
 		logger.Debug("sending cookie to user", "user", user, "cookie", c)
@@ -149,6 +154,11 @@ func AuthCallbackHandler(
 	})
 }
 
+// The HealthHandler checks that traefik-simple-auth is able to service requests. This can be used in k8s (or other)
+// as a livenessProbe.
+//
+// There's only one dependency: the external cache. If that is not available, we return http.StatusServiceUnavailable.
+// Otherwise, we return http.StatusOK.
 func HealthHandler(states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := states.Ping(r.Context()); err != nil {
@@ -156,21 +166,6 @@ func HealthHandler(states state.States, logger *slog.Logger) http.Handler {
 			http.Error(w, "state cache not healthy", http.StatusServiceUnavailable)
 			return
 		}
-
-		stateCount, err := states.Count(r.Context())
-		if err != nil {
-			logger.Warn("error counting states", "err", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		health := struct {
-			States int `json:"states"`
-		}{
-			States: stateCount,
-		}
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(health)
 	})
 }

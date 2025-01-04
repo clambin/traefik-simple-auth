@@ -11,6 +11,8 @@ import (
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -204,26 +206,24 @@ func TestAuthCallbackHandler(t *testing.T) {
 }
 
 func TestHealthHandler(t *testing.T) {
-	ctx := context.Background()
-	_, states, _, server := setupServer(ctx, t, nil)
+	//l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	l := slog.New(slog.NewTextHandler(io.Discard, nil))
 
+	// up
+	states := state.New(state.Configuration{CacheType: "memory"})
+	s := HealthHandler(states, l)
 	r, _ := http.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
-	server.ServeHTTP(w, r)
+	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	assert.Equal(t, "{\"states\":0}\n", w.Body.String())
 
-	//sessionStore.NewSession("foo@example.com")
-	_, _ = states.Add(ctx, "https://example.com")
-
+	// down
+	states = state.New(state.Configuration{CacheType: "redis"})
+	s = HealthHandler(states, l)
 	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
 	w = httptest.NewRecorder()
-	server.ServeHTTP(w, r)
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-	assert.Equal(t, "{\"states\":1}\n", w.Body.String())
-
+	s.ServeHTTP(w, r)
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
 func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
@@ -256,8 +256,12 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (auth.Auth
 	return authenticator, stateStore, oidcServer, New(ctx, authenticator, stateStore, cfg, metrics, testutils.DiscardLogger)
 }
 
-// before:
+// Before:
 // Benchmark_authHandler-16                  927531              1194 ns/op             941 B/op         14 allocs/op
+// Current:
+// Benchmark_authHandler-16                  178560              6423 ns/op            3328 B/op         66 allocs/op
+//
+// Slower than before, as we're no longer caching the validated tokens. But fast enough, with less complexity.
 func Benchmark_authHandler(b *testing.B) {
 	config := configuration.Configuration{
 		Domains:   domains.Domains{"example.com"},
@@ -286,9 +290,7 @@ func Benchmark_authHandler(b *testing.B) {
 	}
 }
 
-// before:
-// Benchmark_getOriginalTarget-16           6152596               195.7 ns/op           144 B/op          1 allocs/op
-// after:
+// current:
 // Benchmark_getOriginalTarget-16           8318185               143.0 ns/op             0 B/op          0 allocs/op
 func Benchmark_getOriginalTarget(b *testing.B) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
