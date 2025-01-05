@@ -32,6 +32,6 @@ func (r *RejectedRequest) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.String("method", r.Method),
 		slog.String("url", r.URL.String()),
-		slog.String("user-agent", ((*http.Request)(r)).UserAgent()),
+		slog.String("user_agent", ((*http.Request)(r)).UserAgent()),
 	)
 }

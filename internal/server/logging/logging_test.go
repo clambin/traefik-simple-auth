@@ -19,5 +19,5 @@ func TestRejectedRequest_LogValue(t *testing.T) {
 	r, _ := http.NewRequest(http.MethodGet, "https://example.com/", nil)
 	r.Header.Add("User-Agent", "foo")
 
-	assert.Equal(t, "[method=GET url=https://example.com/ user-agent=foo]", (*RejectedRequest)(r).LogValue().String())
+	assert.Equal(t, "[method=GET url=https://example.com/ user_agent=foo]", (*RejectedRequest)(r).LogValue().String())
 }
