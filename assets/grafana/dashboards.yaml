@@ -2,6 +2,217 @@
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaDashboard
 metadata:
+  name: redirected-sites
+  namespace: traefik
+spec:
+  allowCrossNamespaceImport: true
+  folder: Traefik
+  instanceSelector:
+    matchLabels:
+      dashboards: local-grafana
+  json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations \u0026 Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": 5986,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "JrYhCWHnk"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "fillOpacity": 80,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineWidth": 1,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 16,
+            "w": 16,
+            "x": 0,
+            "y": 0
+          },
+          "id": 2,
+          "options": {
+            "barRadius": 0,
+            "barWidth": 0.97,
+            "fullHighlight": false,
+            "groupWidth": 0.7,
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "orientation": "auto",
+            "showValue": "auto",
+            "stacking": "none",
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            },
+            "xTickLabelRotation": -45,
+            "xTickLabelSpacing": 0
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "JrYhCWHnk"
+              },
+              "editorMode": "builder",
+              "expr": "sum by(request_url) (count_over_time({app=\"traefik-simple-auth\"} |= `redirecting: ` | json request_url=\"request.url\" | label_format request_url=`{{ regexReplaceAll \"(https?://)([^/]+)/?.*\" .request_url \"$1$2\"}}` [$__auto]))",
+              "legendFormat": "{{request_url}}",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "over time",
+          "type": "barchart"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "JrYhCWHnk"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              "mappings": []
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 16,
+            "w": 8,
+            "x": 16,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+              "calcs": [
+                "sum"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "loki",
+                "uid": "JrYhCWHnk"
+              },
+              "editorMode": "builder",
+              "expr": "sum by(request_url) (count_over_time({app=\"traefik-simple-auth\"} |= `redirecting: ` | json request_url=\"request.url\" | label_format request_url=`{{ regexReplaceAll \"(https?://)([^/]+)/?.*\" .request_url \"$1$2\"}}` [$__auto]))",
+              "legendFormat": "{{request_url}}",
+              "queryType": "range",
+              "refId": "A"
+            }
+          ],
+          "title": "hits",
+          "type": "piechart"
+        }
+      ],
+      "preload": false,
+      "schemaVersion": 40,
+      "tags": [],
+      "templating": {
+        "list": []
+      },
+      "time": {
+        "from": "now-2d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "redirected sites",
+      "uid": "ae8abmj43320wc",
+      "version": 12,
+      "weekStart": ""
+    }
+---
+apiVersion: grafana.integreatly.org/v1beta1
+kind: GrafanaDashboard
+metadata:
   name: simple-auth
   namespace: traefik
 spec:
@@ -575,7 +786,7 @@ spec:
                 "uid": "JrYhCWHnk"
               },
               "editorMode": "builder",
-              "expr": "sum by(request_user_agent) (rate({app=\"traefik-simple-auth\"} |= `` | json | msg = `redirecting: no valid session found` [$__auto]))",
+              "expr": "count by(request_user_agent) (rate({app=\"traefik-simple-auth\"} |= `redirecting: ` | json request_user_agent=\"request.user_agent\" [$__auto]))",
               "legendFormat": "{{request_user_agent}}",
               "queryType": "range",
               "refId": "A"
@@ -862,6 +1073,6 @@ spec:
       "timezone": "browser",
       "title": "simple-auth",
       "uid": "dditm82jdgpvkb",
-      "version": 15,
+      "version": 19,
       "weekStart": ""
     }
