@@ -30,11 +30,7 @@ func run(ctx context.Context, cfg configuration.Configuration, r prometheus.Regi
 
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	r.MustRegister(metrics)
-	authenticator := auth.Authenticator{
-		Secret:     cfg.Secret,
-		CookieName: cfg.SessionCookieName,
-		Expiration: cfg.SessionExpiration,
-	}
+	authenticator := auth.New(cfg.SessionCookieName, cfg.Secret, cfg.SessionExpiration)
 	stateStore := state.New(cfg.StateConfiguration)
 	s := server.New(ctx, authenticator, stateStore, cfg, metrics, logger)
 

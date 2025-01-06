@@ -13,13 +13,13 @@ import (
 func TestAuthenticator_Validate(t *testing.T) {
 	tests := []struct {
 		name   string
-		cookie func(Authenticator) *http.Cookie
+		cookie func(*Authenticator) *http.Cookie
 		err    assert.ErrorAssertionFunc
 		want   string
 	}{
 		{
 			name: "valid cookie",
-			cookie: func(a Authenticator) *http.Cookie {
+			cookie: func(a *Authenticator) *http.Cookie {
 				c, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
 				return c
 			},
@@ -32,7 +32,7 @@ func TestAuthenticator_Validate(t *testing.T) {
 		},
 		{
 			name: "expired cookie",
-			cookie: func(a Authenticator) *http.Cookie {
+			cookie: func(a *Authenticator) *http.Cookie {
 				a.Expiration = -time.Hour
 				c, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
 				return c
@@ -41,16 +41,16 @@ func TestAuthenticator_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid HMAC",
-			cookie: func(a Authenticator) *http.Cookie {
-				a.Secret = []byte("wrong-secret")
-				c, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
+			cookie: func(a *Authenticator) *http.Cookie {
+				b := New(a.CookieName, []byte("wrong-secret"), a.Expiration)
+				c, _ := b.CookieWithSignedToken("foo@example.com", "example.com")
 				return c
 			},
 			err: assert.Error,
 		},
 		{
 			name: "no signature",
-			cookie: func(a Authenticator) *http.Cookie {
+			cookie: func(a *Authenticator) *http.Cookie {
 				// Create a new token without a signature
 				claims := jwt.MapClaims{
 					"exp": time.Now().Add(a.Expiration).Unix(),
@@ -65,7 +65,7 @@ func TestAuthenticator_Validate(t *testing.T) {
 		},
 		{
 			name: "invalid JWT",
-			cookie: func(a Authenticator) *http.Cookie {
+			cookie: func(a *Authenticator) *http.Cookie {
 				// create a JWT without a subject
 				claims := jwt.MapClaims{
 					"exp": time.Now().Add(a.Expiration).Unix(),
@@ -81,12 +81,7 @@ func TestAuthenticator_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := Authenticator{
-				Secret:     []byte("secret"),
-				CookieName: "_auth",
-				Expiration: time.Hour,
-			}
-
+			a := New("_auth", []byte("secret"), time.Hour)
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			if tt.cookie != nil {
 				r.AddCookie(tt.cookie(a))

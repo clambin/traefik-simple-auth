@@ -15,7 +15,7 @@ import (
 func newForwardAuthHandler(
 	domains domains.Domains,
 	oauthHandlers map[domains.Domain]oauth.Handler,
-	authenticator auth.Authenticator,
+	authenticator *auth.Authenticator,
 	states state.States,
 	metrics *Metrics,
 	logger *slog.Logger,

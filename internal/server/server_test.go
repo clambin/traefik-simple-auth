@@ -26,11 +26,7 @@ func TestServer_Panics(t *testing.T) {
 		Provider: "foobar",
 		Domains:  domains.Domains{"example.com"},
 	}
-	authenticator := auth.Authenticator{
-		CookieName: "_traefik-simple-auth",
-		Secret:     []byte("secret"),
-		Expiration: time.Hour,
-	}
+	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	assert.Panics(t, func() {
 		_ = New(context.Background(), authenticator, stateStore, cfg, nil, testutils.DiscardLogger)
@@ -226,7 +222,7 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
+func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (*auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
@@ -246,12 +242,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (auth.Auth
 		Domains:       domains.Domains{"example.com"},
 		Whitelist:     list,
 	}
-	authenticator := auth.Authenticator{
-		CookieName: "_auth",
-		Secret:     []byte("secret"),
-		Expiration: time.Hour,
-	}
-
+	authenticator := auth.New("_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	return authenticator, stateStore, oidcServer, New(ctx, authenticator, stateStore, cfg, metrics, testutils.DiscardLogger)
 }
@@ -268,12 +259,7 @@ func Benchmark_authHandler(b *testing.B) {
 		Whitelist: map[string]struct{}{"foo@example.com": {}},
 		Provider:  "google",
 	}
-	authenticator := auth.Authenticator{
-		CookieName: "_traefik-simple-auth",
-		Secret:     []byte("secret"),
-		Expiration: time.Hour,
-	}
-
+	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
 	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
@@ -350,11 +336,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 		Whitelist: whiteList,
 		Provider:  "google",
 	}
-	authenticator := auth.Authenticator{
-		CookieName: "_traefik-simple-auth",
-		Secret:     []byte("secret"),
-		Expiration: time.Hour,
-	}
+	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
 	states := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), authenticator, states, config, nil, testutils.DiscardLogger)
 	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")

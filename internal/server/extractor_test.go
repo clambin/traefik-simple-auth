@@ -11,11 +11,7 @@ import (
 )
 
 func TestSessionExtractor(t *testing.T) {
-	a := auth.Authenticator{
-		Secret:     []byte("secret"),
-		CookieName: "_auth",
-		Expiration: time.Hour,
-	}
+	a := auth.New("_auth", []byte("secret"), time.Hour)
 	extractor := authExtractor(a)
 	validCookie, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
 

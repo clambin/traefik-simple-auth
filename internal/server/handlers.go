@@ -64,7 +64,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 // LogoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
-func LogoutHandler(domains domains.Domains, authenticator auth.Authenticator, logger *slog.Logger) http.Handler {
+func LogoutHandler(domains domains.Domains, authenticator *auth.Authenticator, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*logging.Request)(r))
 
@@ -97,7 +97,7 @@ func AuthCallbackHandler(
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
 	states state.States,
-	authenticator auth.Authenticator,
+	authenticator *auth.Authenticator,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

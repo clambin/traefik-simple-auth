@@ -19,7 +19,7 @@ type userInfo struct {
 //
 // Note: even if the JWT token is invalid, we pass the request to the next layer.  This allows us to record HTTP metrics using the user
 // (from the JWT token). It's the responsibility of the application layer to check that the token is valid.
-func authExtractor(authenticator auth.Authenticator) func(next http.Handler) http.Handler {
+func authExtractor(authenticator *auth.Authenticator) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Validate the JWT token in the cookie. If the cookie is invalid, userInfo.err will indicate the reason.

@@ -18,7 +18,7 @@ func addServerRoutes(
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
 	states state.States,
-	authenticator auth.Authenticator,
+	authenticator *auth.Authenticator,
 	metrics *Metrics,
 	logger *slog.Logger,
 ) {

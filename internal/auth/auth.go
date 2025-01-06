@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -14,8 +13,16 @@ type Authenticator struct {
 	CookieName string
 	Secret     []byte
 	Expiration time.Duration
-	initParser sync.Once
 	parser     *jwt.Parser
+}
+
+func New(cookieName string, secret []byte, expiration time.Duration) *Authenticator {
+	return &Authenticator{
+		CookieName: cookieName,
+		Secret:     secret,
+		Expiration: expiration,
+		parser:     jwt.NewParser(jwt.WithValidMethods([]string{"HS256"})),
+	}
 }
 
 // CookieWithSignedToken returns a http.Cookie with a signed token.
@@ -64,11 +71,6 @@ func (a *Authenticator) Validate(r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	// Create a parser, if needed.
-	a.initParser.Do(func() {
-		a.parser = jwt.NewParser(jwt.WithValidMethods([]string{"HS256"}))
-	})
 
 	// Parse and validate the JWT. We only accept HMAC256, since that's what we created.
 	token, err := a.parser.Parse(cookie.Value, a.getKey)
