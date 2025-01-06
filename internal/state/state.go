@@ -51,11 +51,6 @@ func (s States) Validate(ctx context.Context, state string) (string, error) {
 	return s.cache.GetDel(ctx, s.key(state))
 }
 
-// Count returns the number of items in the cache. This is only implemented for in-memory cache.
-func (s States) Count(ctx context.Context) (int, error) {
-	return s.cache.Len(ctx)
-}
-
 func (s States) key(value string) string {
 	return s.namespace + "|state|" + value
 }

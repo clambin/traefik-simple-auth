@@ -61,10 +61,6 @@ func Test_cache(t *testing.T) {
 
 			c := newCache[string](cfg)
 
-			count, err := c.Len(ctx)
-			assert.NoError(t, err)
-			assert.Zero(t, count)
-
 			assert.NoError(t, c.Add(ctx, "key", "value", time.Hour))
 			value, err := c.GetDel(ctx, "key")
 			assert.NoError(t, err)

@@ -22,17 +22,9 @@ func TestStates(t *testing.T) {
 	_, err = hex.DecodeString(state)
 	assert.NoError(t, err)
 
-	count, err := c.Count(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, 1, count)
-
 	value, err := c.Validate(ctx, state)
 	require.NoError(t, err)
 	assert.Equal(t, "foo", value)
-
-	count, err = c.Count(ctx)
-	require.NoError(t, err)
-	assert.Zero(t, count)
 
 	_, err = c.Validate(ctx, state)
 	require.ErrorIs(t, err, ErrNotFound)

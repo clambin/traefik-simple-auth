@@ -1,9 +1,11 @@
 package server
 
 import (
+	"cmp"
 	"context"
 	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"net/http"
+	"strings"
 )
 
 type ctxAuthKey string
@@ -15,11 +17,11 @@ type userInfo struct {
 	email string
 }
 
-// authExtractor validates the JWT cookie from the request and adds the user's email & validation result to the request's context.
+// The authExtractor middleware validates the JWT cookie from the request and adds the user's email & validation result to the request's context.
 //
 // Note: even if the JWT token is invalid, we pass the request to the next layer.  This allows us to record HTTP metrics using the user
 // (from the JWT token). It's the responsibility of the application layer to check that the token is valid.
-func authExtractor(authenticator auth.Authenticator) func(next http.Handler) http.Handler {
+func authExtractor(authenticator *auth.Authenticator) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Validate the JWT token in the cookie. If the cookie is invalid, userInfo.err will indicate the reason.
@@ -39,4 +41,28 @@ func getUserInfo(r *http.Request) userInfo {
 		info.err = http.ErrNoCookie
 	}
 	return info
+}
+
+// The traefikForwardAuthParser middleware takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
+func traefikForwardAuthParser(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		restoreOriginalRequest(r)
+		next.ServeHTTP(w, r)
+	})
+}
+
+func restoreOriginalRequest(r *http.Request) {
+	hdr := r.Header
+	path := cmp.Or(hdr.Get("X-Forwarded-Uri"), "/")
+	var rawQuery string
+	if n := strings.Index(path, "?"); n > 0 {
+		rawQuery = path[n+1:]
+		path = path[:n]
+	}
+
+	r.Method = cmp.Or(hdr.Get("X-Forwarded-Method"), http.MethodGet)
+	r.URL.Scheme = cmp.Or(hdr.Get("X-Forwarded-Proto"), "https")
+	r.URL.Host = cmp.Or(hdr.Get("X-Forwarded-Host"), "")
+	r.URL.Path = path
+	r.URL.RawQuery = rawQuery
 }

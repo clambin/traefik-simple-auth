@@ -26,11 +26,7 @@ func TestServer_Panics(t *testing.T) {
 		Provider: "foobar",
 		Domains:  domains.Domains{"example.com"},
 	}
-	authenticator := auth.Authenticator{
-		CookieName: "_traefik-simple-auth",
-		Secret:     []byte("secret"),
-		Expiration: time.Hour,
-	}
+	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	assert.Panics(t, func() {
 		_ = New(context.Background(), authenticator, stateStore, cfg, nil, testutils.DiscardLogger)
@@ -41,7 +37,7 @@ func TestForwardAuthHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	authenticator, _, _, h := setupServer(ctx, t, nil)
+	authenticator, _, _, handler := setupServer(ctx, t, nil)
 	validSession, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 
 	type args struct {
@@ -98,7 +94,7 @@ func TestForwardAuthHandler(t *testing.T) {
 				r.AddCookie(tt.args.cookie)
 			}
 			w := httptest.NewRecorder()
-			h.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r)
 			require.Equal(t, tt.want, w.Code)
 
 			switch w.Code {
@@ -114,14 +110,14 @@ func TestForwardAuthHandler(t *testing.T) {
 func TestLogoutHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	authenticator, _, _, s := setupServer(ctx, t, nil)
+	authenticator, _, _, handler := setupServer(ctx, t, nil)
 
 	t.Run("logging out clears the browser's cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
 		c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 		r.AddCookie(c)
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
+		handler.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "You have been logged out\n", w.Body.String())
 		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
@@ -130,7 +126,7 @@ func TestLogoutHandler(t *testing.T) {
 	t.Run("must be logged in to log out", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
+		handler.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "Invalid cookie\n", w.Body.String())
 	})
@@ -170,7 +166,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	_, states, oidcServer, server := setupServer(ctx, t, nil)
+	_, states, oidcServer, handler := setupServer(ctx, t, nil)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -195,7 +191,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 
 			r, _ := http.NewRequest(http.MethodGet, OAUTHPath+"?"+v.Encode(), nil)
 			w := httptest.NewRecorder()
-			server.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r)
 			assert.Equal(t, tt.wantCode, w.Code)
 
 			if w.Code == http.StatusTemporaryRedirect {
@@ -226,7 +222,7 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
+func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (*auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
@@ -246,72 +242,9 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (auth.Auth
 		Domains:       domains.Domains{"example.com"},
 		Whitelist:     list,
 	}
-	authenticator := auth.Authenticator{
-		CookieName: "_auth",
-		Secret:     []byte("secret"),
-		Expiration: time.Hour,
-	}
-
+	authenticator := auth.New("_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	return authenticator, stateStore, oidcServer, New(ctx, authenticator, stateStore, cfg, metrics, testutils.DiscardLogger)
-}
-
-// Before:
-// Benchmark_authHandler-16                  927531              1194 ns/op             941 B/op         14 allocs/op
-// Current:
-// Benchmark_authHandler-16                  178560              6423 ns/op            3328 B/op         66 allocs/op
-//
-// Slower than before, as we're no longer caching the validated tokens. But fast enough, with less complexity.
-func Benchmark_authHandler(b *testing.B) {
-	config := configuration.Configuration{
-		Domains:   domains.Domains{"example.com"},
-		Whitelist: map[string]struct{}{"foo@example.com": {}},
-		Provider:  "google",
-	}
-	authenticator := auth.Authenticator{
-		CookieName: "_traefik-simple-auth",
-		Secret:     []byte("secret"),
-		Expiration: time.Hour,
-	}
-
-	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
-	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
-	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
-	r.AddCookie(c)
-	w := httptest.NewRecorder()
-
-	b.ResetTimer()
-	for range b.N {
-		s.ServeHTTP(w, r)
-		if w.Code != http.StatusOK {
-			b.Fatal("unexpected status code", w.Code)
-		}
-	}
-}
-
-// current:
-// Benchmark_getOriginalTarget-16           8318185               143.0 ns/op             0 B/op          0 allocs/op
-func Benchmark_getOriginalTarget(b *testing.B) {
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	r.Header = http.Header{
-		"X-Forwarded-Method": []string{http.MethodPost},
-		"X-Forwarded-Proto":  []string{"https"},
-		"X-Forwarded-Host":   []string{"example.com"},
-		"X-Forwarded-Uri":    []string{"/foo?arg1=bar"},
-	}
-
-	b.ResetTimer()
-	for range b.N {
-		restoreOriginalRequest(r)
-		if r.Method != http.MethodPost {
-			b.Fatal("unexpected method", r.Method)
-		}
-		// target.String() is too slow for this benchmark
-		if r.URL.Scheme != "https" || r.URL.Host != "example.com" || r.URL.Path != "/foo" || r.URL.RawQuery != "arg1=bar" {
-			b.Fatal("unexpected target", r.URL.String())
-		}
-	}
 }
 
 // Benchmark_header_get/header.Get-16              86203075                13.77 ns/op            0 B/op          0 allocs/op
@@ -342,7 +275,7 @@ func Benchmark_header_get(b *testing.B) {
 }
 
 // Current:
-// BenchmarkForwardAuthHandler-16            168307              6983 ns/op            4272 B/op         72 allocs/op
+// BenchmarkForwardAuthHandler-16    	  182762	      6250 ns/op	    3184 B/op	      63 allocs/op
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := whitelist.New([]string{"foo@example.com"})
 	config := configuration.Configuration{
@@ -350,20 +283,19 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 		Whitelist: whiteList,
 		Provider:  "google",
 	}
-	authenticator := auth.Authenticator{
-		CookieName: "_traefik-simple-auth",
-		Secret:     []byte("secret"),
-		Expiration: time.Hour,
-	}
+	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
 	states := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), authenticator, states, config, nil, testutils.DiscardLogger)
-	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 
+	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	req.AddCookie(c)
+
+	resp := httptest.NewRecorder()
+
+	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		resp := httptest.NewRecorder()
 		s.ServeHTTP(resp, req)
 		if resp.Code != http.StatusOK {
 			b.Fatal("unexpected status code", resp.Code)

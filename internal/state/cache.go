@@ -15,7 +15,6 @@ var ErrNotFound = errors.New("not found")
 type cache[T any] interface {
 	Add(context.Context, string, T, time.Duration) error
 	GetDel(context.Context, string) (T, error)
-	Len(context.Context) (int, error)
 	Ping(context.Context) error
 }
 
@@ -62,10 +61,6 @@ func (l localCache[T]) GetDel(_ context.Context, key string) (T, error) {
 	return val, err
 }
 
-func (l localCache[T]) Len(_ context.Context) (int, error) {
-	return l.values.Len(), nil
-}
-
 func (l localCache[T]) Ping(context.Context) error {
 	return nil
 }
@@ -106,10 +101,6 @@ func (m memcachedCache[T]) GetDel(_ context.Context, key string) (T, error) {
 		return value, err
 	}
 	return decode[T](item.Value)
-}
-
-func (m memcachedCache[T]) Len(_ context.Context) (int, error) {
-	return 0, nil
 }
 
 func (m memcachedCache[T]) Ping(_ context.Context) error {
@@ -157,10 +148,6 @@ func (r redisCache[T]) GetDel(ctx context.Context, key string) (T, error) {
 		return value, err
 	}
 	return decode[T]([]byte(val))
-}
-
-func (r redisCache[T]) Len(_ context.Context) (int, error) {
-	return 0, nil
 }
 
 func (r redisCache[T]) Ping(ctx context.Context) error {
