@@ -67,7 +67,7 @@ func TestForwardAuthHandler(t *testing.T) {
 				target: "https://example.org",
 				cookie: validSession,
 			},
-			want: http.StatusUnauthorized,
+			want: http.StatusForbidden,
 		},
 		{
 			name: "valid cookie",

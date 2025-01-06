@@ -26,7 +26,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		domain, ok := domains.Domain(r.URL)
 		if !ok {
 			logger.Warn("host doesn't match any configured domains", "host", r.URL.Host)
-			http.Error(w, "Not authorized", http.StatusUnauthorized)
+			http.Error(w, "Forbidden: "+string(domain)+" is not an allowed domain", http.StatusForbidden)
 			return
 		}
 

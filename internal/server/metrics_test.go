@@ -32,7 +32,7 @@ func TestServer_withMetrics(t *testing.T) {
 	r.AddCookie(c)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 
 	r = testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	c, _ = authenticator.CookieWithSignedToken("foo@example.com", "example.com")
@@ -47,7 +47,7 @@ func TestServer_withMetrics(t *testing.T) {
 http_requests_total{code="200",host="example.com",path="/",provider="foo",user="foo@example.com"} 1
 http_requests_total{code="307",host="example.com",path="/",provider="foo",user=""} 1
 http_requests_total{code="401",host="example.com",path="/_oauth",provider="foo",user=""} 1
-http_requests_total{code="401",host="example.org",path="/",provider="foo",user="foo@example.com"} 1
+http_requests_total{code="403",host="example.org",path="/",provider="foo",user="foo@example.com"} 1
 
 `), "http_requests_total"))
 
