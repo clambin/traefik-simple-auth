@@ -37,7 +37,7 @@ func TestForwardAuthHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	authenticator, _, _, h := setupServer(ctx, t, nil)
+	authenticator, _, _, handler := setupServer(ctx, t, nil)
 	validSession, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 
 	type args struct {
@@ -94,7 +94,7 @@ func TestForwardAuthHandler(t *testing.T) {
 				r.AddCookie(tt.args.cookie)
 			}
 			w := httptest.NewRecorder()
-			h.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r)
 			require.Equal(t, tt.want, w.Code)
 
 			switch w.Code {
@@ -110,14 +110,14 @@ func TestForwardAuthHandler(t *testing.T) {
 func TestLogoutHandler(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	authenticator, _, _, s := setupServer(ctx, t, nil)
+	authenticator, _, _, handler := setupServer(ctx, t, nil)
 
 	t.Run("logging out clears the browser's cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
 		c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 		r.AddCookie(c)
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
+		handler.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "You have been logged out\n", w.Body.String())
 		assert.Equal(t, "_auth=; Path=/; Domain=example.com; HttpOnly; Secure", w.Header().Get("Set-Cookie"))
@@ -126,7 +126,7 @@ func TestLogoutHandler(t *testing.T) {
 	t.Run("must be logged in to log out", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
+		handler.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 		assert.Equal(t, "Invalid cookie\n", w.Body.String())
 	})
@@ -166,7 +166,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	_, states, oidcServer, server := setupServer(ctx, t, nil)
+	_, states, oidcServer, handler := setupServer(ctx, t, nil)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -191,7 +191,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 
 			r, _ := http.NewRequest(http.MethodGet, OAUTHPath+"?"+v.Encode(), nil)
 			w := httptest.NewRecorder()
-			server.ServeHTTP(w, r)
+			handler.ServeHTTP(w, r)
 			assert.Equal(t, tt.wantCode, w.Code)
 
 			if w.Code == http.StatusTemporaryRedirect {
@@ -245,30 +245,6 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (*auth.Aut
 	authenticator := auth.New("_auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	return authenticator, stateStore, oidcServer, New(ctx, authenticator, stateStore, cfg, metrics, testutils.DiscardLogger)
-}
-
-// current:
-// Benchmark_getOriginalTarget-16           8318185               143.0 ns/op             0 B/op          0 allocs/op
-func Benchmark_getOriginalTarget(b *testing.B) {
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	r.Header = http.Header{
-		"X-Forwarded-Method": []string{http.MethodPost},
-		"X-Forwarded-Proto":  []string{"https"},
-		"X-Forwarded-Host":   []string{"example.com"},
-		"X-Forwarded-Uri":    []string{"/foo?arg1=bar"},
-	}
-
-	b.ResetTimer()
-	for range b.N {
-		restoreOriginalRequest(r)
-		if r.Method != http.MethodPost {
-			b.Fatal("unexpected method", r.Method)
-		}
-		// target.String() is too slow for this benchmark
-		if r.URL.Scheme != "https" || r.URL.Host != "example.com" || r.URL.Path != "/foo" || r.URL.RawQuery != "arg1=bar" {
-			b.Fatal("unexpected target", r.URL.String())
-		}
-	}
 }
 
 // Benchmark_header_get/header.Get-16              86203075                13.77 ns/op            0 B/op          0 allocs/op

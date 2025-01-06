@@ -13,7 +13,6 @@ import (
 
 func addServerRoutes(
 	mux *http.ServeMux,
-	forwardAuthHandler http.Handler,
 	domains domains.Domains,
 	whitelist whitelist.Whitelist,
 	oauthHandlers map[domains.Domain]oauth.Handler,
@@ -22,7 +21,18 @@ func addServerRoutes(
 	metrics *Metrics,
 	logger *slog.Logger,
 ) {
-	mux.Handle("/", forwardAuthHandler)
+	// sub-router for forwardAuth & logout handlers
+	mux2 := http.NewServeMux()
+	mux2.Handle("/", ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth")))
+	mux2.Handle(OAUTHPath+"/logout", LogoutHandler(domains, authenticator, logger.With("handler", "logout")))
+
+	mux.Handle("/", authExtractor(authenticator)( // validate the JWT cookie and store it in the request context
+		withMetrics(metrics)( // record request metrics
+			traefikForwardAuthParser( // restore the original request
+				mux2, // handle forwardAuth or logout
+			),
+		),
+	))
 	mux.Handle(OAUTHPath,
 		withMetrics(metrics)(
 			AuthCallbackHandler(
