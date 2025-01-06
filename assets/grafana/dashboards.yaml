@@ -648,33 +648,7 @@ spec:
               },
               "unit": "s"
             },
-            "overrides": [
-              {
-                "__systemRef": "hideSeriesFrom",
-                "matcher": {
-                  "id": "byNames",
-                  "options": {
-                    "mode": "exclude",
-                    "names": [
-                      "avg - github",
-                      "avg - google"
-                    ],
-                    "prefix": "All except:",
-                    "readOnly": true
-                  }
-                },
-                "properties": [
-                  {
-                    "id": "custom.hideFrom",
-                    "value": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": true
-                    }
-                  }
-                ]
-              }
-            ]
+            "overrides": []
           },
           "gridPos": {
             "h": 8,
@@ -761,14 +735,12 @@ spec:
               "displayMode": "table",
               "placement": "right",
               "showLegend": true,
-              "values": [
-                "percent"
-              ]
+              "values": []
             },
             "pieType": "pie",
             "reduceOptions": {
               "calcs": [
-                "lastNotNull"
+                "sum"
               ],
               "fields": "",
               "values": false
@@ -785,9 +757,9 @@ spec:
                 "type": "loki",
                 "uid": "JrYhCWHnk"
               },
-              "editorMode": "builder",
-              "expr": "count by(request_user_agent) (rate({app=\"traefik-simple-auth\"} |= `redirecting: ` | json request_user_agent=\"request.user_agent\" [$__auto]))",
-              "legendFormat": "{{request_user_agent}}",
+              "editorMode": "code",
+              "expr": "sum by (user_agent) (count_over_time({app=\"traefik-simple-auth\"} |= `redirecting: ` | json user_agent=\"request.user_agent\"[$__auto]))",
+              "legendFormat": "{{user_agent}}",
               "queryType": "range",
               "refId": "A"
             }
@@ -1073,6 +1045,6 @@ spec:
       "timezone": "browser",
       "title": "simple-auth",
       "uid": "dditm82jdgpvkb",
-      "version": 19,
+      "version": 25,
       "weekStart": ""
     }

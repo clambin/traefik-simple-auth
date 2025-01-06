@@ -21,7 +21,8 @@ func newForwardAuthHandler(
 	logger *slog.Logger,
 ) http.Handler {
 	mux := http.NewServeMux()
-	addForwardAuthRoutes(mux, domains, oauthHandlers, authenticator, states, logger)
+	mux.Handle("/", ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth")))
+	mux.Handle(OAUTHPath+"/logout", LogoutHandler(domains, authenticator, logger.With("handler", "logout")))
 	return authExtractor(authenticator)( // validate the JWT cookie and store it in the request context
 		withMetrics(metrics)( // record request metrics
 			traefikForwardAuthParser( // restore the original request
@@ -29,18 +30,6 @@ func newForwardAuthHandler(
 			),
 		),
 	)
-}
-
-func addForwardAuthRoutes(
-	mux *http.ServeMux,
-	domains domains.Domains,
-	oauthHandlers map[domains.Domain]oauth.Handler,
-	authenticator auth.Authenticator,
-	states state.States,
-	logger *slog.Logger,
-) {
-	mux.Handle("/", ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth")))
-	mux.Handle(OAUTHPath+"/logout", LogoutHandler(domains, authenticator, logger.With("handler", "logout")))
 }
 
 // traefikForwardAuthParser takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
