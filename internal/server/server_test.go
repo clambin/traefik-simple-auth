@@ -247,35 +247,6 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (*auth.Aut
 	return authenticator, stateStore, oidcServer, New(ctx, authenticator, stateStore, cfg, metrics, testutils.DiscardLogger)
 }
 
-// Before:
-// Benchmark_authHandler-16                  927531              1194 ns/op             941 B/op         14 allocs/op
-// Current:
-// Benchmark_authHandler-16                  178560              6423 ns/op            3328 B/op         66 allocs/op
-//
-// Slower than before, as we're no longer caching the validated tokens. But fast enough, with less complexity.
-func Benchmark_authHandler(b *testing.B) {
-	config := configuration.Configuration{
-		Domains:   domains.Domains{"example.com"},
-		Whitelist: map[string]struct{}{"foo@example.com": {}},
-		Provider:  "google",
-	}
-	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
-	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	s := New(context.Background(), authenticator, stateStore, config, nil, testutils.DiscardLogger)
-	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
-	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
-	r.AddCookie(c)
-	w := httptest.NewRecorder()
-
-	b.ResetTimer()
-	for range b.N {
-		s.ServeHTTP(w, r)
-		if w.Code != http.StatusOK {
-			b.Fatal("unexpected status code", w.Code)
-		}
-	}
-}
-
 // current:
 // Benchmark_getOriginalTarget-16           8318185               143.0 ns/op             0 B/op          0 allocs/op
 func Benchmark_getOriginalTarget(b *testing.B) {
@@ -328,7 +299,7 @@ func Benchmark_header_get(b *testing.B) {
 }
 
 // Current:
-// BenchmarkForwardAuthHandler-16            168307              6983 ns/op            4272 B/op         72 allocs/op
+// BenchmarkForwardAuthHandler-16    	  182762	      6250 ns/op	    3184 B/op	      63 allocs/op
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := whitelist.New([]string{"foo@example.com"})
 	config := configuration.Configuration{
@@ -339,13 +310,16 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
 	states := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), authenticator, states, config, nil, testutils.DiscardLogger)
-	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 
+	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	req.AddCookie(c)
+
+	resp := httptest.NewRecorder()
+
+	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		resp := httptest.NewRecorder()
 		s.ServeHTTP(resp, req)
 		if resp.Code != http.StatusOK {
 			b.Fatal("unexpected status code", resp.Code)
