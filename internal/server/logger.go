@@ -1,4 +1,4 @@
-package logging
+package server
 
 import (
 	"log/slog"
@@ -6,11 +6,11 @@ import (
 	"strings"
 )
 
-var _ slog.LogValuer = &Request{}
+var _ slog.LogValuer = &request{}
 
-type Request http.Request
+type request http.Request
 
-func (r *Request) LogValue() slog.Value {
+func (r *request) LogValue() slog.Value {
 	attrs := []slog.Attr{
 		slog.String("url", r.URL.String()),
 	}
@@ -24,11 +24,11 @@ func (r *Request) LogValue() slog.Value {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var _ slog.LogValuer = &RejectedRequest{}
+var _ slog.LogValuer = &rejectedRequest{}
 
-type RejectedRequest http.Request
+type rejectedRequest http.Request
 
-func (r *RejectedRequest) LogValue() slog.Value {
+func (r *rejectedRequest) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.String("method", r.Method),
 		slog.String("url", r.URL.String()),

@@ -5,7 +5,6 @@ import (
 	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/domains"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/server/logging"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"golang.org/x/oauth2"
@@ -20,7 +19,7 @@ import (
 // forwards the request to the originally requested destination.
 func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", (*logging.Request)(r))
+		logger.Debug("request received", "request", (*request)(r))
 
 		// check that the request is for one of the configured domains
 		domain, ok := domains.Domain(r.URL)
@@ -31,18 +30,18 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		}
 
 		// validate that the request has a valid JWT cookie
-		info := getUserInfo(r)
-		if info.err == nil {
-			logger.Debug("allowing valid request", "email", info.email)
-			w.Header().Set("X-Forwarded-User", info.email)
+		email, err := getAuthenticatedUserEmail(r)
+		if err == nil {
+			logger.Debug("allowing valid request", "email", email)
+			w.Header().Set("X-Forwarded-User", email)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
 		// no valid JWT cookie found. redirect to oauth handler.
 		logger.Warn("redirecting: no valid cookie found",
-			"request", (*logging.RejectedRequest)(r),
-			"err", info.err,
+			"request", (*rejectedRequest)(r),
+			"err", err,
 		)
 
 		// To protect against CSRF attacks, we generate a random state and associate it with the final destination of the request.
@@ -66,14 +65,14 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
 func LogoutHandler(domains domains.Domains, authenticator *auth.Authenticator, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", (*logging.Request)(r))
+		logger.Debug("request received", "request", (*request)(r))
 
-		// remove the cached cookie
-		info := getUserInfo(r)
-		if info.err != nil {
+		// validate that the request has a valid JWT cookie
+		email, err := getAuthenticatedUserEmail(r)
+		if err != nil {
 			logger.Warn("rejecting: no valid cookie found",
-				"request", (*logging.Request)(r),
-				"err", info.err,
+				"request", (*request)(r),
+				"err", err,
 			)
 			http.Error(w, "Invalid cookie", http.StatusUnauthorized)
 			return
@@ -83,7 +82,7 @@ func LogoutHandler(domains domains.Domains, authenticator *auth.Authenticator, l
 		domain, _ := domains.Domain(r.URL)
 		http.SetCookie(w, authenticator.Cookie("", 0, string(domain)))
 
-		logger.Info("user has been logged out", "user", info.email)
+		logger.Info("user has been logged out", "user", email)
 		http.Error(w, "You have been logged out", http.StatusUnauthorized)
 	})
 }
@@ -101,14 +100,14 @@ func AuthCallbackHandler(
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		logger.Debug("request received", "request", (*logging.Request)(r))
+		logger.Debug("request received", "request", (*request)(r))
 
 		// Look up the (random) state. This tells us that the request is valid and where to forward the request to.
 		encodedState := r.URL.Query().Get("state")
 		targetURL, err := states.Validate(r.Context(), encodedState)
 		if err != nil {
 			logger.Warn("rejecting login request: invalid state",
-				"request", (*logging.Request)(r),
+				"request", (*request)(r),
 				"err", err,
 			)
 			http.Error(w, "Invalid state", http.StatusUnauthorized)

@@ -33,14 +33,13 @@ func authExtractor(authenticator *auth.Authenticator) func(next http.Handler) ht
 	}
 }
 
-// getUserInfo returns the token from the request's context. If no valid token was found, err indicates the reason.
-func getUserInfo(r *http.Request) userInfo {
-	info, ok := r.Context().Value(authKey).(userInfo)
-	if !ok {
-		// this should never happen
-		info.err = http.ErrNoCookie
+// getAuthenticatedUserEmail returns the token from the request's context. If no valid token was found, err indicates the reason.
+func getAuthenticatedUserEmail(r *http.Request) (string, error) {
+	if info, ok := r.Context().Value(authKey).(userInfo); ok {
+		return info.email, info.err
 	}
-	return info
+	// this should never happen
+	return "", http.ErrNoCookie
 }
 
 // The traefikForwardAuthParser middleware takes a request passed by traefik's forwardAuth middleware and reconstructs the original request.
