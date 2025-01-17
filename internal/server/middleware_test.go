@@ -51,12 +51,12 @@ func TestSessionExtractor(t *testing.T) {
 
 			h := extractor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Helper()
-				info := getUserInfo(r)
-				tt.wantErr(t, info.err)
-				if info.err != nil {
+				email, err := getAuthenticatedUserEmail(r)
+				tt.wantErr(t, err)
+				if err != nil {
 					return
 				}
-				assert.Equal(t, tt.wantEmail, info.email)
+				assert.Equal(t, tt.wantEmail, email)
 			}))
 			h.ServeHTTP(w, r)
 		})
@@ -137,8 +137,8 @@ func Test_getOriginalTarget(t *testing.T) {
 }
 
 // current:
-// Benchmark_getOriginalTarget-16           8318185               143.0 ns/op             0 B/op          0 allocs/op
-func Benchmark_getOriginalTarget(b *testing.B) {
+// Benchmark_restoreOriginalRequest-16      8409932               141.6 ns/op             0 B/op          0 allocs/op
+func Benchmark_restoreOriginalRequest(b *testing.B) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header = http.Header{
 		"X-Forwarded-Method": []string{http.MethodPost},
