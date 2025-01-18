@@ -12,9 +12,9 @@ import (
 	"net/http"
 )
 
-// The ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
-// has a valid cookie (stored in a http.Cookie). If so, it returns http.StatusOK.   If not, it redirects the request
-// to the configured oauth provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
+// The ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
+// If the request has a valid cookie (stored in an http.Cookie), it returns http.StatusOK. If not, it redirects the request
+// to the OAuth2 provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
 // forwards the request to the originally requested destination.
 func ForwardAuthHandler(domain domain.Domain, oauthHandler oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

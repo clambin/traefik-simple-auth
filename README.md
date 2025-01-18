@@ -8,9 +8,9 @@
 
 A simple, up-to-date, re-implementation of traefik-forward-auth.
 
-## ⚠️ Breaking change in v0.10.0
-v0.10.0 uses JWT tokens as user authentication mechanism, which is not backward compatible with previous releases.
-Users are advised to log out before upgrading to minimize impact.
+## ⚠️ Breaking change in v0.11.0
+v0.11.0 once supports one domain.  The command line argument `-domains` is replaced by `-domain`. To support multiple domains,
+run one instance of traefik-simple-auth per domain.
 
 ## Contents
 
@@ -29,9 +29,11 @@ Users are advised to log out before upgrading to minimize impact.
 
 ## Goals
 
-traefik-simple-auth provides an implementation of Traefik's forwardAuth middleware. Most people typically use Thom Seddon's 
-[traefik-forward-auth](https://github.com/thomseddon/traefik-forward-auth), or one of its
-many forks. However, that implementation hasn't been updated in over 3 years. I wrote traefik-simple-auth with the following goals:
+traefik-simple-auth provides an implementation of Traefik's forwardAuth middleware. 
+The most well-known implementation of that middleware is Thom Seddon's[traefik-forward-auth](https://github.com/thomseddon/traefik-forward-auth), or one of its many forks. 
+However, that implementation hasn't been updated in over 3 years. 
+
+I wrote traefik-simple-auth with the following goals:
 
 * to learn about Traefik's forwardAuth middleware and the oauth approach that traefik-forward-auth uses;
 * have an implementation that uses recent versions of Go and underlying modules (incorporating any security fixes since the last version of traefik-forward-auth was released);
@@ -60,8 +62,8 @@ For traefik-simple-auth, a valid cookie:
 If an incoming request does not contain a valid session cookie, the user needs to be authenticated:
 
 * We forward the user to the auth provider's login page, so the user can be authenticated;
-* When the user has logged in, the provider sends the request back to traefik-simple-auth, specifically to the address `<auth-prefix>.<domain>/_oauth`;
-* This routes the request to traefik-simple-auth's authCallback handler;
+* When the user has logged in, the provider sends the request back to traefik-simple-auth, specifically to the address `<auth-prefix>.<domain>/_oauth`, 
+which routes the request to traefik-simple-auth's authCallback handler;
 * The handler uses the request to retrieve the authenticated user's email address and see if it is part of the `users` whitelist; 
 * If so, it creates a new session cookie, and redirects the user to the original destination, with the session cookie;
 * This results in the request being sent back to traefik-simple-auth, with the session cookie, so it passes and the request is sent to the final destination.
@@ -71,7 +73,7 @@ received from the auth provider, to protect against cross-site request forgery (
 
 * When the authCallback handler forwards the user to the auth provider, it passes a random 'state', that it associates with the original request (i.e. the final destination)
 * When the auth provider sends the request back to traefik-simple-auth, it passes the same 'state' with the request.
-* traefik-simple-auth only keeps the state (with the final destination) for 5 minutes, which should be ample time for the user to log in.
+* traefik-simple-auth only keeps the state (with the final destination) for 10 minutes, which should be ample time for the user to log in.
 
 ## Installation
 
@@ -150,7 +152,7 @@ spec:
 
 This forwards the request to traefik-simple-auth. 
 
-Note: unlike with traefik-forward-auth, the ingress for the authentication callback flow does not need the forwardAuth middleware
+Note: unlike with github/thomseddon/traefik-forward-auth, the ingress for the authentication callback flow does not need the forwardAuth middleware
 (i.e. it does not include a `traefik.ingress.kubernetes.io/router.middlewares: <traefik-simple-auth>` annotation).
 
 #### Authenticating access to an ingress
@@ -333,7 +335,7 @@ traefik-simple-auth exports the following metrics:
 
 ## Limitations
 
-- The oauth callback (i.e. `<auth-prefix>.<domain>/_oauth`) is currently restricted to the standard https port (i.e. 443).
+- The oauth callback (`https://<auth-prefix>.<domain>/_oauth`) is restricted to the standard https port (i.e. 443).
 
 ## Authors
 
