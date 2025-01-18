@@ -71,6 +71,9 @@ func (a *Authenticator) Validate(r *http.Request) (userId string, err error) {
 	if cookie, err = r.Cookie(a.CookieName); err != nil {
 		return "", err
 	}
+	if cookie.Value == "" {
+		return "", errors.New("cookie is empty")
+	}
 
 	// Parse and validate the JWT. We only accept HMAC256, since that's what we created.
 	token, err := a.parser.Parse(cookie.Value, a.getKey)
