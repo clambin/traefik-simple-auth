@@ -27,6 +27,15 @@ func TestAuthenticator_Validate(t *testing.T) {
 			want: "foo@example.com",
 		},
 		{
+			name: "empty cookie",
+			cookie: func(a *Authenticator) *http.Cookie {
+				c, _ := a.CookieWithSignedToken("", "example.com")
+				c.Value = ""
+				return c
+			},
+			err: assert.Error,
+		},
+		{
 			name: "missing cookie",
 			err:  assert.Error,
 		},

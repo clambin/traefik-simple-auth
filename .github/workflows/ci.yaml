@@ -1,11 +1,11 @@
 name: Test
-
 on:
   push:
     branches-ignore:
       - main
-      - pprof
-
+      - simplify
+permissions:
+  contents: read
 jobs:
   test:
     uses: clambin/workflows/.github/workflows/test.yaml@main

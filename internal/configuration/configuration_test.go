@@ -2,14 +2,16 @@ package configuration
 
 import (
 	"bytes"
-	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"flag"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 	"time"
 )
 
+/*
 func TestGetConfiguration(t *testing.T) {
 	type args struct {
 		domainsString string
@@ -103,7 +105,7 @@ func TestGetConfiguration(t *testing.T) {
 				Secret:        []byte("secret\n"),
 				Provider:      "google",
 				OIDCIssuerURL: "https://accounts.google.com",
-				Domains:       domains.Domains{".example.com"},
+				Domain:        domain.Domain(".example.com"),
 				Whitelist:     whitelist.Whitelist{"foo@example.com": struct{}{}},
 				ClientID:      "123456789",
 				ClientSecret:  "1234567890",
@@ -113,7 +115,7 @@ func TestGetConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			*domainsString = tt.args.domainsString
+			*domainString = tt.args.domainsString
 			*users = tt.args.users
 			*secret = tt.args.secret
 			*clientId = tt.args.clientID
@@ -124,6 +126,92 @@ func TestGetConfiguration(t *testing.T) {
 			if err == nil {
 				assert.Equal(t, tt.want, cfg)
 			}
+		})
+	}
+}
+*/
+
+func TestGetConfiguration(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want Configuration
+		err  assert.ErrorAssertionFunc
+	}{
+		{
+			name: "invalid whitelist",
+			args: []string{"test", "-users", "bar"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "invalid secret",
+			args: []string{"test", "-users", "foo@example.com", "-secret", "invalid-secret"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "invalid domain",
+			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "missing clientID",
+			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "missing clientSecret",
+			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-client-id", "12345678"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "valid",
+			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-client-id", "12345678", "-client-secret", "12345678"},
+			want: Configuration{
+				Whitelist:         whitelist.Whitelist{"foo@example.com": struct{}{}},
+				Addr:              ":8080",
+				PromAddr:          ":9090",
+				SessionCookieName: "_traefik_simple_auth",
+				Provider:          "google",
+				OIDCIssuerURL:     "https://accounts.google.com",
+				ClientID:          "12345678",
+				ClientSecret:      "12345678",
+				AuthPrefix:        "auth",
+				Secret:            []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
+				Domain:            ".example.com",
+				StateConfiguration: state.Configuration{
+					CacheType: "memory",
+					Namespace: "github.com/clambin/traefik-simple-auth/state",
+					MemcachedConfiguration: state.MemcachedConfiguration{
+						Addr: "",
+					},
+					RedisConfiguration: state.RedisConfiguration{
+						Addr:     "",
+						Username: "",
+						Password: "",
+						Database: 0,
+					},
+					TTL: 10 * time.Minute,
+				},
+				SessionExpiration: 30 * 24 * time.Hour,
+				Debug:             false,
+			},
+			err: assert.NoError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
+			os.Args = tt.args
+
+			cfg, err := GetConfiguration()
+			tt.err(t, err)
+			assert.Equal(t, tt.want, cfg)
 		})
 	}
 }

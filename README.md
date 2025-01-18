@@ -186,7 +186,7 @@ traefik-simple-auth \
   -addr :8080 \                     # service directs to port 8080
   -provider google \                # google is the auth provider
   -auth-prefix auth \               # prefix of the redirect URL configured in the auth provider
-  -domains example.com \            # domain of the redirect URL 
+  -domain .example.com \            # only access requests for this domain 
   -client-id <client-id> \          # auth provider Client ID
   -client-secret <client-secret> \  # auth provider Client Secret
   -secret c2VjcmV0Cg==              # secret used to protect the session cookie
@@ -224,8 +224,8 @@ Usage:
         OAuth2 Client Secret
   -debug
         Log debug messages
-  -domains string
-        Comma-separated list of domains to allow access
+  -domain string
+        Domain to allow access
   -expiry duration
         How long a session remains valid (default 720h0m0s)
   -prom string
@@ -279,12 +279,12 @@ Usage:
 
   Log debug messages
 
-- `domains`
+- `domain`
 
-  A comma-separated list of all allowed domains. If "example.com" is an allowed domain, then all subdomains (e.g. www.example.com) are allowed.
+  The domain to allow requests for: if "example.com" is an allowed domain, then all subdomains (e.g. www.example.com) are allowed.
 
-  Note: each domain needs a redirect URL configured in the auth provider, matching the domain, e.g. when using example.com and example.org,
-  both https://auth.example.com/_oauth and https://auth.example.org/_oauth need to be set up as redirect URLs and an ingress is needed for each of these URLs to route back to traefik-simple-auth.
+  Note: the domain needs a redirect URL configured in the Oauth2 provider, matching the domain, e.g. when using example.com,
+  https://auth.example.com/_oauth needs to be set up as redirect URLs and an ingress is needed to route back to traefik-simple-auth.
 
 - `expiry`
 
