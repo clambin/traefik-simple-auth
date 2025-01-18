@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/domain"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"io"
@@ -20,10 +20,10 @@ var (
 	promAddr           = flag.String("prom", ":9090", "The address to listen on for Prometheus scrape requests")
 	sessionCookieName  = flag.String("session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
 	sessionExpiration  = flag.Duration("expiry", 30*24*time.Hour, "How long a session remains valid")
-	authPrefix         = flag.String("auth-prefix", "auth", "prefix to construct the authRedirect URL from the domain")
-	domainsString      = flag.String("domains", "", "Comma-separated list of domains to allow access")
+	authPrefix         = flag.String("auth-prefix", "auth", "Prefix to construct the authRedirect URL from the domain")
+	domainString       = flag.String("domain", "", "Domain to allow access")
 	users              = flag.String("users", "", "Comma-separated list of usernames to allow access")
-	provider           = flag.String("provider", "google", "The OAuth2 provider")
+	provider           = flag.String("provider", "google", "OAuth2 provider")
 	oidcIssuerURL      = flag.String("provider-oidc-issuer", "https://accounts.google.com", "The OIDC Issuer URL to use (only used when provider is oidc")
 	clientId           = flag.String("client-id", "", "OAuth2 Client ID")
 	clientSecret       = flag.String("client-secret", "", "OAuth2 Client Secret")
@@ -47,7 +47,7 @@ type Configuration struct {
 	ClientSecret       string
 	AuthPrefix         string
 	Secret             []byte
-	Domains            domains.Domains
+	Domain             domain.Domain
 	StateConfiguration state.Configuration
 	SessionExpiration  time.Duration
 	Debug              bool
@@ -82,9 +82,9 @@ func GetConfiguration() (Configuration, error) {
 		},
 	}
 	var err error
-	cfg.Domains, err = domains.New(strings.Split(*domainsString, ","))
+	cfg.Domain, err = domain.New(*domainString)
 	if err != nil {
-		return Configuration{}, fmt.Errorf("invalid domain list: %w", err)
+		return Configuration{}, fmt.Errorf("invalid domain: %w", err)
 	}
 	cfg.Whitelist, err = whitelist.New(strings.Split(*users, ","))
 	if err != nil {

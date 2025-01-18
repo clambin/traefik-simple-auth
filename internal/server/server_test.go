@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/domain"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
@@ -24,7 +24,7 @@ import (
 func TestServer_Panics(t *testing.T) {
 	cfg := configuration.Configuration{
 		Provider: "foobar",
-		Domains:  domains.Domains{"example.com"},
+		Domain:   domain.Domain("example.com"),
 	}
 	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
@@ -239,7 +239,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (*auth.Aut
 		ClientID:      oidcServer.ClientID,
 		ClientSecret:  oidcServer.ClientSecret,
 		OIDCIssuerURL: oidcServer.Issuer(),
-		Domains:       domains.Domains{"example.com"},
+		Domain:        domain.Domain("example.com"),
 		Whitelist:     list,
 	}
 	authenticator := auth.New("_auth", []byte("secret"), time.Hour)
@@ -279,7 +279,7 @@ func Benchmark_header_get(b *testing.B) {
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := whitelist.New([]string{"foo@example.com"})
 	config := configuration.Configuration{
-		Domains:   domains.Domains{"example.com"},
+		Domain:    domain.Domain("example.com"),
 		Whitelist: whiteList,
 		Provider:  "google",
 	}

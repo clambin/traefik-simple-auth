@@ -3,29 +3,27 @@ package server
 import (
 	"errors"
 	"github.com/clambin/traefik-simple-auth/internal/auth"
-	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/domain"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
-	"net/url"
 )
 
 // The ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.  It checks that the request
 // has a valid cookie (stored in a http.Cookie). If so, it returns http.StatusOK.   If not, it redirects the request
 // to the configured oauth provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
 // forwards the request to the originally requested destination.
-func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domain]oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
+func ForwardAuthHandler(domain domain.Domain, oauthHandler oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*request)(r))
 
 		// check that the request is for one of the configured domains
-		domain, ok := domains.Domain(r.URL)
-		if !ok {
+		if !domain.Matches(r.URL) {
 			logger.Warn("host doesn't match any configured domains", "host", r.URL.Host)
-			http.Error(w, "Forbidden: "+string(domain)+" is not an allowed domain", http.StatusForbidden)
+			http.Error(w, "Forbidden: invalid domain", http.StatusForbidden)
 			return
 		}
 
@@ -54,7 +52,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 		}
 
 		// Redirect the user to the oauth2 provider to select the account to authenticate the request.
-		authCodeURL := oauthHandlers[domain].AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
+		authCodeURL := oauthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 		logger.Debug("redirecting", "authCodeURL", authCodeURL)
 		// TODO: possible clear the cookie, so it's removed from the user's browser?
 		http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
@@ -63,7 +61,7 @@ func ForwardAuthHandler(domains domains.Domains, oauthHandlers map[domains.Domai
 
 // LogoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
-func LogoutHandler(domains domains.Domains, authenticator *auth.Authenticator, logger *slog.Logger) http.Handler {
+func LogoutHandler(domain domain.Domain, authenticator *auth.Authenticator, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*request)(r))
 
@@ -79,7 +77,6 @@ func LogoutHandler(domains domains.Domains, authenticator *auth.Authenticator, l
 		}
 
 		// Write a blank cookie to override/clear the current valid one.
-		domain, _ := domains.Domain(r.URL)
 		http.SetCookie(w, authenticator.Cookie("", 0, string(domain)))
 
 		logger.Info("user has been logged out", "user", email)
@@ -92,9 +89,9 @@ func LogoutHandler(domains domains.Domains, authenticator *auth.Authenticator, l
 // checks that that user is on the whitelist, creates a JWT Cookie for the user and redirects the user to the
 // target that originally initiated the oauth flow.
 func AuthCallbackHandler(
-	domains domains.Domains,
+	domain domain.Domain,
 	whitelist whitelist.Whitelist,
-	oauthHandlers map[domains.Domain]oauth.Handler,
+	oauthHandler oauth.Handler,
 	states state.States,
 	authenticator *auth.Authenticator,
 	logger *slog.Logger,
@@ -116,11 +113,9 @@ func AuthCallbackHandler(
 
 		// We already validated the host vs. the domain during the redirect.
 		// Since the state matches, we can trust the request to be valid.
-		u, _ := url.Parse(targetURL)
-		domain, _ := domains.Domain(u)
 
 		// Use the "code" in the response to determine the user's email address.
-		user, err := oauthHandlers[domain].GetUserEmailAddress(r.Context(), r.FormValue("code"))
+		user, err := oauthHandler.GetUserEmailAddress(r.Context(), r.FormValue("code"))
 		if err != nil {
 			var oauthErr *oauth2.RetrieveError
 			if errors.As(err, &oauthErr) {

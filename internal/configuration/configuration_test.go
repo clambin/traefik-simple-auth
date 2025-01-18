@@ -2,7 +2,7 @@ package configuration
 
 import (
 	"bytes"
-	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/domain"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"github.com/stretchr/testify/assert"
@@ -103,7 +103,7 @@ func TestGetConfiguration(t *testing.T) {
 				Secret:        []byte("secret\n"),
 				Provider:      "google",
 				OIDCIssuerURL: "https://accounts.google.com",
-				Domains:       domains.Domains{".example.com"},
+				Domain:        domain.Domain(".example.com"),
 				Whitelist:     whitelist.Whitelist{"foo@example.com": struct{}{}},
 				ClientID:      "123456789",
 				ClientSecret:  "1234567890",
@@ -113,7 +113,7 @@ func TestGetConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			*domainsString = tt.args.domainsString
+			*domainString = tt.args.domainsString
 			*users = tt.args.users
 			*secret = tt.args.secret
 			*clientId = tt.args.clientID

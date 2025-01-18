@@ -3,7 +3,7 @@ package server
 import (
 	"github.com/clambin/go-common/httputils/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/auth"
-	"github.com/clambin/traefik-simple-auth/internal/domains"
+	"github.com/clambin/traefik-simple-auth/internal/domain"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/clambin/traefik-simple-auth/internal/whitelist"
@@ -13,9 +13,9 @@ import (
 
 func addServerRoutes(
 	mux *http.ServeMux,
-	domains domains.Domains,
+	domain domain.Domain,
 	whitelist whitelist.Whitelist,
-	oauthHandlers map[domains.Domain]oauth.Handler,
+	oauthHandler oauth.Handler,
 	states state.States,
 	authenticator *auth.Authenticator,
 	metrics *Metrics,
@@ -23,8 +23,8 @@ func addServerRoutes(
 ) {
 	// sub-router for forwardAuth & logout handlers
 	mux2 := http.NewServeMux()
-	mux2.Handle("/", ForwardAuthHandler(domains, oauthHandlers, states, logger.With("handler", "forwardAuth")))
-	mux2.Handle(OAUTHPath+"/logout", LogoutHandler(domains, authenticator, logger.With("handler", "logout")))
+	mux2.Handle("/", ForwardAuthHandler(domain, oauthHandler, states, logger.With("handler", "forwardAuth")))
+	mux2.Handle(OAUTHPath+"/logout", LogoutHandler(domain, authenticator, logger.With("handler", "logout")))
 
 	mux.Handle("/", authExtractor(authenticator)( // validate the JWT cookie and store it in the request context
 		withMetrics(metrics)( // record request metrics
@@ -36,9 +36,9 @@ func addServerRoutes(
 	mux.Handle(OAUTHPath,
 		withMetrics(metrics)(
 			AuthCallbackHandler(
-				domains,
+				domain,
 				whitelist,
-				oauthHandlers,
+				oauthHandler,
 				states,
 				authenticator,
 				logger.With("handler", "authCallback"),
