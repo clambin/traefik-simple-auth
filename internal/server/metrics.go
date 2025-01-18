@@ -13,7 +13,6 @@ var _ metrics.RequestMetrics = &Metrics{}
 type Metrics struct {
 	requestDuration *prometheus.HistogramVec
 	requestCounter  *prometheus.CounterVec
-	activeUsers     *prometheus.GaugeVec
 }
 
 func NewMetrics(namespace, subsystem string, constLabels prometheus.Labels, buckets ...float64) *Metrics {
@@ -40,15 +39,6 @@ func NewMetrics(namespace, subsystem string, constLabels prometheus.Labels, buck
 		},
 			[]string{"user", "host", "path", "code"},
 		),
-		activeUsers: prometheus.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace:   namespace,
-			Subsystem:   subsystem,
-			Name:        "active_users",
-			Help:        "number of active users",
-			ConstLabels: constLabels,
-		},
-			[]string{"user"},
-		),
 	}
 }
 
@@ -66,11 +56,9 @@ func (m Metrics) Measure(r *http.Request, statusCode int, duration time.Duration
 func (m Metrics) Describe(ch chan<- *prometheus.Desc) {
 	m.requestCounter.Describe(ch)
 	m.requestDuration.Describe(ch)
-	m.activeUsers.Describe(ch)
 }
 
 func (m Metrics) Collect(ch chan<- prometheus.Metric) {
 	m.requestCounter.Collect(ch)
 	m.requestDuration.Collect(ch)
-	m.activeUsers.Collect(ch)
 }
