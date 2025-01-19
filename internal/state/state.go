@@ -16,7 +16,8 @@ import (
 
 const stateSize = 32 // 256 bits
 
-// States maintains a (random) state that is associated with a value. traefik-simple-auth uses this to protect login requests against CSRF attacks.
+// States maintains a (random) state that is associated with a value.
+// traefik-simple-auth uses this to protect login requests against CSRF attacks.
 type States struct {
 	cache[string]
 	namespace string

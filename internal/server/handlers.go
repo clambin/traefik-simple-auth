@@ -137,7 +137,7 @@ func AuthCallbackHandler(
 		// validate that this is an authorized request
 		u, _ := url.Parse(targetURL)
 		if err = authorizer.Authorize(user, u); err != nil {
-			logger.Warn("rejecting login request: not a valid user", "user", user)
+			logger.Warn("rejecting login request: not a valid request", "user", user, "url", targetURL, "err", err)
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
