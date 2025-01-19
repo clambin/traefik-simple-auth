@@ -31,14 +31,6 @@ func New(ctx context.Context, authenticator *auth.Authenticator, states state.St
 
 	// create the server router
 	r := http.NewServeMux()
-	addServerRoutes(r,
-		config.Domain,
-		config.Whitelist,
-		oauthHandler,
-		states,
-		authenticator,
-		metrics,
-		logger,
-	)
+	addServerRoutes(r, authenticator, authorizer{Whitelist: config.Whitelist, Domain: config.Domain}, oauthHandler, states, metrics, logger)
 	return r
 }
