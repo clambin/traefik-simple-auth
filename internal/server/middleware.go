@@ -28,9 +28,14 @@ func authExtractor(authenticator *auth.Authenticator) func(next http.Handler) ht
 			var info userInfo
 			info.email, info.err = authenticator.Validate(r)
 			// Call the next handler with the auth info added to the request's context
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), authKey, info)))
+			next.ServeHTTP(w, withUserInfo(r, info))
 		})
 	}
+}
+
+// withUserInfo returns a request with the token info in the request's context
+func withUserInfo(r *http.Request, info userInfo) *http.Request {
+	return r.WithContext(context.WithValue(r.Context(), authKey, info))
 }
 
 // getAuthenticatedUserEmail returns the token from the request's context. If no valid token was found, err indicates the reason.
@@ -38,7 +43,6 @@ func getAuthenticatedUserEmail(r *http.Request) (string, error) {
 	if info, ok := r.Context().Value(authKey).(userInfo); ok {
 		return info.email, info.err
 	}
-	// this should never happen
 	return "", http.ErrNoCookie
 }
 

@@ -128,7 +128,7 @@ func TestLogoutHandler(t *testing.T) {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, r)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
-		assert.Equal(t, "Invalid cookie\n", w.Body.String())
+		assert.Equal(t, "Unauthorized\n", w.Body.String())
 	})
 }
 

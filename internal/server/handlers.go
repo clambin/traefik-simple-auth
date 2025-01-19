@@ -3,40 +3,44 @@ package server
 import (
 	"errors"
 	"github.com/clambin/traefik-simple-auth/internal/auth"
-	"github.com/clambin/traefik-simple-auth/internal/domain"
 	"github.com/clambin/traefik-simple-auth/internal/oauth"
 	"github.com/clambin/traefik-simple-auth/internal/state"
-	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
+	"net/url"
 )
 
-// The ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
+// ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
 // If the request has a valid cookie (stored in an http.Cookie), it returns http.StatusOK. If not, it redirects the request
 // to the OAuth2 provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
 // forwards the request to the originally requested destination.
-func ForwardAuthHandler(domain domain.Domain, oauthHandler oauth.Handler, states state.States, logger *slog.Logger) http.Handler {
+func ForwardAuthHandler(
+	authorizer authorizer,
+	oauthHandler oauth.Handler,
+	states state.States,
+	logger *slog.Logger,
+) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*request)(r))
 
-		// check that the request is for one of the configured domains
-		if !domain.Matches(r.URL) {
-			logger.Warn("host doesn't match any configured domains", "host", r.URL.Host)
-			http.Error(w, "Forbidden: invalid domain", http.StatusForbidden)
-			return
-		}
-
-		// validate that the request has a valid JWT cookie
-		email, err := getAuthenticatedUserEmail(r)
+		// verify that the request is authorized
+		user, err := authorizer.AuthorizeRequest(r)
 		if err == nil {
-			logger.Debug("allowing valid request", "email", email)
-			w.Header().Set("X-Forwarded-User", email)
+			logger.Debug("allowing valid request", "user", user)
+			w.Header().Set("X-Forwarded-User", user)
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		// no valid JWT cookie found. redirect to oauth handler.
+		// If the request is not for an allowed user & domain, we return HTTP Forbidden
+		if errors.Is(err, errInvalidUser) || errors.Is(err, errInvalidDomain) {
+			logger.Warn("request rejected", "user", user, "host", r.URL.Host, "err", err)
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+
+		// Otherwise, we redirect to the OAuth2 provider so the user can log in
 		logger.Warn("redirecting: no valid cookie found",
 			"request", (*rejectedRequest)(r),
 			"err", err,
@@ -61,26 +65,28 @@ func ForwardAuthHandler(domain domain.Domain, oauthHandler oauth.Handler, states
 
 // LogoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
-func LogoutHandler(domain domain.Domain, authenticator *auth.Authenticator, logger *slog.Logger) http.Handler {
+func LogoutHandler(authenticator *auth.Authenticator, authorizer authorizer, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*request)(r))
 
-		// validate that the request has a valid JWT cookie
-		email, err := getAuthenticatedUserEmail(r)
-		if err != nil {
-			logger.Warn("rejecting: no valid cookie found",
-				"request", (*request)(r),
-				"err", err,
-			)
-			http.Error(w, "Invalid cookie", http.StatusUnauthorized)
+		// verify that the request is authorized
+		user, err := authorizer.AuthorizeRequest(r)
+		if err == nil {
+			// Write a blank cookie to override/clear the current valid one.
+			http.SetCookie(w, authenticator.Cookie("", 0, string(authorizer.Domain)))
+			logger.Info("user has been logged out", "user", user)
+			http.Error(w, "You have been logged out", http.StatusUnauthorized)
 			return
 		}
 
-		// Write a blank cookie to override/clear the current valid one.
-		http.SetCookie(w, authenticator.Cookie("", 0, string(domain)))
+		// if the request is not for an allowed user & domain, we return HTTP Forbidden
+		statusCode := http.StatusUnauthorized
+		if errors.Is(err, errInvalidUser) || errors.Is(err, errInvalidDomain) {
+			statusCode = http.StatusForbidden
+		}
 
-		logger.Info("user has been logged out", "user", email)
-		http.Error(w, "You have been logged out", http.StatusUnauthorized)
+		logger.Warn("request rejected", "user", user, "host", r.URL.Host, "err", err)
+		http.Error(w, http.StatusText(statusCode), statusCode)
 	})
 }
 
@@ -89,11 +95,10 @@ func LogoutHandler(domain domain.Domain, authenticator *auth.Authenticator, logg
 // checks that that user is on the whitelist, creates a JWT Cookie for the user and redirects the user to the
 // target that originally initiated the oauth flow.
 func AuthCallbackHandler(
-	domain domain.Domain,
-	whitelist whitelist.Whitelist,
+	authenticator *auth.Authenticator,
+	authorizer authorizer,
 	oauthHandler oauth.Handler,
 	states state.States,
-	authenticator *auth.Authenticator,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -110,9 +115,6 @@ func AuthCallbackHandler(
 			http.Error(w, "Invalid state", http.StatusUnauthorized)
 			return
 		}
-
-		// We already validated the host vs. the domain during the redirect.
-		// Since the state matches, we can trust the request to be valid.
 
 		// Use the "code" in the response to determine the user's email address.
 		user, err := oauthHandler.GetUserEmailAddress(r.Context(), r.FormValue("code"))
@@ -132,16 +134,17 @@ func AuthCallbackHandler(
 		}
 		logger.Debug("user authenticated", "user", user)
 
-		// Check that the user's email address is in the whitelist.
-		if !whitelist.Match(user) {
+		// validate that this is an authorized request
+		u, _ := url.Parse(targetURL)
+		if err = authorizer.Authorize(user, u); err != nil {
 			logger.Warn("rejecting login request: not a valid user", "user", user)
-			http.Error(w, "Not authorized", http.StatusUnauthorized)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 
 		// Valid user. Create a cookie and redirect the user to the final destination.
 		logger.Info("user logged in", "user", user, "url", targetURL)
-		c, _ := authenticator.CookieWithSignedToken(user, string(domain))
+		c, _ := authenticator.CookieWithSignedToken(user, string(authorizer.Domain))
 		logger.Debug("sending cookie to user", "user", user, "cookie", c)
 		http.SetCookie(w, c)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
