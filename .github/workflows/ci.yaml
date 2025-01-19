@@ -3,7 +3,7 @@ on:
   push:
     branches-ignore:
       - main
-      - simplify
+      - refactor
 permissions:
   contents: read
 jobs:
