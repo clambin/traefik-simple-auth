@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"github.com/clambin/go-common/httputils/metrics"
 	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/domain"
@@ -207,7 +208,7 @@ func TestHealthHandler(t *testing.T) {
 
 	// up
 	states := state.New(state.Configuration{CacheType: "memory"})
-	s := HealthHandler(states, l)
+	s := healthHandler(states, l)
 	r, _ := http.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
@@ -215,14 +216,14 @@ func TestHealthHandler(t *testing.T) {
 
 	// down
 	states = state.New(state.Configuration{CacheType: "redis"})
-	s = HealthHandler(states, l)
+	s = healthHandler(states, l)
 	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func setupServer(ctx context.Context, t *testing.T, metrics *Metrics) (*auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
+func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetrics) (*auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)

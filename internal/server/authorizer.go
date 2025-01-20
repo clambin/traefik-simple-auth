@@ -19,11 +19,11 @@ type authorizer struct {
 }
 
 func (a authorizer) AuthorizeRequest(r *http.Request) (string, error) {
-	reqUser, err := getAuthenticatedUserEmail(r)
+	user, err := getUserInfo(r)
 	if err != nil {
 		return "", err
 	}
-	return reqUser, a.Authorize(reqUser, r.URL)
+	return user, a.Authorize(user, r.URL)
 }
 
 func (a authorizer) Authorize(user string, u *url.URL) error {

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func TestAuthenticator_Validate(t *testing.T) {
+func TestAuthenticator_Authenticate(t *testing.T) {
 	tests := []struct {
 		name   string
 		cookie func(*Authenticator) *http.Cookie
@@ -95,7 +95,7 @@ func TestAuthenticator_Validate(t *testing.T) {
 			if tt.cookie != nil {
 				r.AddCookie(tt.cookie(a))
 			}
-			email, err := a.Validate(r)
+			email, err := a.Authenticate(r)
 			tt.err(t, err)
 			if err == nil {
 				require.Equal(t, tt.want, email)

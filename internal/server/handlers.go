@@ -11,11 +11,11 @@ import (
 	"net/url"
 )
 
-// ForwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
+// forwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
 // If the request has a valid cookie (stored in an http.Cookie), it returns http.StatusOK. If not, it redirects the request
-// to the OAuth2 provider to log in.  After login, the request is routed to the AuthCallbackHandler, which
+// to the OAuth2 provider to log in.  After login, the request is routed to the oAuth2CallbackHandler, which
 // forwards the request to the originally requested destination.
-func ForwardAuthHandler(
+func forwardAuthHandler(
 	authorizer authorizer,
 	oauthHandler oauth.Handler,
 	states state.States,
@@ -63,9 +63,9 @@ func ForwardAuthHandler(
 	})
 }
 
-// LogoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
+// logoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
-func LogoutHandler(authenticator *auth.Authenticator, authorizer authorizer, logger *slog.Logger) http.Handler {
+func logoutHandler(authenticator *auth.Authenticator, authorizer authorizer, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*request)(r))
 
@@ -90,11 +90,11 @@ func LogoutHandler(authenticator *auth.Authenticator, authorizer authorizer, log
 	})
 }
 
-// The AuthCallbackHandler implements the oauth callback, initiated by ForwardAuthHandler's redirectToAuth method.
+// The oAuth2CallbackHandler implements the OAuth2 callback, initiated by forwardAuthHandler's redirectToAuth method.
 // It validates that the request came from us (by checking the state parameter), determines the user's email address,
 // checks that that user is on the whitelist, creates a JWT Cookie for the user and redirects the user to the
 // target that originally initiated the oauth flow.
-func AuthCallbackHandler(
+func oAuth2CallbackHandler(
 	authenticator *auth.Authenticator,
 	authorizer authorizer,
 	oauthHandler oauth.Handler,
@@ -151,12 +151,12 @@ func AuthCallbackHandler(
 	})
 }
 
-// The HealthHandler checks that traefik-simple-auth is able to service requests. This can be used in k8s (or other)
+// The healthHandler checks that traefik-simple-auth is able to service requests. This can be used in k8s (or other)
 // as a livenessProbe.
 //
 // There's only one dependency: the external cache. If that is not available, we return http.StatusServiceUnavailable.
 // Otherwise, we return http.StatusOK.
-func HealthHandler(states state.States, logger *slog.Logger) http.Handler {
+func healthHandler(states state.States, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := states.Ping(r.Context()); err != nil {
 			logger.Warn("cache ping failed", "err", err)

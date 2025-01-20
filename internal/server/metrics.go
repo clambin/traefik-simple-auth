@@ -8,18 +8,18 @@ import (
 	"time"
 )
 
-var _ metrics.RequestMetrics = &Metrics{}
+var _ metrics.RequestMetrics = &authMetrics{}
 
-type Metrics struct {
+type authMetrics struct {
 	requestDuration *prometheus.HistogramVec
 	requestCounter  *prometheus.CounterVec
 }
 
-func NewMetrics(namespace, subsystem string, constLabels prometheus.Labels, buckets ...float64) *Metrics {
+func NewMetrics(namespace, subsystem string, constLabels prometheus.Labels, buckets ...float64) metrics.RequestMetrics {
 	if len(buckets) == 0 {
 		buckets = []float64{0.0001, 0.0005, 0.001, .005, .01, .05, .1, .5, 1}
 	}
-	return &Metrics{
+	return &authMetrics{
 		requestCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace:   namespace,
 			Subsystem:   subsystem,
@@ -42,8 +42,8 @@ func NewMetrics(namespace, subsystem string, constLabels prometheus.Labels, buck
 	}
 }
 
-func (m Metrics) Measure(r *http.Request, statusCode int, duration time.Duration) {
-	email, _ := getAuthenticatedUserEmail(r)
+func (m authMetrics) Measure(r *http.Request, statusCode int, duration time.Duration) {
+	email, _ := getUserInfo(r)
 	code := strconv.Itoa(statusCode)
 	path := r.URL.Path
 	if path != OAUTHPath && path != OAUTHPath+"/logout" {
@@ -53,12 +53,12 @@ func (m Metrics) Measure(r *http.Request, statusCode int, duration time.Duration
 	m.requestDuration.WithLabelValues(email, r.URL.Host, path, code).Observe(duration.Seconds())
 }
 
-func (m Metrics) Describe(ch chan<- *prometheus.Desc) {
+func (m authMetrics) Describe(ch chan<- *prometheus.Desc) {
 	m.requestCounter.Describe(ch)
 	m.requestDuration.Describe(ch)
 }
 
-func (m Metrics) Collect(ch chan<- prometheus.Metric) {
+func (m authMetrics) Collect(ch chan<- prometheus.Metric) {
 	m.requestCounter.Collect(ch)
 	m.requestDuration.Collect(ch)
 }

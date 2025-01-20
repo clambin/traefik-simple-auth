@@ -12,7 +12,7 @@ import (
 
 func TestSessionExtractor(t *testing.T) {
 	a := auth.New("_auth", []byte("secret"), time.Hour)
-	extractor := authExtractor(a)
+	extractor := authenticate(a)
 	validCookie, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
 
 	tests := []struct {
@@ -51,7 +51,7 @@ func TestSessionExtractor(t *testing.T) {
 
 			h := extractor(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				t.Helper()
-				email, err := getAuthenticatedUserEmail(r)
+				email, err := getUserInfo(r)
 				tt.wantErr(t, err)
 				if err != nil {
 					return

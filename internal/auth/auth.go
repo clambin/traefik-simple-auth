@@ -63,9 +63,9 @@ func (a *Authenticator) Cookie(token string, expiration time.Duration, domain st
 	}
 }
 
-// Validate extracts the JWT from an http.Request, validates it and returns the User ID.
+// Authenticate extracts the JWT from an http.Request, validates it and returns the User ID.
 // It returns an error if the JWT is missing or invalid.
-func (a *Authenticator) Validate(r *http.Request) (userId string, err error) {
+func (a *Authenticator) Authenticate(r *http.Request) (userId string, err error) {
 	// retrieve the cookie
 	var cookie *http.Cookie
 	if cookie, err = r.Cookie(a.CookieName); err != nil {
