@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/cmd"
 	"github.com/prometheus/client_golang/prometheus"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,8 +13,6 @@ import (
 var version = "change-me"
 
 func main() {
-	go func() { _ = http.ListenAndServe(":6000", nil) }()
-
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 

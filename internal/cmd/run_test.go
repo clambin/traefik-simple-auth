@@ -36,6 +36,7 @@ func TestRun(t *testing.T) {
 		Debug:             true,
 		Addr:              ":8081",
 		PromAddr:          ":9091",
+		PProfAddr:         ":6000",
 		SessionCookieName: "_traefik_auth_session",
 		SessionExpiration: time.Hour,
 		Secret:            []byte("secret"),
@@ -96,7 +97,13 @@ func TestRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, code)
 
+	// validate the Prometheus server is running
 	resp, err := http.Get("http://localhost:9091/metrics")
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// validate the pprof server is running
+	resp, err = http.Get("http://localhost:6000/debug/pprof/heap")
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 

@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"log/slog"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 )
 
@@ -28,12 +29,19 @@ func run(ctx context.Context, cfg configuration.Configuration, r prometheus.Regi
 	logger.Info("traefik-simple-auth starting", "version", version)
 	defer logger.Info("traefik-simple-auth stopped")
 
+	// create the server
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	r.MustRegister(metrics)
 	authenticator := auth.New(cfg.SessionCookieName, cfg.Secret, cfg.SessionExpiration)
 	stateStore := state.New(cfg.StateConfiguration)
 	s := server.New(ctx, authenticator, stateStore, cfg, metrics, logger)
 
+	// if configured, start the pprof server.
+	if cfg.PProfAddr != "" {
+		go func() { _ = http.ListenAndServe(cfg.PProfAddr, nil) }()
+	}
+
+	// run the different HTTP servers
 	var g errgroup.Group
 	g.Go(func() error {
 		return httputils.RunServer(ctx, &http.Server{Addr: cfg.PromAddr, Handler: promhttp.Handler()})

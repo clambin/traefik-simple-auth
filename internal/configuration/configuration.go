@@ -18,6 +18,7 @@ type Configuration struct {
 	Whitelist          whitelist.Whitelist
 	Addr               string
 	PromAddr           string
+	PProfAddr          string
 	SessionCookieName  string
 	Provider           string
 	OIDCIssuerURL      string
@@ -41,6 +42,7 @@ func GetConfiguration() (Configuration, error) {
 	users := flag.String("users", "", "Comma-separated list of usernames to allow access")
 	flag.StringVar(&cfg.Addr, "addr", ":8080", "The address to listen on for HTTP requests")
 	flag.StringVar(&cfg.PromAddr, "prom", ":9090", "The address to listen on for Prometheus scrape requests")
+	flag.StringVar(&cfg.PProfAddr, "pprof", "", "The address to listen on for Go pprof profiler (default: no pprof profiler)")
 	flag.StringVar(&cfg.SessionCookieName, "session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
 	flag.StringVar(&cfg.Provider, "provider", "google", "OAuth2 provider")
 	flag.StringVar(&cfg.OIDCIssuerURL, "provider-oidc-issuer", "https://accounts.google.com", "The OIDC Issuer URL to use (only used when provider is oidc")
