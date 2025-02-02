@@ -11,9 +11,9 @@ import (
 )
 
 func TestSessionExtractor(t *testing.T) {
-	a := auth.New("_auth", []byte("secret"), time.Hour)
+	a := auth.New("_auth", "example.com", []byte("secret"), time.Hour)
 	extractor := authenticate(a)
-	validCookie, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
+	validCookie, _ := a.CookieWithSignedToken("foo@example.com")
 
 	tests := []struct {
 		name      string
@@ -28,7 +28,7 @@ func TestSessionExtractor(t *testing.T) {
 		},
 		{
 			name:    "bad cookie",
-			cookie:  a.Cookie("invalid-token", time.Hour, "example.com"),
+			cookie:  a.Cookie("invalid-token", time.Hour),
 			wantErr: require.Error,
 		},
 		{

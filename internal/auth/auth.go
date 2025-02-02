@@ -11,14 +11,16 @@ import (
 // Authenticator creates and validate JWT tokens inside a http.Cookie.
 type Authenticator struct {
 	CookieName string
+	Domain     string
 	Secret     []byte
 	Expiration time.Duration
 	parser     *jwt.Parser
 }
 
-func New(cookieName string, secret []byte, expiration time.Duration) *Authenticator {
+func New(cookieName string, domain string, secret []byte, expiration time.Duration) *Authenticator {
 	return &Authenticator{
 		CookieName: cookieName,
+		Domain:     domain,
 		Secret:     secret,
 		Expiration: expiration,
 		parser:     jwt.NewParser(jwt.WithValidMethods([]string{"HS256"})),
@@ -26,10 +28,10 @@ func New(cookieName string, secret []byte, expiration time.Duration) *Authentica
 }
 
 // CookieWithSignedToken returns a http.Cookie with a signed token.
-func (a *Authenticator) CookieWithSignedToken(userID string, domain string) (c *http.Cookie, err error) {
+func (a *Authenticator) CookieWithSignedToken(userID string) (c *http.Cookie, err error) {
 	var token string
 	if token, err = a.makeSignedToken(userID); err == nil {
-		c = a.Cookie(token, a.Expiration, domain)
+		c = a.Cookie(token, a.Expiration)
 	}
 	return c, err
 }
@@ -50,13 +52,13 @@ func (a *Authenticator) makeSignedToken(userID string) (string, error) {
 }
 
 // Cookie returns a new http.Cookie for the provided token, expiration time and domain.
-func (a *Authenticator) Cookie(token string, expiration time.Duration, domain string) *http.Cookie {
+func (a *Authenticator) Cookie(token string, expiration time.Duration) *http.Cookie {
 	return &http.Cookie{
 		Name:     a.CookieName,
 		Value:    token,
 		MaxAge:   int(expiration.Seconds()),
 		Path:     "/",
-		Domain:   domain,
+		Domain:   a.Domain,
 		HttpOnly: true,
 		Secure:   true,
 		//SameSite: http.SameSiteStrictMode,

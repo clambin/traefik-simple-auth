@@ -65,7 +65,11 @@ func forwardAuthHandler(
 
 // logoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
-func logoutHandler(authenticator *auth.Authenticator, authorizer authorizer, logger *slog.Logger) http.Handler {
+func logoutHandler(
+	authenticator *auth.Authenticator,
+	authorizer authorizer,
+	logger *slog.Logger,
+) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*request)(r))
 
@@ -73,7 +77,7 @@ func logoutHandler(authenticator *auth.Authenticator, authorizer authorizer, log
 		user, err := authorizer.AuthorizeRequest(r)
 		if err == nil {
 			// Write a blank cookie to override/clear the current valid one.
-			http.SetCookie(w, authenticator.Cookie("", 0, string(authorizer.Domain)))
+			http.SetCookie(w, authenticator.Cookie("", 0))
 			logger.Info("user has been logged out", "user", user)
 			http.Error(w, "You have been logged out", http.StatusUnauthorized)
 			return
@@ -144,7 +148,7 @@ func oAuth2CallbackHandler(
 
 		// Valid user. Create a cookie and redirect the user to the final destination.
 		logger.Info("user logged in", "user", user, "url", targetURL)
-		c, _ := authenticator.CookieWithSignedToken(user, string(authorizer.Domain))
+		c, _ := authenticator.CookieWithSignedToken(user)
 		logger.Debug("sending cookie to user", "user", user, "cookie", c)
 		http.SetCookie(w, c)
 		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)

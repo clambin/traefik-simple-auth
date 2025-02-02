@@ -20,7 +20,7 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 		{
 			name: "valid cookie",
 			cookie: func(a *Authenticator) *http.Cookie {
-				c, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
+				c, _ := a.CookieWithSignedToken("foo@example.com")
 				return c
 			},
 			err:  assert.NoError,
@@ -29,7 +29,7 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 		{
 			name: "empty cookie",
 			cookie: func(a *Authenticator) *http.Cookie {
-				c, _ := a.CookieWithSignedToken("", "example.com")
+				c, _ := a.CookieWithSignedToken("")
 				c.Value = ""
 				return c
 			},
@@ -43,7 +43,7 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 			name: "expired cookie",
 			cookie: func(a *Authenticator) *http.Cookie {
 				a.Expiration = -time.Hour
-				c, _ := a.CookieWithSignedToken("foo@example.com", "example.com")
+				c, _ := a.CookieWithSignedToken("foo@example.com")
 				return c
 			},
 			err: assert.Error,
@@ -51,8 +51,8 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 		{
 			name: "invalid HMAC",
 			cookie: func(a *Authenticator) *http.Cookie {
-				b := New(a.CookieName, []byte("wrong-secret"), a.Expiration)
-				c, _ := b.CookieWithSignedToken("foo@example.com", "example.com")
+				b := New(a.CookieName, "example.com", []byte("wrong-secret"), a.Expiration)
+				c, _ := b.CookieWithSignedToken("foo@example.com")
 				return c
 			},
 			err: assert.Error,
@@ -68,7 +68,7 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 				}
 				token := jwt.NewWithClaims(jwt.SigningMethodNone, claims)
 				unsignedToken, _ := token.SignedString(jwt.UnsafeAllowNoneSignatureType)
-				return a.Cookie(unsignedToken, a.Expiration, "example.com")
+				return a.Cookie(unsignedToken, a.Expiration)
 			},
 			err: assert.Error,
 		},
@@ -82,7 +82,7 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 				}
 				token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 				signedToken, _ := token.SignedString(a.Secret)
-				return a.Cookie(signedToken, a.Expiration, "example.com")
+				return a.Cookie(signedToken, a.Expiration)
 			},
 			err: assert.Error,
 		},
@@ -90,7 +90,7 @@ func TestAuthenticator_Authenticate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := New("_auth", []byte("secret"), time.Hour)
+			a := New("_auth", "example.com", []byte("secret"), time.Hour)
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			if tt.cookie != nil {
 				r.AddCookie(tt.cookie(a))

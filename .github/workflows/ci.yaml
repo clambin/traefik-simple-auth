@@ -3,7 +3,7 @@ on:
   push:
     branches-ignore:
       - main
-      - pprof
+      - refactor
 permissions:
   contents: read
 jobs:

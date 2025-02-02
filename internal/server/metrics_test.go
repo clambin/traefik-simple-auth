@@ -31,7 +31,7 @@ func TestServer_withMetrics(t *testing.T) {
 
 	// invalid domain: forbidden
 	r = testutils.ForwardAuthRequest(http.MethodGet, "https://example.org/foo")
-	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.org")
+	c, _ := authenticator.CookieWithSignedToken("foo@example.com")
 	r.AddCookie(c)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
@@ -39,7 +39,7 @@ func TestServer_withMetrics(t *testing.T) {
 
 	// invalid user: forbidden
 	r = testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
-	c, _ = authenticator.CookieWithSignedToken("bar@example.com", "example.com")
+	c, _ = authenticator.CookieWithSignedToken("bar@example.com")
 	r.AddCookie(c)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
@@ -47,7 +47,7 @@ func TestServer_withMetrics(t *testing.T) {
 
 	// valid user & domain, valid token: ok
 	r = testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
-	c, _ = authenticator.CookieWithSignedToken("foo@example.com", "example.com")
+	c, _ = authenticator.CookieWithSignedToken("foo@example.com")
 	r.AddCookie(c)
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)

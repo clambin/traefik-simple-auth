@@ -27,7 +27,7 @@ func TestServer_Panics(t *testing.T) {
 		Provider: "foobar",
 		Domain:   domain.Domain("example.com"),
 	}
-	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
+	authenticator := auth.New("_traefik-simple-auth", "example.com", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	assert.Panics(t, func() {
 		_ = New(context.Background(), authenticator, stateStore, cfg, nil, testutils.DiscardLogger)
@@ -39,7 +39,7 @@ func TestForwardAuthHandler(t *testing.T) {
 	t.Cleanup(cancel)
 
 	authenticator, _, _, handler := setupServer(ctx, t, nil)
-	validSession, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
+	validSession, _ := authenticator.CookieWithSignedToken("foo@example.com")
 
 	type args struct {
 		target string
@@ -115,7 +115,7 @@ func TestLogoutHandler(t *testing.T) {
 
 	t.Run("logging out clears the browser's cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
-		c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
+		c, _ := authenticator.CookieWithSignedToken("foo@example.com")
 		r.AddCookie(c)
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, r)
@@ -243,7 +243,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 		Domain:        domain.Domain("example.com"),
 		Whitelist:     list,
 	}
-	authenticator := auth.New("_auth", []byte("secret"), time.Hour)
+	authenticator := auth.New("_auth", "example.com", []byte("secret"), time.Hour)
 	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	return authenticator, stateStore, oidcServer, New(ctx, authenticator, stateStore, cfg, metrics, testutils.DiscardLogger)
 }
@@ -284,11 +284,11 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 		Whitelist: whiteList,
 		Provider:  "google",
 	}
-	authenticator := auth.New("_traefik-simple-auth", []byte("secret"), time.Hour)
+	authenticator := auth.New("_traefik-simple-auth", "example.com", []byte("secret"), time.Hour)
 	states := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	s := New(context.Background(), authenticator, states, config, nil, testutils.DiscardLogger)
 
-	c, _ := authenticator.CookieWithSignedToken("foo@example.com", "example.com")
+	c, _ := authenticator.CookieWithSignedToken("foo@example.com")
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	req.AddCookie(c)
 
