@@ -1,7 +1,8 @@
-package state
+package oauth2
 
 import (
 	"context"
+	"encoding/hex"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -9,6 +10,29 @@ import (
 	"testing"
 	"time"
 )
+
+func TestCSFRStateStore(t *testing.T) {
+	c := NewCSFRStateStore(Configuration{
+		CacheType: "memory",
+		Namespace: "github.com/clambin/traefik-simple-auth/states",
+		TTL:       500 * time.Millisecond,
+	})
+
+	ctx := context.Background()
+	state, err := c.Add(ctx, "foo")
+	require.NoError(t, err)
+	_, err = hex.DecodeString(state)
+	assert.NoError(t, err)
+
+	value, err := c.Validate(ctx, state)
+	require.NoError(t, err)
+	assert.Equal(t, "foo", value)
+
+	_, err = c.Validate(ctx, state)
+	require.ErrorIs(t, err, ErrNotFound)
+
+	assert.NoError(t, c.Ping(ctx))
+}
 
 func Test_cache(t *testing.T) {
 	tests := []struct {
@@ -37,8 +61,6 @@ func Test_cache(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			cfg := Configuration{CacheType: tt.cacheType}
 			if tt.panics {
 				assert.Panics(t, func() { newCache[string](cfg) })

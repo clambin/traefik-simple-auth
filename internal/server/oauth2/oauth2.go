@@ -1,8 +1,11 @@
-// Package oauth implements handlers for traefik-simple-auth to authenticate a user.  It implements the oauth2 handshake,
+// Package oauth2 implements handlers for traefik-simple-auth to authenticate a user. It implements the oauth2 handshake,
 // as well as a means to get the email address of the authenticated users.
 //
 // Currently, Google and GitHub are supported as oauth2 providers.
-package oauth
+//
+// Additionally, it implements a means of protecting the OAuth2 flow against CSRF attacks by associating each login request
+// with a randomly generated state.
+package oauth2
 
 import (
 	"context"

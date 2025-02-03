@@ -1,13 +1,11 @@
-package configuration
+package server
 
 import (
 	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/domain"
-	"github.com/clambin/traefik-simple-auth/internal/state"
-	"github.com/clambin/traefik-simple-auth/internal/whitelist"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"io"
 	"log/slog"
 	"strings"
@@ -15,7 +13,7 @@ import (
 )
 
 type Configuration struct {
-	Whitelist          whitelist.Whitelist
+	Whitelist          Whitelist
 	Addr               string
 	PromAddr           string
 	PProfAddr          string
@@ -26,15 +24,15 @@ type Configuration struct {
 	ClientSecret       string
 	AuthPrefix         string
 	Secret             []byte
-	Domain             domain.Domain
-	StateConfiguration state.Configuration
+	Domain             Domain
+	StateConfiguration oauth2.Configuration
 	SessionExpiration  time.Duration
 	Debug              bool
 }
 
 func GetConfiguration() (Configuration, error) {
 	cfg := Configuration{
-		StateConfiguration: state.Configuration{
+		StateConfiguration: oauth2.Configuration{
 			Namespace: "github.com/clambin/traefik-simple-auth/state",
 			TTL:       10 * time.Minute,
 		},
@@ -62,13 +60,13 @@ func GetConfiguration() (Configuration, error) {
 	flag.Parse()
 
 	var err error
-	if cfg.Whitelist, err = whitelist.New(strings.Split(*users, ",")); err != nil {
+	if cfg.Whitelist, err = NewWhitelist(strings.Split(*users, ",")); err != nil {
 		return Configuration{}, fmt.Errorf("invalid whitelist: %w", err)
 	}
 	if cfg.Secret, err = base64.StdEncoding.DecodeString(*secret); err != nil {
 		return Configuration{}, fmt.Errorf("failed to decode secret: %w", err)
 	}
-	if cfg.Domain, err = domain.New(*domainString); err != nil {
+	if cfg.Domain, err = NewDomain(*domainString); err != nil {
 		return Configuration{}, fmt.Errorf("invalid domain: %w", err)
 	}
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {

@@ -1,7 +1,6 @@
 package server
 
 import (
-	"github.com/clambin/traefik-simple-auth/internal/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -11,7 +10,7 @@ import (
 )
 
 func TestSessionExtractor(t *testing.T) {
-	a := auth.New("_auth", "example.com", []byte("secret"), time.Hour)
+	a := newAuthenticator("_auth", "example.com", []byte("secret"), time.Hour)
 	extractor := authenticate(a)
 	validCookie, _ := a.CookieWithSignedToken("foo@example.com")
 

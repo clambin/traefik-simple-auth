@@ -3,11 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/domain"
-	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +30,7 @@ func TestRun(t *testing.T) {
 		return oidcServer.Shutdown()
 	})
 
-	cfg := configuration.Configuration{
+	cfg := server.Configuration{
 		Debug:             true,
 		Addr:              ":8081",
 		PromAddr:          ":9091",
@@ -42,12 +40,12 @@ func TestRun(t *testing.T) {
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
-		Domain:            domain.Domain(".example.com"),
-		Whitelist:         whitelist.Whitelist{"jane.doe@example.com": struct{}{}},
+		Domain:            server.Domain(".example.com"),
+		Whitelist:         server.Whitelist{"jane.doe@example.com": struct{}{}},
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
-		StateConfiguration: state.Configuration{
+		StateConfiguration: oauth2.Configuration{
 			TTL:       time.Hour,
 			CacheType: "memory",
 		},
@@ -122,7 +120,7 @@ func TestRun_Fail(t *testing.T) {
 		<-ctx.Done()
 		require.NoError(t, oidcServer.Shutdown())
 	}()
-	cfg := configuration.Configuration{
+	cfg := server.Configuration{
 		Debug:             true,
 		Addr:              ":-1",
 		PromAddr:          ":-1",
@@ -130,12 +128,12 @@ func TestRun_Fail(t *testing.T) {
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
-		Domain:            domain.Domain(".example.com"),
-		Whitelist:         whitelist.Whitelist{"jane.doe@example.com": struct{}{}},
+		Domain:            server.Domain(".example.com"),
+		Whitelist:         server.Whitelist{"jane.doe@example.com": struct{}{}},
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
-		StateConfiguration: state.Configuration{
+		StateConfiguration: oauth2.Configuration{
 			TTL:       time.Hour,
 			CacheType: "memory",
 		},

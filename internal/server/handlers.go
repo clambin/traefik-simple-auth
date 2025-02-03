@@ -2,13 +2,12 @@ package server
 
 import (
 	"errors"
-	"github.com/clambin/traefik-simple-auth/internal/auth"
-	"github.com/clambin/traefik-simple-auth/internal/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/state"
+	oidc "github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // forwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
@@ -17,8 +16,8 @@ import (
 // forwards the request to the originally requested destination.
 func forwardAuthHandler(
 	authorizer authorizer,
-	oauthHandler oauth.Handler,
-	states state.States,
+	oauthHandler oidc.Handler,
+	states oidc.CSRFStateStore,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +65,7 @@ func forwardAuthHandler(
 // logoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
 func logoutHandler(
-	authenticator *auth.Authenticator,
+	authenticator *authenticator,
 	authorizer authorizer,
 	logger *slog.Logger,
 ) http.Handler {
@@ -99,10 +98,10 @@ func logoutHandler(
 // checks that that user is on the whitelist, creates a JWT Cookie for the user and redirects the user to the
 // target that originally initiated the oauth flow.
 func oAuth2CallbackHandler(
-	authenticator *auth.Authenticator,
+	authenticator *authenticator,
 	authorizer authorizer,
-	oauthHandler oauth.Handler,
-	states state.States,
+	oauthHandler oidc.Handler,
+	states oidc.CSRFStateStore,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +159,7 @@ func oAuth2CallbackHandler(
 //
 // There's only one dependency: the external cache. If that is not available, we return http.StatusServiceUnavailable.
 // Otherwise, we return http.StatusOK.
-func healthHandler(states state.States, logger *slog.Logger) http.Handler {
+func healthHandler(states oidc.CSRFStateStore, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := states.Ping(r.Context()); err != nil {
 			logger.Warn("cache ping failed", "err", err)
@@ -169,4 +168,34 @@ func healthHandler(states state.States, logger *slog.Logger) http.Handler {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var _ slog.LogValuer = &request{}
+
+type request http.Request
+
+func (r *request) LogValue() slog.Value {
+	attrs := []slog.Attr{
+		slog.String("url", r.URL.String()),
+	}
+	for k := range r.Header {
+		if strings.HasPrefix(k, "X-Forwarded-") {
+			attrs = append(attrs, slog.String(k, r.Header.Get(k)))
+		}
+	}
+	return slog.GroupValue(attrs...)
+}
+
+var _ slog.LogValuer = &rejectedRequest{}
+
+type rejectedRequest http.Request
+
+func (r *rejectedRequest) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("method", r.Method),
+		slog.String("url", r.URL.String()),
+		slog.String("user_agent", ((*http.Request)(r)).UserAgent()),
+	)
 }

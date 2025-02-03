@@ -4,21 +4,24 @@ import (
 	"context"
 	"github.com/clambin/go-common/httputils/metrics"
 	"github.com/clambin/go-common/httputils/middleware"
-	"github.com/clambin/traefik-simple-auth/internal/auth"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"log/slog"
 	"net/http"
 )
 
 const OAUTHPath = "/_oauth"
 
-// New returns a new http.Handler that handles traefik's forward-auth requests, and the associated oauth flow.
+type Server struct {
+	http.Handler
+	*authenticator
+	oauth2.CSRFStateStore
+}
+
+// New returns a new Server that handles traefik's forward-auth requests, and the associated oauth2 flow.
 // It panics if config.Provider is invalid.
-func New(ctx context.Context, authenticator *auth.Authenticator, states state.States, config configuration.Configuration, metrics metrics.RequestMetrics, logger *slog.Logger) http.Handler {
+func New(ctx context.Context, config Configuration, metrics metrics.RequestMetrics, logger *slog.Logger) Server {
 	logger = logger.With("provider", config.Provider)
-	oauthHandler, err := oauth.NewHandler(
+	oauthHandler, err := oauth2.NewHandler(
 		ctx,
 		config.Provider,
 		config.OIDCIssuerURL,
@@ -31,26 +34,29 @@ func New(ctx context.Context, authenticator *auth.Authenticator, states state.St
 		panic("invalid provider: " + config.Provider + ", err: " + err.Error())
 	}
 
+	auth := newAuthenticator(config.SessionCookieName, string(config.Domain), config.Secret, config.SessionExpiration)
+	states := oauth2.NewCSFRStateStore(config.StateConfiguration)
+
 	// create the server router
 	r := http.NewServeMux()
 	addServerRoutes(
 		r,
-		authenticator,
+		auth,
 		authorizer{Whitelist: config.Whitelist, Domain: config.Domain},
 		oauthHandler,
 		states,
 		metrics,
 		logger,
 	)
-	return r
+	return Server{Handler: r, authenticator: auth, CSRFStateStore: states}
 }
 
 func addServerRoutes(
 	mux *http.ServeMux,
-	authenticator *auth.Authenticator,
+	authenticator *authenticator,
 	authorizer authorizer,
-	oauthHandler oauth.Handler,
-	states state.States,
+	oauthHandler oauth2.Handler,
+	states oauth2.CSRFStateStore,
 	metrics metrics.RequestMetrics,
 	logger *slog.Logger,
 ) {
