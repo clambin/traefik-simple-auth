@@ -44,7 +44,7 @@ func (a *authenticator) Authenticate(r *http.Request) (string, error) {
 	}
 
 	// Parse and validate the JWT. We only accept HMAC256, since that's what we created.
-	token, err := a.parser.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
+	token, err := a.parser.Parse(cookie.Value, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
 		}
