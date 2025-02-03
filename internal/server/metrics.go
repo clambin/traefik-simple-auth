@@ -17,7 +17,12 @@ type authMetrics struct {
 
 func NewMetrics(namespace, subsystem string, constLabels prometheus.Labels, buckets ...float64) metrics.RequestMetrics {
 	if len(buckets) == 0 {
-		buckets = []float64{0.0001, 0.0005, 0.001, .005, .01, .05, .1, .5, 1}
+		buckets = []float64{
+			10e-6,  //  10 µs
+			50e-6,  //  50 µs
+			100e-6, // 100 µs
+			500e-6, // 500 µs
+		}
 	}
 	return &authMetrics{
 		requestCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
