@@ -14,11 +14,11 @@ import (
 
 // authenticator creates and validate JWT tokens inside a http.Cookie.
 type authenticator struct {
+	parser     *jwt.Parser
 	CookieName string
 	Domain     string
 	Secret     []byte
 	Expiration time.Duration
-	parser     *jwt.Parser
 }
 
 func newAuthenticator(cookieName string, domain string, secret []byte, expiration time.Duration) *authenticator {
@@ -31,16 +31,39 @@ func newAuthenticator(cookieName string, domain string, secret []byte, expiratio
 	}
 }
 
-// CookieWithSignedToken returns a http.Cookie with a signed token.
-func (a *authenticator) CookieWithSignedToken(userID string) (c *http.Cookie, err error) {
-	var token string
-	if token, err = a.makeSignedToken(userID); err == nil {
-		c = a.Cookie(token, a.Expiration)
+// Authenticate extracts the JWT from an http.Request, validates it and returns the User ID.
+// It returns an error if the JWT is missing or invalid.
+func (a *authenticator) Authenticate(r *http.Request) (string, error) {
+	// retrieve the cookie
+	cookie, err := r.Cookie(a.CookieName)
+	if err != nil {
+		return "", err
 	}
-	return c, err
+	if cookie.Value == "" {
+		return "", errors.New("cookie is empty")
+	}
+
+	// Parse and validate the JWT. We only accept HMAC256, since that's what we created.
+	token, err := a.parser.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
+		}
+		return a.Secret, nil
+	})
+	if err != nil || !token.Valid { // Valid is only true if err == nil ?!?
+		return "", fmt.Errorf("parse jwt: %w", err)
+	}
+
+	// Extract User Id
+	userId, _ := token.Claims.GetSubject()
+	if userId == "" {
+		return "", errors.New("jwt: subject missing")
+	}
+	return userId, nil
 }
 
-func (a *authenticator) makeSignedToken(userID string) (string, error) {
+// CookieWithSignedToken returns a http.Cookie with a signed token.
+func (a *authenticator) CookieWithSignedToken(userID string) (*http.Cookie, error) {
 	// Define claims
 	claims := jwt.MapClaims{
 		"sub": userID,
@@ -52,7 +75,11 @@ func (a *authenticator) makeSignedToken(userID string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Sign the token with the secret key
-	return token.SignedString(a.Secret)
+	signedToken, err := token.SignedString(a.Secret)
+	if err != nil {
+		return nil, err
+	}
+	return a.Cookie(signedToken, a.Expiration), nil
 }
 
 // Cookie returns a new http.Cookie for the provided token, expiration time and domain.
@@ -65,40 +92,7 @@ func (a *authenticator) Cookie(token string, expiration time.Duration) *http.Coo
 		Domain:   a.Domain,
 		HttpOnly: true,
 		Secure:   true,
-		//SameSite: http.SameSiteStrictMode,
 	}
-}
-
-// Authenticate extracts the JWT from an http.Request, validates it and returns the User ID.
-// It returns an error if the JWT is missing or invalid.
-func (a *authenticator) Authenticate(r *http.Request) (userId string, err error) {
-	// retrieve the cookie
-	var cookie *http.Cookie
-	if cookie, err = r.Cookie(a.CookieName); err != nil {
-		return "", err
-	}
-	if cookie.Value == "" {
-		return "", errors.New("cookie is empty")
-	}
-
-	// Parse and validate the JWT. We only accept HMAC256, since that's what we created.
-	token, err := a.parser.Parse(cookie.Value, a.getKey)
-	if err != nil || !token.Valid { // Valid is only true if err == nil ?!?
-		return "", fmt.Errorf("parse jwt: %w", err)
-	}
-
-	// Extract User Id
-	if userId, _ = token.Claims.GetSubject(); userId == "" {
-		return "", errors.New("jwt: subject missing")
-	}
-	return userId, nil
-}
-
-func (a *authenticator) getKey(token *jwt.Token) (any, error) {
-	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-		return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
-	}
-	return a.Secret, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -108,11 +102,14 @@ var (
 	errInvalidDomain = errors.New("invalid domain")
 )
 
+// The authorizer authorizes an HTTP request if the request comes from an authenticated user in the whitelist
+// and the URL is part of the configured Domain.
 type authorizer struct {
 	Whitelist
 	Domain
 }
 
+// AuthorizeRequest authorizes the request and, if valid, returns the username (email address) of the authenticated & authorized user.
 func (a authorizer) AuthorizeRequest(r *http.Request) (string, error) {
 	user, err := getUserInfo(r)
 	if err != nil {
@@ -121,6 +118,7 @@ func (a authorizer) AuthorizeRequest(r *http.Request) (string, error) {
 	return user, a.Authorize(user, r.URL)
 }
 
+// Authorize authorizes the user & target URL.
 func (a authorizer) Authorize(user string, u *url.URL) error {
 	if !a.Whitelist.Match(user) {
 		return errInvalidUser
