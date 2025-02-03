@@ -2,8 +2,7 @@ package server
 
 import (
 	"errors"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	oidc "github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
@@ -17,8 +16,8 @@ import (
 // forwards the request to the originally requested destination.
 func forwardAuthHandler(
 	authorizer authorizer,
-	oauthHandler oauth.Handler,
-	states state.States,
+	oauthHandler oidc.Handler,
+	states oidc.CSRFStateStore,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -101,8 +100,8 @@ func logoutHandler(
 func oAuth2CallbackHandler(
 	authenticator *authenticator,
 	authorizer authorizer,
-	oauthHandler oauth.Handler,
-	states state.States,
+	oauthHandler oidc.Handler,
+	states oidc.CSRFStateStore,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +159,7 @@ func oAuth2CallbackHandler(
 //
 // There's only one dependency: the external cache. If that is not available, we return http.StatusServiceUnavailable.
 // Otherwise, we return http.StatusOK.
-func healthHandler(states state.States, logger *slog.Logger) http.Handler {
+func healthHandler(states oidc.CSRFStateStore, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := states.Ping(r.Context()); err != nil {
 			logger.Warn("cache ping failed", "err", err)

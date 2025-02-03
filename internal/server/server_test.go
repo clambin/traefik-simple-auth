@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"github.com/clambin/go-common/httputils/metrics"
-	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/stretchr/testify/assert"
@@ -201,7 +201,7 @@ func TestHealthHandler(t *testing.T) {
 	l := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// up
-	states := state.New(state.Configuration{CacheType: "memory"})
+	states := oauth2.NewCSFRStateStore(oauth2.Configuration{CacheType: "memory"})
 	s := healthHandler(states, l)
 	r, _ := http.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
@@ -209,7 +209,7 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// down
-	states = state.New(state.Configuration{CacheType: "redis"})
+	states = oauth2.NewCSFRStateStore(oauth2.Configuration{CacheType: "redis"})
 	s = healthHandler(states, l)
 	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
 	w = httptest.NewRecorder()
@@ -217,7 +217,7 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetrics) (*authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
+func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetrics) (*authenticator, oauth2.CSRFStateStore, *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
@@ -239,13 +239,13 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 		OIDCIssuerURL:     oidcServer.Issuer(),
 		Domain:            Domain("example.com"),
 		Whitelist:         list,
-		StateConfiguration: state.Configuration{
+		StateConfiguration: oauth2.Configuration{
 			CacheType: "memory",
 			TTL:       time.Minute,
 		},
 	}
 	s := New(ctx, cfg, metrics, testutils.DiscardLogger)
-	return s.authenticator, s.States, oidcServer, s
+	return s.authenticator, s.CSRFStateStore, oidcServer, s
 }
 
 // Benchmark_header_get/header.Get-16              86203075                13.77 ns/op            0 B/op          0 allocs/op
@@ -286,7 +286,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 		Domain:            Domain("example.com"),
 		Whitelist:         whiteList,
 		Provider:          "google",
-		StateConfiguration: state.Configuration{
+		StateConfiguration: oauth2.Configuration{
 			CacheType: "memory",
 			TTL:       time.Minute,
 		},

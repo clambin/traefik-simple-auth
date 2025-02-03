@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"flag"
-	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -63,13 +63,13 @@ func TestGetConfiguration(t *testing.T) {
 				AuthPrefix:        "auth",
 				Secret:            []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
 				Domain:            ".example.com",
-				StateConfiguration: state.Configuration{
+				StateConfiguration: oauth2.Configuration{
 					CacheType: "memory",
 					Namespace: "github.com/clambin/traefik-simple-auth/state",
-					MemcachedConfiguration: state.MemcachedConfiguration{
+					MemcachedConfiguration: oauth2.MemcachedConfiguration{
 						Addr: "",
 					},
-					RedisConfiguration: state.RedisConfiguration{
+					RedisConfiguration: oauth2.RedisConfiguration{
 						Addr:     "",
 						Username: "",
 						Password: "",
@@ -98,13 +98,13 @@ func TestGetConfiguration(t *testing.T) {
 				AuthPrefix:        "auth",
 				Secret:            []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
 				Domain:            ".example.com",
-				StateConfiguration: state.Configuration{
+				StateConfiguration: oauth2.Configuration{
 					CacheType: "memory",
 					Namespace: "github.com/clambin/traefik-simple-auth/state",
-					MemcachedConfiguration: state.MemcachedConfiguration{
+					MemcachedConfiguration: oauth2.MemcachedConfiguration{
 						Addr: "",
 					},
-					RedisConfiguration: state.RedisConfiguration{
+					RedisConfiguration: oauth2.RedisConfiguration{
 						Addr:     "",
 						Username: "",
 						Password: "",

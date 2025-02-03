@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"io"
 	"log/slog"
 	"strings"
@@ -25,14 +25,14 @@ type Configuration struct {
 	AuthPrefix         string
 	Secret             []byte
 	Domain             Domain
-	StateConfiguration state.Configuration
+	StateConfiguration oauth2.Configuration
 	SessionExpiration  time.Duration
 	Debug              bool
 }
 
 func GetConfiguration() (Configuration, error) {
 	cfg := Configuration{
-		StateConfiguration: state.Configuration{
+		StateConfiguration: oauth2.Configuration{
 			Namespace: "github.com/clambin/traefik-simple-auth/state",
 			TTL:       10 * time.Minute,
 		},

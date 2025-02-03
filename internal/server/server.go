@@ -4,8 +4,7 @@ import (
 	"context"
 	"github.com/clambin/go-common/httputils/metrics"
 	"github.com/clambin/go-common/httputils/middleware"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"log/slog"
 	"net/http"
 )
@@ -15,14 +14,14 @@ const OAUTHPath = "/_oauth"
 type Server struct {
 	http.Handler
 	*authenticator
-	state.States
+	oauth2.CSRFStateStore
 }
 
 // New returns a new Server that handles traefik's forward-auth requests, and the associated oauth2 flow.
 // It panics if config.Provider is invalid.
 func New(ctx context.Context, config Configuration, metrics metrics.RequestMetrics, logger *slog.Logger) Server {
 	logger = logger.With("provider", config.Provider)
-	oauthHandler, err := oauth.NewHandler(
+	oauthHandler, err := oauth2.NewHandler(
 		ctx,
 		config.Provider,
 		config.OIDCIssuerURL,
@@ -36,7 +35,7 @@ func New(ctx context.Context, config Configuration, metrics metrics.RequestMetri
 	}
 
 	auth := newAuthenticator(config.SessionCookieName, string(config.Domain), config.Secret, config.SessionExpiration)
-	states := state.New(config.StateConfiguration)
+	states := oauth2.NewCSFRStateStore(config.StateConfiguration)
 
 	// create the server router
 	r := http.NewServeMux()
@@ -49,15 +48,15 @@ func New(ctx context.Context, config Configuration, metrics metrics.RequestMetri
 		metrics,
 		logger,
 	)
-	return Server{Handler: r, authenticator: auth, States: states}
+	return Server{Handler: r, authenticator: auth, CSRFStateStore: states}
 }
 
 func addServerRoutes(
 	mux *http.ServeMux,
 	authenticator *authenticator,
 	authorizer authorizer,
-	oauthHandler oauth.Handler,
-	states state.States,
+	oauthHandler oauth2.Handler,
+	states oauth2.CSRFStateStore,
 	metrics metrics.RequestMetrics,
 	logger *slog.Logger,
 ) {

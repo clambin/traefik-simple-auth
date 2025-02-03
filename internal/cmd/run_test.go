@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/server"
-	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,7 +45,7 @@ func TestRun(t *testing.T) {
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
-		StateConfiguration: state.Configuration{
+		StateConfiguration: oauth2.Configuration{
 			TTL:       time.Hour,
 			CacheType: "memory",
 		},
@@ -133,7 +133,7 @@ func TestRun_Fail(t *testing.T) {
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
-		StateConfiguration: state.Configuration{
+		StateConfiguration: oauth2.Configuration{
 			TTL:       time.Hour,
 			CacheType: "memory",
 		},
