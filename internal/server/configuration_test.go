@@ -1,10 +1,10 @@
-package configuration
+package server
 
 import (
 	"bytes"
 	"flag"
-	"github.com/clambin/traefik-simple-auth/internal/state"
-	"github.com/clambin/traefik-simple-auth/internal/whitelist"
+	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/whitelist"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"

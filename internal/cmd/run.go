@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/clambin/go-common/httputils"
-	"github.com/clambin/traefik-simple-auth/internal/auth"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
 	"github.com/clambin/traefik-simple-auth/internal/server"
-	"github.com/clambin/traefik-simple-auth/internal/state"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
@@ -18,23 +15,21 @@ import (
 )
 
 func Main(ctx context.Context, r prometheus.Registerer, version string) error {
-	cfg, err := configuration.GetConfiguration()
+	cfg, err := server.GetConfiguration()
 	if err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 	return run(ctx, cfg, r, version, cfg.Logger(os.Stderr))
 }
 
-func run(ctx context.Context, cfg configuration.Configuration, r prometheus.Registerer, version string, logger *slog.Logger) error {
+func run(ctx context.Context, cfg server.Configuration, r prometheus.Registerer, version string, logger *slog.Logger) error {
 	logger.Info("traefik-simple-auth starting", "version", version)
 	defer logger.Info("traefik-simple-auth stopped")
 
 	// create the server
 	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	r.MustRegister(metrics)
-	authenticator := auth.New(cfg.SessionCookieName, string(cfg.Domain), cfg.Secret, cfg.SessionExpiration)
-	stateStore := state.New(cfg.StateConfiguration)
-	s := server.New(ctx, authenticator, stateStore, cfg, metrics, logger)
+	s := server.New(ctx, cfg, metrics, logger)
 
 	// if configured, start the pprof server.
 	if cfg.PProfAddr != "" {

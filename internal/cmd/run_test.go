@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/domain"
-	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/clambin/traefik-simple-auth/internal/server/domain"
+	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/whitelist"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +32,7 @@ func TestRun(t *testing.T) {
 		return oidcServer.Shutdown()
 	})
 
-	cfg := configuration.Configuration{
+	cfg := server.Configuration{
 		Debug:             true,
 		Addr:              ":8081",
 		PromAddr:          ":9091",
@@ -122,7 +122,7 @@ func TestRun_Fail(t *testing.T) {
 		<-ctx.Done()
 		require.NoError(t, oidcServer.Shutdown())
 	}()
-	cfg := configuration.Configuration{
+	cfg := server.Configuration{
 		Debug:             true,
 		Addr:              ":-1",
 		PromAddr:          ":-1",

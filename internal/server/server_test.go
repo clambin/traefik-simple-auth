@@ -3,12 +3,10 @@ package server
 import (
 	"context"
 	"github.com/clambin/go-common/httputils/metrics"
-	"github.com/clambin/traefik-simple-auth/internal/auth"
-	"github.com/clambin/traefik-simple-auth/internal/configuration"
-	"github.com/clambin/traefik-simple-auth/internal/domain"
-	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/domain"
+	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/whitelist"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/clambin/traefik-simple-auth/internal/whitelist"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,14 +21,12 @@ import (
 )
 
 func TestServer_Panics(t *testing.T) {
-	cfg := configuration.Configuration{
+	cfg := Configuration{
 		Provider: "foobar",
 		Domain:   domain.Domain("example.com"),
 	}
-	authenticator := auth.New("_traefik-simple-auth", "example.com", []byte("secret"), time.Hour)
-	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
 	assert.Panics(t, func() {
-		_ = New(context.Background(), authenticator, stateStore, cfg, nil, testutils.DiscardLogger)
+		_ = New(context.Background(), cfg, nil, testutils.DiscardLogger)
 	})
 }
 
@@ -203,7 +199,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 }
 
 func TestHealthHandler(t *testing.T) {
-	//l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	//l := slog.NewAuthenticator(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	l := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// up
@@ -223,7 +219,7 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetrics) (*auth.Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
+func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetrics) (*Authenticator, state.States, *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
@@ -234,18 +230,24 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 	}()
 
 	list, _ := whitelist.New([]string{"foo@example.com"})
-	cfg := configuration.Configuration{
-		Provider:      "oidc",
-		AuthPrefix:    "auth",
-		ClientID:      oidcServer.ClientID,
-		ClientSecret:  oidcServer.ClientSecret,
-		OIDCIssuerURL: oidcServer.Issuer(),
-		Domain:        domain.Domain("example.com"),
-		Whitelist:     list,
+	cfg := Configuration{
+		SessionCookieName: "_auth",
+		Secret:            []byte("secret"),
+		SessionExpiration: time.Hour,
+		Provider:          "oidc",
+		AuthPrefix:        "auth",
+		ClientID:          oidcServer.ClientID,
+		ClientSecret:      oidcServer.ClientSecret,
+		OIDCIssuerURL:     oidcServer.Issuer(),
+		Domain:            domain.Domain("example.com"),
+		Whitelist:         list,
+		StateConfiguration: state.Configuration{
+			CacheType: "memory",
+			TTL:       time.Minute,
+		},
 	}
-	authenticator := auth.New("_auth", "example.com", []byte("secret"), time.Hour)
-	stateStore := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	return authenticator, stateStore, oidcServer, New(ctx, authenticator, stateStore, cfg, metrics, testutils.DiscardLogger)
+	s := New(ctx, cfg, metrics, testutils.DiscardLogger)
+	return s.Authenticator, s.States, oidcServer, s
 }
 
 // Benchmark_header_get/header.Get-16              86203075                13.77 ns/op            0 B/op          0 allocs/op
@@ -279,16 +281,21 @@ func Benchmark_header_get(b *testing.B) {
 // BenchmarkForwardAuthHandler-16    	  182762	      6250 ns/op	    3184 B/op	      63 allocs/op
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := whitelist.New([]string{"foo@example.com"})
-	config := configuration.Configuration{
-		Domain:    domain.Domain("example.com"),
-		Whitelist: whiteList,
-		Provider:  "google",
+	config := Configuration{
+		SessionCookieName: "_auth",
+		Secret:            []byte("secret"),
+		SessionExpiration: time.Hour,
+		Domain:            domain.Domain("example.com"),
+		Whitelist:         whiteList,
+		Provider:          "google",
+		StateConfiguration: state.Configuration{
+			CacheType: "memory",
+			TTL:       time.Minute,
+		},
 	}
-	authenticator := auth.New("_traefik-simple-auth", "example.com", []byte("secret"), time.Hour)
-	states := state.New(state.Configuration{CacheType: "memory", TTL: time.Minute})
-	s := New(context.Background(), authenticator, states, config, nil, testutils.DiscardLogger)
+	s := New(context.Background(), config, nil, testutils.DiscardLogger)
 
-	c, _ := authenticator.CookieWithSignedToken("foo@example.com")
+	c, _ := s.Authenticator.CookieWithSignedToken("foo@example.com")
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	req.AddCookie(c)
 

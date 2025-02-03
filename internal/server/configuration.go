@@ -1,13 +1,13 @@
-package configuration
+package server
 
 import (
 	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/domain"
-	"github.com/clambin/traefik-simple-auth/internal/state"
-	"github.com/clambin/traefik-simple-auth/internal/whitelist"
+	"github.com/clambin/traefik-simple-auth/internal/server/domain"
+	"github.com/clambin/traefik-simple-auth/internal/server/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/whitelist"
 	"io"
 	"log/slog"
 	"strings"

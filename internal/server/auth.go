@@ -1,10 +1,13 @@
-package auth
+package server
 
 import (
 	"errors"
 	"fmt"
+	"github.com/clambin/traefik-simple-auth/internal/server/domain"
+	"github.com/clambin/traefik-simple-auth/internal/server/whitelist"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -17,7 +20,7 @@ type Authenticator struct {
 	parser     *jwt.Parser
 }
 
-func New(cookieName string, domain string, secret []byte, expiration time.Duration) *Authenticator {
+func newAuthenticator(cookieName string, domain string, secret []byte, expiration time.Duration) *Authenticator {
 	return &Authenticator{
 		CookieName: cookieName,
 		Domain:     domain,
@@ -95,4 +98,34 @@ func (a *Authenticator) getKey(token *jwt.Token) (any, error) {
 		return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
 	}
 	return a.Secret, nil
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var (
+	errInvalidUser   = errors.New("invalid user")
+	errInvalidDomain = errors.New("invalid domain")
+)
+
+type authorizer struct {
+	whitelist.Whitelist
+	domain.Domain
+}
+
+func (a authorizer) AuthorizeRequest(r *http.Request) (string, error) {
+	user, err := getUserInfo(r)
+	if err != nil {
+		return "", err
+	}
+	return user, a.Authorize(user, r.URL)
+}
+
+func (a authorizer) Authorize(user string, u *url.URL) error {
+	if !a.Whitelist.Match(user) {
+		return errInvalidUser
+	}
+	if !a.Domain.Matches(u) {
+		return errInvalidDomain
+	}
+	return nil
 }

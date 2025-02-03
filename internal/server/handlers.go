@@ -2,13 +2,13 @@ package server
 
 import (
 	"errors"
-	"github.com/clambin/traefik-simple-auth/internal/auth"
-	"github.com/clambin/traefik-simple-auth/internal/oauth"
-	"github.com/clambin/traefik-simple-auth/internal/state"
+	"github.com/clambin/traefik-simple-auth/internal/server/oauth"
+	"github.com/clambin/traefik-simple-auth/internal/server/state"
 	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // forwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
@@ -66,7 +66,7 @@ func forwardAuthHandler(
 // logoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
 func logoutHandler(
-	authenticator *auth.Authenticator,
+	authenticator *Authenticator,
 	authorizer authorizer,
 	logger *slog.Logger,
 ) http.Handler {
@@ -99,7 +99,7 @@ func logoutHandler(
 // checks that that user is on the whitelist, creates a JWT Cookie for the user and redirects the user to the
 // target that originally initiated the oauth flow.
 func oAuth2CallbackHandler(
-	authenticator *auth.Authenticator,
+	authenticator *Authenticator,
 	authorizer authorizer,
 	oauthHandler oauth.Handler,
 	states state.States,
@@ -169,4 +169,34 @@ func healthHandler(states state.States, logger *slog.Logger) http.Handler {
 		}
 		w.WriteHeader(http.StatusOK)
 	})
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var _ slog.LogValuer = &request{}
+
+type request http.Request
+
+func (r *request) LogValue() slog.Value {
+	attrs := []slog.Attr{
+		slog.String("url", r.URL.String()),
+	}
+	for k := range r.Header {
+		if strings.HasPrefix(k, "X-Forwarded-") {
+			attrs = append(attrs, slog.String(k, r.Header.Get(k)))
+		}
+	}
+	return slog.GroupValue(attrs...)
+}
+
+var _ slog.LogValuer = &rejectedRequest{}
+
+type rejectedRequest http.Request
+
+func (r *rejectedRequest) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("method", r.Method),
+		slog.String("url", r.URL.String()),
+		slog.String("user_agent", ((*http.Request)(r)).UserAgent()),
+	)
 }

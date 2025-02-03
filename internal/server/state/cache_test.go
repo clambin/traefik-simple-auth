@@ -37,8 +37,6 @@ func Test_cache(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			cfg := Configuration{CacheType: tt.cacheType}
 			if tt.panics {
 				assert.Panics(t, func() { newCache[string](cfg) })
