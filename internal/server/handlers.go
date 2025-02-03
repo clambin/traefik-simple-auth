@@ -66,7 +66,7 @@ func forwardAuthHandler(
 // logoutHandler logs out the user: it removes the cookie from the cookie store and sends an empty Cookie to the user.
 // This means that the user's next request has an invalid cookie, triggering a new oauth flow.
 func logoutHandler(
-	authenticator *Authenticator,
+	authenticator *authenticator,
 	authorizer authorizer,
 	logger *slog.Logger,
 ) http.Handler {
@@ -99,7 +99,7 @@ func logoutHandler(
 // checks that that user is on the whitelist, creates a JWT Cookie for the user and redirects the user to the
 // target that originally initiated the oauth flow.
 func oAuth2CallbackHandler(
-	authenticator *Authenticator,
+	authenticator *authenticator,
 	authorizer authorizer,
 	oauthHandler oauth.Handler,
 	states state.States,

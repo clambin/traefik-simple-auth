@@ -14,7 +14,7 @@ const OAUTHPath = "/_oauth"
 
 type Server struct {
 	http.Handler
-	*Authenticator
+	*authenticator
 	state.States
 }
 
@@ -35,26 +35,26 @@ func New(ctx context.Context, config Configuration, metrics metrics.RequestMetri
 		panic("invalid provider: " + config.Provider + ", err: " + err.Error())
 	}
 
-	authenticator := newAuthenticator(config.SessionCookieName, string(config.Domain), config.Secret, config.SessionExpiration)
+	auth := newAuthenticator(config.SessionCookieName, string(config.Domain), config.Secret, config.SessionExpiration)
 	states := state.New(config.StateConfiguration)
 
 	// create the server router
 	r := http.NewServeMux()
 	addServerRoutes(
 		r,
-		authenticator,
+		auth,
 		authorizer{Whitelist: config.Whitelist, Domain: config.Domain},
 		oauthHandler,
 		states,
 		metrics,
 		logger,
 	)
-	return Server{Handler: r, Authenticator: authenticator, States: states}
+	return Server{Handler: r, authenticator: auth, States: states}
 }
 
 func addServerRoutes(
 	mux *http.ServeMux,
-	authenticator *Authenticator,
+	authenticator *authenticator,
 	authorizer authorizer,
 	oauthHandler oauth.Handler,
 	states state.States,

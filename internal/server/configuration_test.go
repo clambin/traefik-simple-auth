@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"github.com/clambin/traefik-simple-auth/internal/server/state"
-	"github.com/clambin/traefik-simple-auth/internal/server/whitelist"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
@@ -52,7 +51,7 @@ func TestGetConfiguration(t *testing.T) {
 			name: "valid",
 			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-client-id", "12345678", "-client-secret", "12345678"},
 			want: Configuration{
-				Whitelist:         whitelist.Whitelist{"foo@example.com": struct{}{}},
+				Whitelist:         Whitelist{"foo@example.com": struct{}{}},
 				Addr:              ":8080",
 				PromAddr:          ":9090",
 				PProfAddr:         "",
@@ -87,7 +86,7 @@ func TestGetConfiguration(t *testing.T) {
 			name: "with pprof",
 			args: []string{"test", "-pprof", ":6000", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-client-id", "12345678", "-client-secret", "12345678"},
 			want: Configuration{
-				Whitelist:         whitelist.Whitelist{"foo@example.com": struct{}{}},
+				Whitelist:         Whitelist{"foo@example.com": struct{}{}},
 				Addr:              ":8080",
 				PromAddr:          ":9090",
 				PProfAddr:         ":6000",

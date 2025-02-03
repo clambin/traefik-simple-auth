@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/clambin/traefik-simple-auth/internal/server"
-	"github.com/clambin/traefik-simple-auth/internal/server/domain"
 	"github.com/clambin/traefik-simple-auth/internal/server/state"
-	"github.com/clambin/traefik-simple-auth/internal/server/whitelist"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/prometheus/client_golang/prometheus"
@@ -42,8 +40,8 @@ func TestRun(t *testing.T) {
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
-		Domain:            domain.Domain(".example.com"),
-		Whitelist:         whitelist.Whitelist{"jane.doe@example.com": struct{}{}},
+		Domain:            server.Domain(".example.com"),
+		Whitelist:         server.Whitelist{"jane.doe@example.com": struct{}{}},
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",
@@ -130,8 +128,8 @@ func TestRun_Fail(t *testing.T) {
 		Secret:            []byte("secret"),
 		Provider:          "oidc",
 		OIDCIssuerURL:     oidcServer.Issuer(),
-		Domain:            domain.Domain(".example.com"),
-		Whitelist:         whitelist.Whitelist{"jane.doe@example.com": struct{}{}},
+		Domain:            server.Domain(".example.com"),
+		Whitelist:         server.Whitelist{"jane.doe@example.com": struct{}{}},
 		ClientID:          oidcServer.ClientID,
 		ClientSecret:      oidcServer.ClientSecret,
 		AuthPrefix:        "auth",

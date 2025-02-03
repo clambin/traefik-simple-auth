@@ -3,16 +3,17 @@ package server
 import (
 	"errors"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/server/domain"
-	"github.com/clambin/traefik-simple-auth/internal/server/whitelist"
 	"github.com/golang-jwt/jwt/v5"
+	"net"
 	"net/http"
+	"net/mail"
 	"net/url"
+	"strings"
 	"time"
 )
 
-// Authenticator creates and validate JWT tokens inside a http.Cookie.
-type Authenticator struct {
+// authenticator creates and validate JWT tokens inside a http.Cookie.
+type authenticator struct {
 	CookieName string
 	Domain     string
 	Secret     []byte
@@ -20,8 +21,8 @@ type Authenticator struct {
 	parser     *jwt.Parser
 }
 
-func newAuthenticator(cookieName string, domain string, secret []byte, expiration time.Duration) *Authenticator {
-	return &Authenticator{
+func newAuthenticator(cookieName string, domain string, secret []byte, expiration time.Duration) *authenticator {
+	return &authenticator{
 		CookieName: cookieName,
 		Domain:     domain,
 		Secret:     secret,
@@ -31,7 +32,7 @@ func newAuthenticator(cookieName string, domain string, secret []byte, expiratio
 }
 
 // CookieWithSignedToken returns a http.Cookie with a signed token.
-func (a *Authenticator) CookieWithSignedToken(userID string) (c *http.Cookie, err error) {
+func (a *authenticator) CookieWithSignedToken(userID string) (c *http.Cookie, err error) {
 	var token string
 	if token, err = a.makeSignedToken(userID); err == nil {
 		c = a.Cookie(token, a.Expiration)
@@ -39,7 +40,7 @@ func (a *Authenticator) CookieWithSignedToken(userID string) (c *http.Cookie, er
 	return c, err
 }
 
-func (a *Authenticator) makeSignedToken(userID string) (string, error) {
+func (a *authenticator) makeSignedToken(userID string) (string, error) {
 	// Define claims
 	claims := jwt.MapClaims{
 		"sub": userID,
@@ -55,7 +56,7 @@ func (a *Authenticator) makeSignedToken(userID string) (string, error) {
 }
 
 // Cookie returns a new http.Cookie for the provided token, expiration time and domain.
-func (a *Authenticator) Cookie(token string, expiration time.Duration) *http.Cookie {
+func (a *authenticator) Cookie(token string, expiration time.Duration) *http.Cookie {
 	return &http.Cookie{
 		Name:     a.CookieName,
 		Value:    token,
@@ -70,7 +71,7 @@ func (a *Authenticator) Cookie(token string, expiration time.Duration) *http.Coo
 
 // Authenticate extracts the JWT from an http.Request, validates it and returns the User ID.
 // It returns an error if the JWT is missing or invalid.
-func (a *Authenticator) Authenticate(r *http.Request) (userId string, err error) {
+func (a *authenticator) Authenticate(r *http.Request) (userId string, err error) {
 	// retrieve the cookie
 	var cookie *http.Cookie
 	if cookie, err = r.Cookie(a.CookieName); err != nil {
@@ -93,7 +94,7 @@ func (a *Authenticator) Authenticate(r *http.Request) (userId string, err error)
 	return userId, nil
 }
 
-func (a *Authenticator) getKey(token *jwt.Token) (any, error) {
+func (a *authenticator) getKey(token *jwt.Token) (any, error) {
 	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 		return nil, fmt.Errorf("unexpected signing method: %v", token.Method.Alg())
 	}
@@ -108,8 +109,8 @@ var (
 )
 
 type authorizer struct {
-	whitelist.Whitelist
-	domain.Domain
+	Whitelist
+	Domain
 }
 
 func (a authorizer) AuthorizeRequest(r *http.Request) (string, error) {
@@ -128,4 +129,76 @@ func (a authorizer) Authorize(user string, u *url.URL) error {
 		return errInvalidDomain
 	}
 	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// A Whitelist is a list of valid email addresses that the authorizer should accept.
+type Whitelist map[string]struct{}
+
+// NewWhitelist creates a new Whitelist for the provided email addresses.
+func NewWhitelist(emails []string) (Whitelist, error) {
+	list := make(map[string]struct{}, len(emails))
+	for _, email := range emails {
+		if email = strings.TrimSpace(email); email != "" {
+			if _, err := mail.ParseAddress(email); err != nil {
+				return nil, fmt.Errorf("invalid email address %q: %w", email, err)
+			}
+			list[strings.ToLower(email)] = struct{}{}
+		}
+	}
+	return list, nil
+}
+
+// Match returns true if the email address is on the whitelist, or if the whitelist is empty.
+func (w Whitelist) Match(email string) bool {
+	if len(w) == 0 {
+		return true
+	}
+	_, ok := w[strings.ToLower(email)]
+	return ok
+}
+
+func (w Whitelist) list() []string {
+	list := make([]string, 0, len(w))
+	for email := range w {
+		list = append(list, email)
+	}
+	return list
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// A Domain groups a set of hostnames (e.g. .example.com covers www.example.com, www2.example.com, etc),
+// that the authorizer should accept.
+type Domain string
+
+// NewDomain returns a new Domain.  If domain is not valid, an error is returned.
+func NewDomain(domain string) (Domain, error) {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return "", fmt.Errorf("domain cannot be empty")
+	}
+	if domain[0] != '.' {
+		domain = "." + domain
+	}
+	if _, port, _ := net.SplitHostPort(domain); port != "" {
+		return "", fmt.Errorf("domain cannot contain port")
+	}
+	if _, err := url.Parse("https://www" + domain); err != nil {
+		return "", fmt.Errorf("invalid domain %q: %w", domain, err)
+	}
+	return Domain(domain), nil
+}
+
+// Matches returns true if the url is part of the Domain.
+func (d Domain) Matches(u *url.URL) bool {
+	host := strings.ToLower(u.Host)
+	if n := strings.LastIndexByte(host, ':'); n != -1 {
+		host = host[:n]
+	}
+	if Domain(host) == d[1:] {
+		return true
+	}
+	return strings.HasSuffix(host, string(d))
 }
