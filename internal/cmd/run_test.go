@@ -110,16 +110,15 @@ func TestRun(t *testing.T) {
 }
 
 func TestRun_Fail(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
 
+	ctx := t.Context()
 	go func() {
 		<-ctx.Done()
 		require.NoError(t, oidcServer.Shutdown())
 	}()
+
 	cfg := server.Configuration{
 		Debug:             true,
 		Addr:              ":-1",

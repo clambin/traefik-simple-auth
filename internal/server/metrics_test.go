@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
@@ -12,10 +11,8 @@ import (
 )
 
 func TestServer_withMetrics(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
 	metrics := NewMetrics("", "", map[string]string{"provider": "foo"})
-	authenticator, _, _, s := setupServer(ctx, t, metrics)
+	authenticator, _, _, s := setupServer(t.Context(), t, metrics)
 
 	// no cookie: redirect
 	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")

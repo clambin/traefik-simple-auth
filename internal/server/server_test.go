@@ -29,10 +29,7 @@ func TestServer_Panics(t *testing.T) {
 }
 
 func TestForwardAuthHandler(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-
-	authenticator, _, _, handler := setupServer(ctx, t, nil)
+	authenticator, _, _, handler := setupServer(t.Context(), t, nil)
 	validSession, _ := authenticator.CookieWithSignedToken("foo@example.com")
 
 	type args struct {
@@ -82,8 +79,6 @@ func TestForwardAuthHandler(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			r := testutils.ForwardAuthRequest(http.MethodGet, tt.args.target)
 			if tt.args.cookie != nil {
 				r.AddCookie(tt.args.cookie)
@@ -103,9 +98,7 @@ func TestForwardAuthHandler(t *testing.T) {
 }
 
 func TestLogoutHandler(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
-	authenticator, _, _, handler := setupServer(ctx, t, nil)
+	authenticator, _, _, handler := setupServer(t.Context(), t, nil)
 
 	t.Run("logging out clears the browser's cookie", func(t *testing.T) {
 		r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/_oauth/logout")
@@ -159,8 +152,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 		},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	ctx := t.Context()
 	_, states, oidcServer, handler := setupServer(ctx, t, nil)
 
 	for _, tt := range tests {
@@ -248,8 +240,13 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 	return s.authenticator, s.CSRFStateStore, oidcServer, s
 }
 
+// Before:
 // Benchmark_header_get/header.Get-16              86203075                13.77 ns/op            0 B/op          0 allocs/op
 // Benchmark_header_get/direct-16                  315107350                3.767 ns/op           0 B/op          0 allocs/op
+// Go 1.24:
+// Benchmark_header_get/header.Get-16         	62699799	        18.95 ns/op	       0 B/op	       0 allocs/op
+// Benchmark_header_get/direct-16             	147151948	         8.114 ns/op	       0 B/op	       0 allocs/op
+// PASS
 func Benchmark_header_get(b *testing.B) {
 	const headerName = "X-Foo"
 	const headerValue = "bar"
@@ -258,7 +255,8 @@ func Benchmark_header_get(b *testing.B) {
 	r.Header.Set(headerName, headerValue)
 
 	b.Run("header.Get", func(b *testing.B) {
-		for range b.N {
+		b.ReportAllocs()
+		for b.Loop() {
 			if r.Header.Get(headerName) != headerValue {
 				b.Fatal("header not found")
 			}
@@ -266,7 +264,8 @@ func Benchmark_header_get(b *testing.B) {
 	})
 
 	b.Run("direct", func(b *testing.B) {
-		for range b.N {
+		b.ReportAllocs()
+		for b.Loop() {
 			vals := r.Header[headerName]
 			if len(vals) != 1 || vals[0] != headerValue {
 				b.Fatal("header not found:" + strings.Join(vals, ","))
@@ -275,8 +274,10 @@ func Benchmark_header_get(b *testing.B) {
 	})
 }
 
-// Current:
+// Before:
 // BenchmarkForwardAuthHandler-16    	  182762	      6250 ns/op	    3184 B/op	      63 allocs/op
+// Go 1.24:
+// BenchmarkForwardAuthHandler-16    	  194578	      5888 ns/op	    3184 B/op	      63 allocs/op
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := NewWhitelist([]string{"foo@example.com"})
 	config := Configuration{
@@ -301,7 +302,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		s.ServeHTTP(resp, req)
 		if resp.Code != http.StatusOK {
 			b.Fatal("unexpected status code", resp.Code)

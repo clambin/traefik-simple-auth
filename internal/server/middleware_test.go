@@ -40,8 +40,6 @@ func TestSessionExtractor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			if tt.cookie != nil {
 				r.AddCookie(tt.cookie)
@@ -125,7 +123,6 @@ func Test_getOriginalTarget(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
 			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.Header = tt.headers
 			restoreOriginalRequest(r)
@@ -137,6 +134,8 @@ func Test_getOriginalTarget(t *testing.T) {
 
 // current:
 // Benchmark_restoreOriginalRequest-16      8409932               141.6 ns/op             0 B/op          0 allocs/op
+// Go 1.24:
+// Benchmark_restoreOriginalRequest-16    	 7314637	       160.5 ns/op	       0 B/op	       0 allocs/op
 func Benchmark_restoreOriginalRequest(b *testing.B) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header = http.Header{
@@ -147,7 +146,8 @@ func Benchmark_restoreOriginalRequest(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	for range b.N {
+	b.ReportAllocs()
+	for b.Loop() {
 		restoreOriginalRequest(r)
 		if r.Method != http.MethodPost {
 			b.Fatal("unexpected method", r.Method)
