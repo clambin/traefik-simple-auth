@@ -3,7 +3,7 @@ on:
   push:
     branches-ignore:
       - main
-      - refactor
+      - go124
 permissions:
   contents: read
 jobs:

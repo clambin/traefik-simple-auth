@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - main
-      - refactor
+      - go124
 permissions:
   contents: read
   packages: write
