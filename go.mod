@@ -2,11 +2,9 @@ module github.com/clambin/traefik-simple-auth
 
 go 1.24
 
-toolchain go1.24.0
-
 require (
 	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874
-	github.com/clambin/go-common/cache v0.8.0
+	github.com/clambin/go-common/cache v0.8.1
 	github.com/clambin/go-common/httputils v0.2.0
 	github.com/coreos/go-oidc/v3 v3.13.0
 	github.com/golang-jwt/jwt/v5 v5.2.2

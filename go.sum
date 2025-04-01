@@ -18,8 +18,8 @@ github.com/cenkalti/backoff/v4 v4.2.1 h1:y4OZtCnogmCPw98Zjyt5a6+QwPLGkiQsYW5oUqy
 github.com/cenkalti/backoff/v4 v4.2.1/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/clambin/go-common/cache v0.8.0 h1:3EvO4/QD8P9gel4n9HqAIkO5VOYTFKYiQqh6Y9egLLk=
-github.com/clambin/go-common/cache v0.8.0/go.mod h1:bVgKh3p1ijHFEWGm8JK0VHMo3zN1SSVlP4vzVKtzod4=
+github.com/clambin/go-common/cache v0.8.1 h1:dOcK7t8t1SioJ3Z1LSXh4tGe9sM+AZl2XJPlQANG4cQ=
+github.com/clambin/go-common/cache v0.8.1/go.mod h1:bVgKh3p1ijHFEWGm8JK0VHMo3zN1SSVlP4vzVKtzod4=
 github.com/clambin/go-common/httputils v0.2.0 h1:KlpB3DpzMJZqzDc11FsKeA60vEsHJyQk82IaniatNWY=
 github.com/clambin/go-common/httputils v0.2.0/go.mod h1:wyBTLa017563geWBogq7ZYtIyzgxWks3cktdJReax1E=
 github.com/clambin/go-common/testutils v0.5.0 h1:kh/0kuBiFL2oeZJ3EgkRyQphqXQmQYqsS3z07a2R2AM=
