@@ -1,9 +1,9 @@
 package cmd
 
 import (
+	"codeberg.org/clambin/go-common/httputils"
 	"context"
 	"fmt"
-	"github.com/clambin/go-common/httputils"
 	"github.com/clambin/traefik-simple-auth/internal/server"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

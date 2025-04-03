@@ -1,13 +1,13 @@
 package oauth2
 
 import (
+	gcc "codeberg.org/clambin/go-common/cache"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"github.com/bradfitz/gomemcache/memcache"
-	gcc "github.com/clambin/go-common/cache"
 	"github.com/redis/go-redis/v9"
 	"time"
 )
