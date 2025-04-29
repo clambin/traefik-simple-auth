@@ -3,7 +3,7 @@ on:
   push:
     branches-ignore:
       - main
-      - go124
+      - logo
 permissions:
   contents: read
 jobs:
