@@ -59,7 +59,7 @@ func TestGitHubHandler_GetUserEmailAddress(t *testing.T) {
 
 			ctx := context.Background()
 			h, _ := NewHandler(ctx, "github", "", "1234", "1234567", "https://auth.example.com/_oauth", testutils.DiscardLogger)
-			h.(*GitHubHandler).HTTPClient = &http.Client{Transport: s}
+			h.(*GitHubHandler).httpClient = &http.Client{Transport: s}
 
 			user, err := h.GetUserEmailAddress(ctx, "abcd1234")
 			require.NoError(t, err)

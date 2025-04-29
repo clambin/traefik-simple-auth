@@ -13,8 +13,8 @@ const OAUTHPath = "/_oauth"
 
 type Server struct {
 	http.Handler
-	*authenticator
-	oauth2.CSRFStateStore
+	authenticator  *authenticator
+	csrfStateStore oauth2.CSRFStateStore
 }
 
 // New returns a new Server that handles traefik's forward-auth requests, and the associated oauth2 flow.
@@ -42,13 +42,13 @@ func New(ctx context.Context, config Configuration, metrics metrics.RequestMetri
 	addServerRoutes(
 		r,
 		auth,
-		authorizer{Whitelist: config.Whitelist, Domain: config.Domain},
+		authorizer{whitelist: config.Whitelist, domain: config.Domain},
 		oauthHandler,
 		states,
 		metrics,
 		logger,
 	)
-	return Server{Handler: r, authenticator: auth, CSRFStateStore: states}
+	return Server{Handler: r, authenticator: auth, csrfStateStore: states}
 }
 
 func addServerRoutes(

@@ -11,8 +11,8 @@ import (
 
 type OIDCHandler struct {
 	oauth2.Config
-	Logger *slog.Logger
-	*oidc.Provider
+	logger   *slog.Logger
+	provider *oidc.Provider
 }
 
 func NewOIDCHandler(ctx context.Context, oidcIssuerURL, clientID, clientSecret, authURL string, logger *slog.Logger) (Handler, error) {
@@ -31,18 +31,18 @@ func NewOIDCHandler(ctx context.Context, oidcIssuerURL, clientID, clientSecret, 
 			RedirectURL:  authURL,
 			Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 		},
-		Logger:   logger,
-		Provider: oidcProvider,
+		logger:   logger,
+		provider: oidcProvider,
 	}, nil
 }
 
 func (h *OIDCHandler) GetUserEmailAddress(ctx context.Context, code string) (string, error) {
-	oauth2Token, err := h.Config.Exchange(ctx, code)
+	oauth2Token, err := h.Exchange(ctx, code)
 	if err != nil {
 		return "", fmt.Errorf("could not get access token: %w", err)
 	}
 
-	userInfo, err := h.Provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
+	userInfo, err := h.provider.UserInfo(ctx, oauth2.StaticTokenSource(oauth2Token))
 	if err != nil {
 		return "", fmt.Errorf("could not get user info: %w", err)
 	}

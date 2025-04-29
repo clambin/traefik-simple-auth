@@ -237,7 +237,7 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 		},
 	}
 	s := New(ctx, cfg, metrics, testutils.DiscardLogger)
-	return s.authenticator, s.CSRFStateStore, oidcServer, s
+	return s.authenticator, s.csrfStateStore, oidcServer, s
 }
 
 // Before:

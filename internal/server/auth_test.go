@@ -154,8 +154,8 @@ func Test_authorizer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a := authorizer{
-				Whitelist: map[string]struct{}{"foo@example.com": {}},
-				Domain:    ".example.com",
+				whitelist: map[string]struct{}{"foo@example.com": {}},
+				domain:    ".example.com",
 			}
 
 			r, _ := http.NewRequest(http.MethodGet, tt.target, nil)

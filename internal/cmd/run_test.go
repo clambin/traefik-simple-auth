@@ -59,6 +59,9 @@ func TestRun(t *testing.T) {
 
 	assert.Eventually(t, func() bool {
 		resp, err := http.Get("http://localhost:8081/health")
+		if err == nil {
+			_ = resp.Body.Close()
+		}
 		return err == nil && resp.StatusCode == http.StatusOK
 	}, time.Second, 10*time.Millisecond)
 
@@ -98,11 +101,13 @@ func TestRun(t *testing.T) {
 	// validate the Prometheus server is running
 	resp, err := http.Get("http://localhost:9091/metrics")
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// validate the pprof server is running
 	resp, err = http.Get("http://localhost:6000/debug/pprof/heap")
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	cancel()
@@ -112,12 +117,7 @@ func TestRun(t *testing.T) {
 func TestRun_Fail(t *testing.T) {
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
-
-	ctx := t.Context()
-	go func() {
-		<-ctx.Done()
-		require.NoError(t, oidcServer.Shutdown())
-	}()
+	t.Cleanup(func() { _ = oidcServer.Shutdown() })
 
 	cfg := server.Configuration{
 		Debug:             true,
@@ -137,7 +137,7 @@ func TestRun_Fail(t *testing.T) {
 			CacheType: "memory",
 		},
 	}
-	assert.Error(t, run(ctx, cfg, prometheus.NewRegistry(), "dev", testutils.DiscardLogger))
+	assert.Error(t, run(t.Context(), cfg, prometheus.NewRegistry(), "dev", testutils.DiscardLogger))
 }
 
 func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, string, error) {

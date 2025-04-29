@@ -105,8 +105,8 @@ var (
 // The authorizer authorizes an HTTP request if the request comes from an authenticated user in the whitelist
 // and the URL is part of the configured Domain.
 type authorizer struct {
-	Whitelist
-	Domain
+	whitelist Whitelist
+	domain    Domain
 }
 
 // AuthorizeRequest authorizes the request and, if valid, returns the username (email address) of the authenticated & authorized user.
@@ -120,10 +120,10 @@ func (a authorizer) AuthorizeRequest(r *http.Request) (string, error) {
 
 // Authorize authorizes the user & target URL.
 func (a authorizer) Authorize(user string, u *url.URL) error {
-	if !a.Whitelist.Match(user) {
+	if !a.whitelist.Match(user) {
 		return errInvalidUser
 	}
-	if !a.Domain.Matches(u) {
+	if !a.domain.Matches(u) {
 		return errInvalidDomain
 	}
 	return nil

@@ -21,7 +21,7 @@ type GitHubHandler struct {
 func NewGitHubHandler(_ context.Context, clientID, clientSecret, authURL string, logger *slog.Logger) *GitHubHandler {
 	return &GitHubHandler{
 		BaseHandler: BaseHandler{
-			HTTPClient: http.DefaultClient,
+			httpClient: http.DefaultClient,
 			Config: oauth2.Config{
 				ClientID:     clientID,
 				ClientSecret: clientSecret,
@@ -29,7 +29,7 @@ func NewGitHubHandler(_ context.Context, clientID, clientSecret, authURL string,
 				RedirectURL:  authURL,
 				Scopes:       []string{"user:email", "read:user"},
 			},
-			Logger: logger,
+			logger: logger,
 		},
 	}
 }
@@ -50,7 +50,7 @@ func (h GitHubHandler) GetUserEmailAddress(ctx context.Context, code string) (st
 	if email != "" && err == nil {
 		return email, nil
 	}
-	h.Logger.Debug("No email address found. Using user public profile instead", "err", err)
+	h.logger.Debug("No email address found. Using user public profile instead", "err", err)
 	// this should normally not be needed (and only works if the user made their address public).
 	return h.getAddressFromProfile(ctx, token)
 }
@@ -81,7 +81,7 @@ func (h GitHubHandler) getAddress(ctx context.Context, token *oauth2.Token) (str
 		}
 	}
 	// fallback in case no primary email: return the first one
-	h.Logger.Warn("No primary email address found. Defaulting to first email address instead.", "email", users[0].Email)
+	h.logger.Warn("No primary email address found. Defaulting to first email address instead.", "email", users[0].Email)
 	return users[0].Email, nil
 }
 
@@ -105,5 +105,5 @@ func (h GitHubHandler) do(ctx context.Context, url string, token *oauth2.Token) 
 	token.SetAuthHeader(req)
 	req.Header.Set("Accept", "application/vnd.github+json")
 
-	return h.HTTPClient.Do(req)
+	return h.httpClient.Do(req)
 }

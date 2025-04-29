@@ -40,11 +40,11 @@ func NewHandler(ctx context.Context, provider, oidcServiceURL, clientID, clientS
 // BaseHandler implements the generic part of a Handler.
 type BaseHandler struct {
 	oauth2.Config
-	HTTPClient *http.Client
-	Logger     *slog.Logger
+	httpClient *http.Client
+	logger     *slog.Logger
 }
 
 func (h BaseHandler) getAccessToken(ctx context.Context, code string) (*oauth2.Token, error) {
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, h.HTTPClient)
-	return h.Config.Exchange(ctx, code)
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, h.httpClient)
+	return h.Exchange(ctx, code)
 }

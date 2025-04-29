@@ -20,9 +20,9 @@ type Configuration struct {
 	// Namespace for the keys maintained in the CSRFStateStore
 	Namespace string
 	// MemcachedConfiguration contains the connectivity parameters for a memcached service
-	MemcachedConfiguration
+	MemcachedConfiguration MemcachedConfiguration
 	// RedisConfiguration contains the connectivity parameters for a redis service
-	RedisConfiguration
+	RedisConfiguration RedisConfiguration
 	// TTL is the type to maintain a created state in the CSRFStateStore, i.e. the time we give the used to login in to their OAuth2 provider.
 	TTL time.Duration
 }
@@ -48,7 +48,7 @@ const stateSize = 32 // 256 bits
 // CSRFStateStore supports three types of cache: a local in-memory cache, memcached and redis. The latter two allow multiple instances
 // of traefik-simple-auth to run, while still sharing one set of CSRFStateStore.
 type CSRFStateStore struct {
-	cache[string]
+	cache     cache[string]
 	namespace string
 	ttl       time.Duration
 }
@@ -68,7 +68,7 @@ func NewCSFRStateStore(configuration Configuration) CSRFStateStore {
 // Add returns a new state, associated with the provided value.
 func (s CSRFStateStore) Add(ctx context.Context, value string) (string, error) {
 	state := make([]byte, stateSize)
-	// theoretically this could fail, but in practice this will never happen.
+	// theoretically, this could fail. but in practice, this will never happen.
 	_, _ = rand.Read(state)
 	encodedState := hex.EncodeToString(state)
 	err := s.cache.Add(ctx, s.key(encodedState), value, s.ttl)

@@ -38,7 +38,7 @@ func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {
 
 		email, err := h.GetUserEmailAddress(ctx, session.SessionID)
 		require.NoError(t, err)
-		assert.Equal(t, email, "foo@example.com")
+		assert.Equal(t, "foo@example.com", email)
 	})
 
 	t.Run("failed to access OIDC server", func(t *testing.T) {
