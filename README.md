@@ -11,8 +11,8 @@
 A simple, up-to-date, re-implementation of traefik-forward-auth.
 
 ## ⚠️ Breaking change in v0.11.0
-v0.11.0 once supports one domain.  The command line argument `-domains` is replaced by `-domain`. To support multiple domains,
-run one instance of traefik-simple-auth per domain.
+V0.11.0 only supports one domain. The command line argument `-domains` is replaced by `-domain`. 
+To support multiple domains, run one instance of traefik-simple-auth per domain.
 
 ## Contents
 
@@ -40,7 +40,7 @@ I wrote traefik-simple-auth with the following goals:
 * to learn about Traefik's forwardAuth middleware and the oauth approach that traefik-forward-auth uses;
 * have an implementation that uses recent versions of Go and underlying modules (incorporating any security fixes since the last version of traefik-forward-auth was released);
 * provide more operational observability into how forwardAuth is used;
-* fun!
+* fun! :)
 
 traefik-forward-auth offers many features that I wasn't necessarily interested in: overlay mode, rules, etc. 
 Those are not implemented in the current version of traefik-simple-auth. That may change in the future. 
