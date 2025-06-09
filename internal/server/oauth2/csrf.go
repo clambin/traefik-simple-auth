@@ -1,15 +1,16 @@
 package oauth2
 
 import (
-	gcc "codeberg.org/clambin/go-common/cache"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"time"
+
+	gcc "codeberg.org/clambin/go-common/cache"
 	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/redis/go-redis/v9"
-	"time"
 )
 
 // Configuration options for a CSRFStateStore
@@ -146,6 +147,8 @@ func (l localCache[T]) GetDel(_ context.Context, key string) (T, error) {
 func (l localCache[T]) Ping(context.Context) error {
 	return nil
 }
+
+var _ cache[string] = &memcachedCache[string]{}
 
 type memcachedCache[T any] struct {
 	Client memcachedClient

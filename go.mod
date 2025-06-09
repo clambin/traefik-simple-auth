@@ -4,7 +4,7 @@ go 1.24
 
 require (
 	codeberg.org/clambin/go-common/cache v0.9.0
-	codeberg.org/clambin/go-common/httputils v0.3.1
+	codeberg.org/clambin/go-common/httputils v0.3.2
 	github.com/bradfitz/gomemcache v0.0.0-20250403215159-8d39553ac7cf
 	github.com/clambin/go-common/httputils v0.3.0
 	github.com/coreos/go-oidc/v3 v3.14.1
