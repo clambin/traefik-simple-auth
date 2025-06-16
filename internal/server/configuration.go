@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"codeberg.org/clambin/go-common/flagger"
@@ -62,7 +63,7 @@ func GetConfiguration(f *flag.FlagSet, args ...string) (Configuration, error) {
 	flagger.SetFlags(f, &cfg)
 	// these flags require special processing that flagger doesn't support
 	f.Func("users", "Comma-separated list of usernames to allow access", func(s string) error {
-		return cfg.Whitelist.Add(s)
+		return cfg.Whitelist.Add(strings.Split(s, ",")...)
 	})
 	f.Func("session.secret", "Secret to use for authentication (base64 encoded)", func(s string) (err error) {
 		if cfg.Secret, err = base64.StdEncoding.DecodeString(s); err != nil {

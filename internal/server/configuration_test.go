@@ -20,7 +20,7 @@ func TestGetConfiguration(t *testing.T) {
 	}{
 		{
 			name: "valid",
-			args: []string{"-users=foo@example.com", "-session.secret=c2VjcmV0", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
+			args: []string{"-users=foo@example.com,bar@example.com", "-session.secret=c2VjcmV0", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
 			want: Configuration{
 				Log:  flagger.DefaultLog,
 				Prom: flagger.DefaultProm,
@@ -29,7 +29,10 @@ func TestGetConfiguration(t *testing.T) {
 					Secret:     []byte("secret"),
 					Expiration: 30 * 24 * time.Hour,
 				},
-				Whitelist: Whitelist{"foo@example.com": struct{}{}},
+				Whitelist: Whitelist{
+					"foo@example.com": struct{}{},
+					"bar@example.com": struct{}{},
+				},
 				Addr:      ":8080",
 				PProfAddr: "",
 				Domain:    ".example.com",
