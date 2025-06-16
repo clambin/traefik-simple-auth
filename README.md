@@ -88,7 +88,7 @@ Head to https://console.developers.google.com and create a new project. Create n
 with "web application" as its application type.
 
 Give the credentials a name and define the authorized redirect URIs. We currently supports one redirect URI, so all applications
-need to be grouped under the same domain. E.g. if you need to support the following application URLs:
+need to be grouped under the same domain. E.g., if you need to support the following application URLs:
 
     * app1.example.com
     * app2.example.com
@@ -155,7 +155,7 @@ spec:
 This forwards the request to traefik-simple-auth. 
 
 Note: unlike with github/thomseddon/traefik-forward-auth, the ingress for the authentication callback flow does not need the forwardAuth middleware
-(i.e. it does not include a `traefik.ingress.kubernetes.io/router.middlewares: <traefik-simple-auth>` annotation).
+(i.e., it does not include a `traefik.ingress.kubernetes.io/router.middlewares: <traefik-simple-auth>` annotation).
 
 #### Authenticating access to an ingress
 
@@ -176,7 +176,7 @@ spec:
 ```
 
 Each access to the ingress causes traefik to first forward the request to the middleware.  If the middleware responds
-with an HTTP 2xx code (meaning the request has a valid session cookie), traefik honours the request.
+with an HTTP 2xx code (meaning the request has a valid session cookie), traefik honors the request.
 
 Note: traefik prepends the namespace to the name of the middleware defined via a kubernetes resource. So, the middleware
 `traefik-simple-auth` in the `traefik` namespace becomes `traefik-traefik-simple-auth`.
@@ -206,8 +206,18 @@ traefik-simple-auth supports the following command-line arguments:
 
 ```
 Usage:
-   -addr string
+  -addr string
         The address to listen on for HTTP requests (default ":8080")
+  -auth.auth-prefix string
+        Prefix to construct the authRedirect URL from the domain (default "auth")
+  -auth.client-id string
+        OAuth2 Client ID
+  -auth.client-secret string
+        OAuth2 Client Secret
+  -auth.issuer-url string
+        The Auth Issuer URL to use (only used when provider is oidc) (default "https://accounts.google.com")
+  -auth.provider string
+        OAuth2 provider (default "google")
   -csrf.redis.addr string
         Redis server address
   -csrf.redis.database int
@@ -220,164 +230,84 @@ Usage:
         Redis username
   -csrf.ttl duration
         Lifetime of a CSRF token (default 10m0s)
-  -domain string
+  -domain value
         Domain to allow access
   -log.format string
         log format (default "text")
   -log.level string
         log level (default "info")
-  -oidc.auth-prefix string
-        Prefix to construct the authRedirect URL from the domain (default "auth")
-  -oidc.client-id string
-        OAuth2 Client ID
-  -oidc.client-secret string
-        OAuth2 Client Secret
-  -oidc.issuer-url string
-        The OIDC Issuer URL to use (only used when provider is oidc) (default "https://accounts.google.com")
-  -oidc.provider string
-        OAuth2 provider (default "google")
-  -pprofaddr string
-        The address to listen on for Go pprof profiler (default: no pprof profiler)
   -prom.addr string
         prometheus listen address (default ":9100")
   -prom.path string
         prometheus path (default "/metrics")
-  -secret string
-        Secret to use for authentication (base64 encoded)
   -session.cookie-name string
         The cookie name to use for authentication (default "_traefik_simple_auth")
   -session.expiration duration
         How long the session should remain valid (default 720h0m0s)
-  -users string
+  -session.secret value
+        Secret to use for authentication (base64 encoded)
+  -users value
         Comma-separated list of usernames to allow access
 ```
 
-#### Option details
-
-- `addr`
-
-  Listener address for traefik-simple-auth
-
-- `auth-prefix`
-
-  The prefix used to construct the auth provider's redirect URL.
-
-  Example: if the auth-prefix is `auth` and the domain is `example.com`, the Auth Redirect URL will be `https://auth.example.com/_oauth'.
-
-- `cache`
-
-  Defines how the State is shared between the forwardAuth and authCallback handlers. Default is `memory`, meaning the state is cached locally in memory.
-  To support running multiple instances of traefik-simple-auth, this can be switched to `memcached` or `redis`, which uses an (external) server instead.
-
-- `-cache-memcached-addr`
-
-  Address of the memcached instance to use. Only used when `cache` is `memcached`.
-
-- `cache-redis-addr`, `cache-redis-username`, `cache-redis-password`, `cache-redis-database`
-
-  Address, username, password and database number to use. Only used when `cache` is `redis`. 
-
-- `client-id`
-
-  The Client ID, found in the OAuth provider's credentials configuration.
-
-- `client-secret`
-
-  The Client Secret, found in the OAuth provider's Credentials configuration.
-
-- `debug`
-
-  Log debug messages
+##### Maim parameters
 
 - `domain`
 
-  The domain to allow requests for: if "example.com" is an allowed domain, then all subdomains (e.g. www.example.com) are allowed.
+  The domain to allow requests for: if "example.com" is an allowed domain, then all subdomains (e.g., www.example.com) are allowed.
 
-  Note: the domain needs a redirect URL configured in the Oauth2 provider, matching the domain, e.g. when using example.com,
-  https://auth.example.com/_oauth needs to be set up as redirect URLs and an ingress is needed to route back to traefik-simple-auth.
+  Note: the domain needs a redirect URL configured in the Oauth2 provider, matching the domain, e.g., when using example.com,
+  https://auth.example.com/_oauth needs to be set up as redirect URLs and an ingress is needed to route requests back to traefik-simple-auth.
 
-- `expiry`
+- `session.expiration`
 
-  Lifetime of the session cookie, i.e. how long before a user must log back into Google.
+  Lifetime of the session cookie, i.e., how long before a user must log back into Google.
 
-- `prom`
-
-  Listener address for Prometheus metrics
-
-- `provider`
-
-  The auth provider to use. Supported values are `github`, `google` and `oidc`. When using `oidc` (i.e. OpenID Connect), 
-  the user should also provide the OIDC Issuer URL for the OIDC service (`-provider-oidc-issuer-url`).
-
-  Note: in theory any OpenID Connect-compliant service should work, but only Google has been tested.
-
-- `provider-oidc-issuer-url`
-
-  The OpenID Connect Issuer URL to use for the oidc provider. Default is "https://accounts.google.com" (i.e. Google)
-
-- `secret`
+- `session.secret`
 
   A (base64-encoded) secret used to protect the session cookie.
 
-- `session-cookie-name`
+- `session.cookie-name`
 
-  The name of the browser cookie holding the session. Overriding this may be useful when you to segregate a user signing in to one instance of traefik-simple-auth vs. any other instances.
+  The name of the browser cookie holding the session. Overriding this may be useful when you to segregate multiple instances of traefik-simple-auth, running for different domains / providers.
+
+##### auth
+
+- `auth.provider`
+
+  This specifies the type of oauth2 provider. Currently supports `google`, `github` and `oidc`.
+
+- `auth.client-id` and `auth.client-secret`
+
+  These are the Client ID and Client Secret obtained from your auth provider. 
+
+- `auth.issuer-url string`
+
+  The OpenID Connect Issuer URL to use for the oidc provider. Only needed when using `oidc`.
+
+- `auth.auth-prefix`
+
+  The prefix used to construct the auth provider's redirect URL.
+
+ Example: if the auth-prefix is `auth` and the domain is `example.com`, the Auth Redirect URL will be `https://auth.example.com/_oauth'.
+
+
+##### csrf 
+
+- `-csrf.ttl`
+
+  Specifies how long a CSRF token remains valid, i.e., how long we wait for the user to log into his auth provider.
+
+- `csrf.redis.addr`, `csrf.redis.database`, `csrf.redis.username`, `csrf.redis.password`
+
+  traefik-simple-auth can store the CSRF tokens in a redis database. This is only relevant when running multiple instances.
   
-  By default, traefik-simple-auth uses Google as oauth provider and a session cooke called `traefik-simple-auth`.
-  If a second instance, using GitHub oauth, used the same cookie name, then signing in to Google would also allow any flows
-  authenticated by GitHub. If you want to segregate this, use a different `session-cookie-name` for the GitHub instance.  
+  If `csrf.redis.addr` is empty, traefik-simple-auth stores the CSRF tokens in a memory cache.
 
-- `users`
+- `csrf.redis.namespace`
 
-  A comma-separated list of email addresses that should be allowed to use traefik-simple-auth. If the list is blank, then any email address will be allowed.
-
-  - `addr`
-  
-  Listener address for traefik-simple-auth
-  
-  - -csrf.redis.addr string
-  Redis server address
-  -csrf.redis.database int
-  Redis database number
-  -csrf.redis.namespace string
-  When sharing a redis db, namespace can be prepended to the key to avoid collision with other applications  (default "github.com/clambin/traefik-simple-auth/state")
-  -csrf.redis.password string
-  Redis password
-  -csrf.redis.username string
-  Redis username
-  -csrf.ttl duration
-  Lifetime of a CSRF token (default 10m0s)
-  -domain string
-  Domain to allow access
-  -log.format string
-  log format (default "text")
-  -log.level string
-  log level (default "info")
-  -oidc.auth-prefix string
-  Prefix to construct the authRedirect URL from the domain (default "auth")
-  -oidc.client-id string
-  OAuth2 Client ID
-  -oidc.client-secret string
-  OAuth2 Client Secret
-  -oidc.issuer-url string
-  The OIDC Issuer URL to use (only used when provider is oidc) (default "https://accounts.google.com")
-  -oidc.provider string
-  OAuth2 provider (default "google")
-  -pprofaddr string
-  The address to listen on for Go pprof profiler (default: no pprof profiler)
-  -prom.addr string
-  prometheus listen address (default ":9100")
-  -prom.path string
-  prometheus path (default "/metrics")
-  -secret string
-  Secret to use for authentication (base64 encoded)
-  -session.cookie-name string
-  The cookie name to use for authentication (default "_traefik_simple_auth")
-  -session.expiration duration
-  How long the session should remain valid (default 720h0m0s)
-  -users string
-  Comma-separated list of usernames to allow access
-
+  Namespace for redis keys. Only relevant when using redis as a CSRF cache, sharing the database with other applications.
+ 
 ## Metrics
 
 traefik-simple-auth exports the following metrics:
@@ -390,7 +320,7 @@ traefik-simple-auth exports the following metrics:
 
 ## Limitations
 
-- The oauth callback (`https://<auth-prefix>.<domain>/_oauth`) is restricted to the standard https port (i.e. 443).
+- The oauth callback (`https://<auth-prefix>.<domain>/_oauth`) is restricted to the standard https port (i.e., 443).
 
 ## Authors
 
@@ -399,4 +329,3 @@ traefik-simple-auth exports the following metrics:
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
