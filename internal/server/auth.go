@@ -3,13 +3,14 @@ package server
 import (
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"net"
 	"net/http"
 	"net/mail"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // authenticator creates and validate JWT tokens inside a http.Cookie.
@@ -149,20 +150,36 @@ func NewWhitelist(emails []string) (Whitelist, error) {
 }
 
 // Match returns true if the email address is on the whitelist, or if the whitelist is empty.
-func (w Whitelist) Match(email string) bool {
-	if len(w) == 0 {
+func (w *Whitelist) Match(email string) bool {
+	if len(*w) == 0 {
 		return true
 	}
-	_, ok := w[strings.ToLower(email)]
+	_, ok := (*w)[strings.ToLower(email)]
 	return ok
 }
 
-func (w Whitelist) list() []string {
-	list := make([]string, 0, len(w))
-	for email := range w {
+func (w *Whitelist) list() []string {
+	list := make([]string, 0, len(*w))
+	for email := range *w {
 		list = append(list, email)
 	}
 	return list
+}
+
+func (w *Whitelist) Add(s ...string) error {
+	newWhitelist, err := NewWhitelist(s)
+	if err != nil {
+		return err
+	}
+	if *w == nil {
+		*w = newWhitelist
+		return nil
+	}
+	for user := range newWhitelist {
+		(*w)[strings.ToLower(user)] = struct{}{}
+	}
+
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

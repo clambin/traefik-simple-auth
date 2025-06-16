@@ -2,6 +2,7 @@ package server
 
 import (
 	"flag"
+	"io"
 	"testing"
 	"time"
 
@@ -53,8 +54,14 @@ func TestGetConfiguration(t *testing.T) {
 			err:  assert.Error,
 		},
 		{
-			name: "invalid domain",
+			name: "missing domain",
 			args: []string{"-users=foo@example.com", "-session.secret=12345678", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "invalid domain",
+			args: []string{"-users=foo@example.com", "-session.secret=12345678", "-domain='. example.com'", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
 			want: Configuration{},
 			err:  assert.Error,
 		},
@@ -74,7 +81,9 @@ func TestGetConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := GetConfiguration(flag.NewFlagSet("test", flag.ContinueOnError), tt.args...)
+			f := flag.NewFlagSet("test", flag.ContinueOnError)
+			f.SetOutput(io.Discard)
+			cfg, err := GetConfiguration(f, tt.args...)
 			tt.err(t, err)
 			assert.Equal(t, tt.want, cfg)
 		})

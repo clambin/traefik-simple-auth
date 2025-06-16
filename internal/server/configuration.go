@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"codeberg.org/clambin/go-common/flagger"
@@ -61,26 +60,33 @@ var DefaultConfiguration = Configuration{
 func GetConfiguration(f *flag.FlagSet, args ...string) (Configuration, error) {
 	cfg := DefaultConfiguration
 	flagger.SetFlags(f, &cfg)
-	users := f.String("users", "", "Comma-separated list of usernames to allow access")
-	encodedSecret := f.String("session.secret", "", "Secret to use for authentication (base64 encoded)")
-	domainString := f.String("domain", "", "Domain to allow access")
+	// these flags require special processing that flagger doesn't support
+	f.Func("users", "Comma-separated list of usernames to allow access", func(s string) error {
+		return cfg.Whitelist.Add(s)
+	})
+	f.Func("session.secret", "Secret to use for authentication (base64 encoded)", func(s string) (err error) {
+		if cfg.Secret, err = base64.StdEncoding.DecodeString(s); err != nil {
+			return fmt.Errorf("failed to decode secret: %w", err)
+		}
+		return nil
+	})
+	f.Func("domain", "Domain to allow access", func(s string) (err error) {
+		if cfg.Domain, err = NewDomain(s); err != nil {
+			return fmt.Errorf("invalid domain: %w", err)
+		}
+		return err
+	})
 
 	if args == nil {
 		args = os.Args[1:]
 	}
 	err := f.Parse(args)
 	if err != nil {
-		return cfg, err
+		return Configuration{}, err
 	}
 
-	if cfg.Whitelist, err = NewWhitelist(strings.Split(*users, ",")); err != nil {
-		return Configuration{}, fmt.Errorf("invalid whitelist: %w", err)
-	}
-	if cfg.Secret, err = base64.StdEncoding.DecodeString(*encodedSecret); err != nil {
-		return Configuration{}, fmt.Errorf("failed to decode secret: %w", err)
-	}
-	if cfg.Domain, err = NewDomain(*domainString); err != nil {
-		return Configuration{}, fmt.Errorf("invalid domain: %w", err)
+	if cfg.Domain == "" {
+		return Configuration{}, errors.New("missing domain")
 	}
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		return Configuration{}, errors.New("must specify both client-id and client-secret")

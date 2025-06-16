@@ -91,33 +91,6 @@ func TestRun(t *testing.T) {
 	assert.NoError(t, g.Wait())
 }
 
-/*
-	func TestRun_Fail(t *testing.T) {
-		oidcServer, err := mockoidc.Run()
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = oidcServer.Shutdown() })
-
-		cfg := server.Configuration{
-			Debug:             true,
-			Addr:              ":-1",
-			PromAddr:          ":-1",
-			SessionCookieName: "_auth",
-			Secret:            []byte("secret"),
-			Provider:          "oidc",
-			OIDCIssuerURL:     oidcServer.Issuer(),
-			Domain:            server.Domain(".example.com"),
-			Whitelist:         server.Whitelist{"jane.doe@example.com": struct{}{}},
-			ClientID:          oidcServer.ClientID,
-			ClientSecret:      oidcServer.ClientSecret,
-			AuthPrefix:        "auth",
-			StateConfiguration: authn.Configuration{
-				TTL:       time.Hour,
-				CacheType: "memory",
-			},
-		}
-		assert.Error(t, run(t.Context(), cfg, prometheus.NewRegistry(), "dev", testutils.DiscardLogger))
-	}
-*/
 func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, string, error) {
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://www.example.com/")
 	var err error
