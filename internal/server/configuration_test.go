@@ -18,54 +18,57 @@ func TestGetConfiguration(t *testing.T) {
 		err  assert.ErrorAssertionFunc
 	}{
 		{
-			name: "invalid whitelist",
-			args: []string{"-users", "bar"},
-			want: Configuration{},
-			err:  assert.Error,
-		},
-		{
-			name: "invalid secret",
-			args: []string{"-users", "foo@example.com", "-secret", "invalid-secret"},
-			want: Configuration{},
-			err:  assert.Error,
-		},
-		{
-			name: "invalid domain",
-			args: []string{"-users", "foo@example.com", "-secret", "12345678"},
-			want: Configuration{},
-			err:  assert.Error,
-		},
-		{
-			name: "missing clientID",
-			args: []string{"-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com"},
-			want: Configuration{},
-			err:  assert.Error,
-		},
-		{
-			name: "missing clientSecret",
-			args: []string{"-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-oidc.client-id", "12345678"},
-			want: Configuration{},
-			err:  assert.Error,
-		},
-		{
 			name: "valid",
-			args: []string{"-users", "foo@example.com", "-secret=12345678", "-domain=example.com", "-oidc.client-id=12345678", "-oidc.client-secret=12345678"},
+			args: []string{"-users=foo@example.com", "-session.secret=12345678", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
 			want: Configuration{
-				Log:       flagger.DefaultLog,
-				Prom:      flagger.DefaultProm,
-				Session:   Session{CookieName: "_traefik_simple_auth", Expiration: 30 * 24 * time.Hour},
+				Log:  flagger.DefaultLog,
+				Prom: flagger.DefaultProm,
+				SessionConfiguration: SessionConfiguration{
+					CookieName: "_traefik_simple_auth",
+					Secret:     []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
+					Expiration: 30 * 24 * time.Hour,
+				},
 				Whitelist: Whitelist{"foo@example.com": struct{}{}},
 				Addr:      ":8080",
 				PProfAddr: "",
-				Secret:    []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
 				Domain:    ".example.com",
 				CSRF: csrf.Configuration{
 					TTL:   10 * time.Minute,
 					Redis: csrf.RedisConfiguration{Addr: "", Username: "", Password: "", Namespace: "github.com/clambin/traefik-simple-auth/state"},
 				},
-				OIDC: OIDC{Provider: "google", IssuerURL: "https://accounts.google.com", ClientID: "12345678", ClientSecret: "12345678", AuthPrefix: "auth"},
+				AuthConfiguration: AuthConfiguration{Provider: "google", IssuerURL: "https://accounts.google.com", ClientID: "12345678", ClientSecret: "12345678", AuthPrefix: "auth"},
 			},
 			err: assert.NoError,
+		},
+		{
+			name: "invalid whitelist",
+			args: []string{"-users=invalid-user", "-session.secret=12345678", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "invalid secret",
+			args: []string{"-users=foo@example.com", "-session.secret=invalid-secret", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "invalid domain",
+			args: []string{"-users=foo@example.com", "-session.secret=12345678", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "missing clientID",
+			args: []string{"-users=foo@example.com", "-session.secret=12345678", "-domain=example.com", "-auth.client-secret=12345678"},
+			want: Configuration{},
+			err:  assert.Error,
+		},
+		{
+			name: "missing clientSecret",
+			args: []string{"-users=foo@example.com", "-session.secret=session.12345678", "-domain=example.com", "-auth.client-id=12345678"},
+			want: Configuration{},
+			err:  assert.Error,
 		},
 	}
 

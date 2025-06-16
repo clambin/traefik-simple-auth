@@ -1,23 +1,24 @@
-// Package oauth2 implements handlers for traefik-simple-auth to authenticate a user. It implements the oauth2 handshake,
+// Package authn implements handlers for traefik-simple-auth to authenticate a user. It implements the authn handshake,
 // as well as a means to get the email address of the authenticated users.
 //
-// Currently, Google and GitHub are supported as oauth2 providers.
+// Currently, Google and GitHub are supported as authn providers.
 //
 // Additionally, it implements a means of protecting the OAuth2 flow against CSRF attacks by associating each login request
 // with a randomly generated state.
-package oauth2
+package authn
 
 import (
 	"context"
 	"fmt"
-	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
+
+	"golang.org/x/oauth2"
 )
 
 // A Handler performs the OAuth handshake and get the email address for the authenticated user.
 type Handler interface {
-	// AuthCodeURL generates the URL to use in the oauth2 handshake.
+	// AuthCodeURL generates the URL to use in the authn handshake.
 	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
 	// GetUserEmailAddress returns the email address of the authenticated user.
 	GetUserEmailAddress(ctx context.Context, code string) (string, error)

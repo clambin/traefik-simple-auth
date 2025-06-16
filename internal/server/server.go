@@ -7,8 +7,8 @@ import (
 
 	"github.com/clambin/go-common/httputils/metrics"
 	"github.com/clambin/go-common/httputils/middleware"
+	"github.com/clambin/traefik-simple-auth/internal/server/authn"
 	"github.com/clambin/traefik-simple-auth/internal/server/csrf"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
 )
 
 const OAUTHPath = "/_oauth"
@@ -19,24 +19,24 @@ type Server struct {
 	csrfStateStore csrf.StateStore
 }
 
-// New returns a new Server that handles traefik's forward-auth requests, and the associated oauth2 flow.
+// New returns a new Server that handles traefik's forward-auth requests, and the associated authn flow.
 // It panics if config.Provider is invalid.
 func New(ctx context.Context, config Configuration, metrics metrics.RequestMetrics, logger *slog.Logger) Server {
-	logger = logger.With("provider", config.OIDC.Provider)
-	oauthHandler, err := oauth2.NewHandler(
+	logger = logger.With("provider", config.AuthConfiguration.Provider)
+	oauthHandler, err := authn.NewHandler(
 		ctx,
-		config.OIDC.Provider,
-		config.OIDC.IssuerURL,
-		config.OIDC.ClientID,
-		config.OIDC.ClientSecret,
-		"https://"+config.OIDC.AuthPrefix+string(config.Domain)+OAUTHPath,
+		config.AuthConfiguration.Provider,
+		config.AuthConfiguration.IssuerURL,
+		config.AuthConfiguration.ClientID,
+		config.AuthConfiguration.ClientSecret,
+		"https://"+config.AuthConfiguration.AuthPrefix+string(config.Domain)+OAUTHPath,
 		logger.With("domain", string(config.Domain)),
 	)
 	if err != nil {
-		panic("invalid provider: " + config.OIDC.Provider + ", err: " + err.Error())
+		panic("invalid provider: " + config.AuthConfiguration.Provider + ", err: " + err.Error())
 	}
 
-	auth := newAuthenticator(config.Session.CookieName, string(config.Domain), config.Secret, config.Session.Expiration)
+	auth := newAuthenticator(config.SessionConfiguration.CookieName, string(config.Domain), config.Secret, config.SessionConfiguration.Expiration)
 	states := csrf.New(config.CSRF)
 
 	// create the server router
@@ -57,7 +57,7 @@ func addServerRoutes(
 	mux *http.ServeMux,
 	authenticator *authenticator,
 	authorizer authorizer,
-	oauthHandler oauth2.Handler,
+	oauthHandler authn.Handler,
 	states csrf.StateStore,
 	metrics metrics.RequestMetrics,
 	logger *slog.Logger,

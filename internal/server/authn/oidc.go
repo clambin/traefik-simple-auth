@@ -1,12 +1,13 @@
-package oauth2
+package authn
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
-	"log/slog"
 )
 
 type OIDCHandler struct {
@@ -21,7 +22,7 @@ func NewOIDCHandler(ctx context.Context, oidcIssuerURL, clientID, clientSecret, 
 	}
 	oidcProvider, err := oidc.NewProvider(ctx, oidcIssuerURL)
 	if err != nil {
-		return nil, fmt.Errorf("could not create OIDC provider: %w", err)
+		return nil, fmt.Errorf("could not create AuthConfiguration provider: %w", err)
 	}
 	return &OIDCHandler{
 		Config: oauth2.Config{

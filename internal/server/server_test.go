@@ -21,8 +21,8 @@ import (
 
 func TestServer_Panics(t *testing.T) {
 	cfg := Configuration{
-		OIDC:   OIDC{Provider: "foobar"},
-		Domain: Domain("example.com"),
+		AuthConfiguration: AuthConfiguration{Provider: "foobar"},
+		Domain:            Domain("example.com"),
 	}
 	assert.Panics(t, func() {
 		_ = New(context.Background(), cfg, nil, testutils.DiscardLogger)
@@ -222,18 +222,18 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 
 	list, _ := NewWhitelist([]string{"foo@example.com"})
 	cfg := Configuration{
-		OIDC: OIDC{
+		AuthConfiguration: AuthConfiguration{
 			Provider:     "oidc",
 			IssuerURL:    oidcServer.Issuer(),
 			ClientID:     oidcServer.ClientID,
 			ClientSecret: oidcServer.ClientSecret,
 			AuthPrefix:   "auth",
 		},
-		Session: Session{
+		SessionConfiguration: SessionConfiguration{
 			CookieName: "_auth",
+			Secret:     []byte("secret"),
 			Expiration: time.Hour,
 		},
-		Secret:    []byte("secret"),
 		Domain:    Domain("example.com"),
 		Whitelist: list,
 		CSRF: csrf.Configuration{
@@ -288,7 +288,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 	config.Secret = []byte("secret")
 	config.Whitelist = whiteList
 	config.Domain = ".example.com"
-	config.OIDC.Provider = "google"
+	config.AuthConfiguration.Provider = "google"
 
 	s := New(context.Background(), config, nil, testutils.DiscardLogger)
 

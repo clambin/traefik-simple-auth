@@ -16,25 +16,24 @@ import (
 type Configuration struct {
 	flagger.Log
 	flagger.Prom
-	Session
-	Whitelist Whitelist `flagger.skip:"true"`
-	Addr      string    `flagger.usage:"The address to listen on for HTTP requests"`
-	PProfAddr string    `flagger.usage:"The address to listen on for Go pprof profiler (default: no pprof profiler)"`
-	Secret    []byte    `flagger.skip:"true"`
-	Domain    Domain    `flagger.skip:"true"`
-
-	CSRF csrf.Configuration
-	OIDC OIDC
+	SessionConfiguration `flagger.name:"session"`
+	Whitelist            Whitelist `flagger.skip:"true"`
+	Addr                 string    `flagger.usage:"The address to listen on for HTTP requests"`
+	PProfAddr            string    `flagger.usage:"The address to listen on for Go pprof profiler (default: no pprof profiler)"`
+	Domain               Domain    `flagger.skip:"true"`
+	CSRF                 csrf.Configuration
+	AuthConfiguration    `flagger.name:"auth"`
 }
 
-type Session struct {
+type SessionConfiguration struct {
 	CookieName string        `flagger.name:"cookie-name" flagger.usage:"The cookie name to use for authentication"`
 	Expiration time.Duration `flagger.usage:"How long the session should remain valid"`
+	Secret     []byte        `flagger.skip:"true"`
 }
 
-type OIDC struct {
+type AuthConfiguration struct {
 	Provider     string `flagger.usage:"OAuth2 provider"`
-	IssuerURL    string `flagger.name:"issuer-url" flagger.usage:"The OIDC Issuer URL to use (only used when provider is oidc)"`
+	IssuerURL    string `flagger.name:"issuer-url" flagger.usage:"The AuthConfiguration Issuer URL to use (only used when provider is oidc)"`
 	ClientID     string `flagger.name:"client-id" flagger.usage:"OAuth2 Client ID"`
 	ClientSecret string `flagger.name:"client-secret" flagger.usage:"OAuth2 Client Secret"`
 	AuthPrefix   string `flagger.name:"auth-prefix" flagger.usage:"Prefix to construct the authRedirect URL from the domain"`
@@ -42,11 +41,11 @@ type OIDC struct {
 
 var DefaultConfiguration = Configuration{
 	Addr: ":8080",
-	Session: Session{
+	SessionConfiguration: SessionConfiguration{
 		CookieName: "_traefik_simple_auth",
 		Expiration: 30 * 24 * time.Hour,
 	},
-	OIDC: OIDC{
+	AuthConfiguration: AuthConfiguration{
 		Provider:   "google",
 		IssuerURL:  "https://accounts.google.com",
 		AuthPrefix: "auth",
@@ -63,7 +62,7 @@ func GetConfiguration(f *flag.FlagSet, args ...string) (Configuration, error) {
 	cfg := DefaultConfiguration
 	flagger.SetFlags(f, &cfg)
 	users := f.String("users", "", "Comma-separated list of usernames to allow access")
-	encodedSecret := f.String("secret", "", "Secret to use for authentication (base64 encoded)")
+	encodedSecret := f.String("session.secret", "", "Secret to use for authentication (base64 encoded)")
 	domainString := f.String("domain", "", "Domain to allow access")
 
 	if args == nil {
@@ -83,7 +82,7 @@ func GetConfiguration(f *flag.FlagSet, args ...string) (Configuration, error) {
 	if cfg.Domain, err = NewDomain(*domainString); err != nil {
 		return Configuration{}, fmt.Errorf("invalid domain: %w", err)
 	}
-	if cfg.OIDC.ClientID == "" || cfg.OIDC.ClientSecret == "" {
+	if cfg.AuthConfiguration.ClientID == "" || cfg.AuthConfiguration.ClientSecret == "" {
 		return Configuration{}, errors.New("must specify both client-id and client-secret")
 	}
 	return cfg, nil

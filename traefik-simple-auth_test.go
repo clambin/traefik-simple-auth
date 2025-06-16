@@ -32,10 +32,10 @@ func TestRun(t *testing.T) {
 
 	cfg := server.DefaultConfiguration
 	cfg.Secret = []byte("secret")
-	cfg.OIDC.Provider = "oidc"
-	cfg.OIDC.IssuerURL = oidcServer.Issuer()
-	cfg.OIDC.ClientID = oidcServer.ClientID
-	cfg.OIDC.ClientSecret = oidcServer.ClientSecret
+	cfg.AuthConfiguration.Provider = "oidc"
+	cfg.AuthConfiguration.IssuerURL = oidcServer.Issuer()
+	cfg.AuthConfiguration.ClientID = oidcServer.ClientID
+	cfg.AuthConfiguration.ClientSecret = oidcServer.ClientSecret
 	cfg.Domain = ".example.com"
 	cfg.Whitelist = server.Whitelist{"jane.doe@example.com": struct{}{}}
 
@@ -110,7 +110,7 @@ func TestRun(t *testing.T) {
 			ClientID:          oidcServer.ClientID,
 			ClientSecret:      oidcServer.ClientSecret,
 			AuthPrefix:        "auth",
-			StateConfiguration: oauth2.Configuration{
+			StateConfiguration: authn.Configuration{
 				TTL:       time.Hour,
 				CacheType: "memory",
 			},
