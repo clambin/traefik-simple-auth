@@ -208,40 +208,46 @@ traefik-simple-auth supports the following command-line arguments:
 Usage:
    -addr string
         The address to listen on for HTTP requests (default ":8080")
-  -auth-prefix string
-        prefix to construct the authRedirect URL from the domain (default "auth")
-  -cache string
-        The backend to use for caching CSFR states. memory, memcached and redis are supported (default "memory")
-  -cache-memcached-addr string
-        memcached address to use (only used when cache backend is memcached)
-  -cache-redis-addr string
-        redis address to use (only used when cache backend is redis)
-  -cache-redis-database int
-        redis database to use (only used when cache backend is redis)
-  -cache-redis-password string
-        Redis password (only used when cache backend is redis)
-  -cache-redis-username string
-        Redis username (only used when cache backend is redis)
-  -client-id string
-        OAuth2 Client ID
-  -client-secret string
-        OAuth2 Client Secret
-  -debug
-        Log debug messages
+  -csrf.redis.addr string
+        Redis server address
+  -csrf.redis.database int
+        Redis database number
+  -csrf.redis.namespace string
+        When sharing a redis db, namespace can be prepended to the key to avoid collision with other applications  (default "github.com/clambin/traefik-simple-auth/state")
+  -csrf.redis.password string
+        Redis password
+  -csrf.redis.username string
+        Redis username
+  -csrf.ttl duration
+        Lifetime of a CSRF token (default 10m0s)
   -domain string
         Domain to allow access
-  -expiry duration
-        How long a session remains valid (default 720h0m0s)
-  -prom string
-        The address to listen on for Prometheus scrape requests (default ":9090")
-  -provider string
-        The OAuth2 provider (default "google")
-  -provider-oidc-issuer string
-        The OIDC Issuer URL to use (only used when provider is oidc (default "https://accounts.google.com")
+  -log.format string
+        log format (default "text")
+  -log.level string
+        log level (default "info")
+  -oidc.auth-prefix string
+        Prefix to construct the authRedirect URL from the domain (default "auth")
+  -oidc.client-id string
+        OAuth2 Client ID
+  -oidc.client-secret string
+        OAuth2 Client Secret
+  -oidc.issuer-url string
+        The OIDC Issuer URL to use (only used when provider is oidc) (default "https://accounts.google.com")
+  -oidc.provider string
+        OAuth2 provider (default "google")
+  -pprofaddr string
+        The address to listen on for Go pprof profiler (default: no pprof profiler)
+  -prom.addr string
+        prometheus listen address (default ":9100")
+  -prom.path string
+        prometheus path (default "/metrics")
   -secret string
         Secret to use for authentication (base64 encoded)
-  -session-cookie-name string
+  -session.cookie-name string
         The cookie name to use for authentication (default "_traefik_simple_auth")
+  -session.expiration duration
+        How long the session should remain valid (default 720h0m0s)
   -users string
         Comma-separated list of usernames to allow access
 ```
@@ -324,6 +330,53 @@ Usage:
 - `users`
 
   A comma-separated list of email addresses that should be allowed to use traefik-simple-auth. If the list is blank, then any email address will be allowed.
+
+  - `addr`
+  
+  Listener address for traefik-simple-auth
+  
+  - -csrf.redis.addr string
+  Redis server address
+  -csrf.redis.database int
+  Redis database number
+  -csrf.redis.namespace string
+  When sharing a redis db, namespace can be prepended to the key to avoid collision with other applications  (default "github.com/clambin/traefik-simple-auth/state")
+  -csrf.redis.password string
+  Redis password
+  -csrf.redis.username string
+  Redis username
+  -csrf.ttl duration
+  Lifetime of a CSRF token (default 10m0s)
+  -domain string
+  Domain to allow access
+  -log.format string
+  log format (default "text")
+  -log.level string
+  log level (default "info")
+  -oidc.auth-prefix string
+  Prefix to construct the authRedirect URL from the domain (default "auth")
+  -oidc.client-id string
+  OAuth2 Client ID
+  -oidc.client-secret string
+  OAuth2 Client Secret
+  -oidc.issuer-url string
+  The OIDC Issuer URL to use (only used when provider is oidc) (default "https://accounts.google.com")
+  -oidc.provider string
+  OAuth2 provider (default "google")
+  -pprofaddr string
+  The address to listen on for Go pprof profiler (default: no pprof profiler)
+  -prom.addr string
+  prometheus listen address (default ":9100")
+  -prom.path string
+  prometheus path (default "/metrics")
+  -secret string
+  Secret to use for authentication (base64 encoded)
+  -session.cookie-name string
+  The cookie name to use for authentication (default "_traefik_simple_auth")
+  -session.expiration duration
+  How long the session should remain valid (default 720h0m0s)
+  -users string
+  Comma-separated list of usernames to allow access
 
 ## Metrics
 

@@ -1,13 +1,13 @@
 package server
 
 import (
-	"bytes"
 	"flag"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
-	"github.com/stretchr/testify/assert"
-	"os"
 	"testing"
 	"time"
+
+	"codeberg.org/clambin/go-common/flagger"
+	"github.com/clambin/traefik-simple-auth/internal/server/csrf"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetConfiguration(t *testing.T) {
@@ -19,101 +19,51 @@ func TestGetConfiguration(t *testing.T) {
 	}{
 		{
 			name: "invalid whitelist",
-			args: []string{"test", "-users", "bar"},
+			args: []string{"-users", "bar"},
 			want: Configuration{},
 			err:  assert.Error,
 		},
 		{
 			name: "invalid secret",
-			args: []string{"test", "-users", "foo@example.com", "-secret", "invalid-secret"},
+			args: []string{"-users", "foo@example.com", "-secret", "invalid-secret"},
 			want: Configuration{},
 			err:  assert.Error,
 		},
 		{
 			name: "invalid domain",
-			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678"},
+			args: []string{"-users", "foo@example.com", "-secret", "12345678"},
 			want: Configuration{},
 			err:  assert.Error,
 		},
 		{
 			name: "missing clientID",
-			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com"},
+			args: []string{"-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com"},
 			want: Configuration{},
 			err:  assert.Error,
 		},
 		{
 			name: "missing clientSecret",
-			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-client-id", "12345678"},
+			args: []string{"-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-oidc.client-id", "12345678"},
 			want: Configuration{},
 			err:  assert.Error,
 		},
 		{
 			name: "valid",
-			args: []string{"test", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-client-id", "12345678", "-client-secret", "12345678"},
+			args: []string{"-users", "foo@example.com", "-secret=12345678", "-domain=example.com", "-oidc.client-id=12345678", "-oidc.client-secret=12345678"},
 			want: Configuration{
-				Whitelist:         Whitelist{"foo@example.com": struct{}{}},
-				Addr:              ":8080",
-				PromAddr:          ":9090",
-				PProfAddr:         "",
-				SessionCookieName: "_traefik_simple_auth",
-				Provider:          "google",
-				OIDCIssuerURL:     "https://accounts.google.com",
-				ClientID:          "12345678",
-				ClientSecret:      "12345678",
-				AuthPrefix:        "auth",
-				Secret:            []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
-				Domain:            ".example.com",
-				StateConfiguration: oauth2.Configuration{
-					CacheType: "memory",
-					Namespace: "github.com/clambin/traefik-simple-auth/state",
-					MemcachedConfiguration: oauth2.MemcachedConfiguration{
-						Addr: "",
-					},
-					RedisConfiguration: oauth2.RedisConfiguration{
-						Addr:     "",
-						Username: "",
-						Password: "",
-						Database: 0,
-					},
-					TTL: 10 * time.Minute,
+				Log:       flagger.DefaultLog,
+				Prom:      flagger.DefaultProm,
+				Session:   Session{CookieName: "_traefik_simple_auth", Expiration: 30 * 24 * time.Hour},
+				Whitelist: Whitelist{"foo@example.com": struct{}{}},
+				Addr:      ":8080",
+				PProfAddr: "",
+				Secret:    []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
+				Domain:    ".example.com",
+				CSRF: csrf.Configuration{
+					TTL:   10 * time.Minute,
+					Redis: csrf.RedisConfiguration{Addr: "", Username: "", Password: "", Namespace: "github.com/clambin/traefik-simple-auth/state"},
 				},
-				SessionExpiration: 30 * 24 * time.Hour,
-				Debug:             false,
-			},
-			err: assert.NoError,
-		},
-		{
-			name: "with pprof",
-			args: []string{"test", "-pprof", ":6000", "-users", "foo@example.com", "-secret", "12345678", "-domain", ".example.com", "-client-id", "12345678", "-client-secret", "12345678"},
-			want: Configuration{
-				Whitelist:         Whitelist{"foo@example.com": struct{}{}},
-				Addr:              ":8080",
-				PromAddr:          ":9090",
-				PProfAddr:         ":6000",
-				SessionCookieName: "_traefik_simple_auth",
-				Provider:          "google",
-				OIDCIssuerURL:     "https://accounts.google.com",
-				ClientID:          "12345678",
-				ClientSecret:      "12345678",
-				AuthPrefix:        "auth",
-				Secret:            []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
-				Domain:            ".example.com",
-				StateConfiguration: oauth2.Configuration{
-					CacheType: "memory",
-					Namespace: "github.com/clambin/traefik-simple-auth/state",
-					MemcachedConfiguration: oauth2.MemcachedConfiguration{
-						Addr: "",
-					},
-					RedisConfiguration: oauth2.RedisConfiguration{
-						Addr:     "",
-						Username: "",
-						Password: "",
-						Database: 0,
-					},
-					TTL: 10 * time.Minute,
-				},
-				SessionExpiration: 30 * 24 * time.Hour,
-				Debug:             false,
+				OIDC: OIDC{Provider: "google", IssuerURL: "https://accounts.google.com", ClientID: "12345678", ClientSecret: "12345678", AuthPrefix: "auth"},
 			},
 			err: assert.NoError,
 		},
@@ -121,26 +71,9 @@ func TestGetConfiguration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			flag.CommandLine = flag.NewFlagSet("test", flag.ContinueOnError)
-			os.Args = tt.args
-
-			cfg, err := GetConfiguration()
+			cfg, err := GetConfiguration(flag.NewFlagSet("test", flag.ContinueOnError), tt.args...)
 			tt.err(t, err)
 			assert.Equal(t, tt.want, cfg)
 		})
 	}
-}
-
-func TestConfiguration_Logger(t *testing.T) {
-	var cfg Configuration
-	var out bytes.Buffer
-
-	l := cfg.Logger(&out)
-	l.Debug("debug message")
-	assert.Empty(t, out.String())
-
-	cfg.Debug = true
-	l = cfg.Logger(&out)
-	l.Debug("debug message")
-	assert.Contains(t, out.String(), `"msg":"debug message"`)
 }

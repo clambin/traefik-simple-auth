@@ -2,12 +2,14 @@ package server
 
 import (
 	"errors"
-	oidc "github.com/clambin/traefik-simple-auth/internal/server/oauth2"
-	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/clambin/traefik-simple-auth/internal/server/csrf"
+	oidc "github.com/clambin/traefik-simple-auth/internal/server/oauth2"
+	"golang.org/x/oauth2"
 )
 
 // forwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
@@ -17,7 +19,7 @@ import (
 func forwardAuthHandler(
 	authorizer authorizer,
 	oauthHandler oidc.Handler,
-	states oidc.CSRFStateStore,
+	states csrf.StateStore,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -101,7 +103,7 @@ func oAuth2CallbackHandler(
 	authenticator *authenticator,
 	authorizer authorizer,
 	oauthHandler oidc.Handler,
-	states oidc.CSRFStateStore,
+	states csrf.StateStore,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -159,7 +161,7 @@ func oAuth2CallbackHandler(
 //
 // There's only one dependency: the external cache. If that is not available, we return http.StatusServiceUnavailable.
 // Otherwise, we return http.StatusOK.
-func healthHandler(states oidc.CSRFStateStore, logger *slog.Logger) http.Handler {
+func healthHandler(states csrf.StateStore, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := states.Ping(r.Context()); err != nil {
 			logger.Warn("cache ping failed", "err", err)
