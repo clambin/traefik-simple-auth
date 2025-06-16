@@ -45,6 +45,29 @@ func TestGetConfiguration(t *testing.T) {
 			err: assert.NoError,
 		},
 		{
+			name: "no users",
+			args: []string{"-session.secret=c2VjcmV0", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
+			want: Configuration{
+				Log:  flagger.DefaultLog,
+				Prom: flagger.DefaultProm,
+				Session: Session{
+					CookieName: "_traefik_simple_auth",
+					Secret:     []byte("secret"),
+					Expiration: 30 * 24 * time.Hour,
+				},
+				Whitelist: Whitelist(nil),
+				Addr:      ":8080",
+				PProfAddr: "",
+				Domain:    ".example.com",
+				CSRFConfiguration: csrf.Configuration{
+					TTL:   10 * time.Minute,
+					Redis: csrf.RedisConfiguration{Addr: "", Username: "", Password: "", Namespace: "github.com/clambin/traefik-simple-auth/state"},
+				},
+				Auth: Auth{Provider: "google", IssuerURL: "https://accounts.google.com", ClientID: "12345678", ClientSecret: "12345678", AuthPrefix: "auth"},
+			},
+			err: assert.NoError,
+		},
+		{
 			name: "invalid whitelist",
 			args: []string{"-users=invalid-user", "-session.secret=12345678", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
 			want: Configuration{},
