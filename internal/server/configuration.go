@@ -18,7 +18,7 @@ type Configuration struct {
 	flagger.Prom
 	SessionConfiguration `flagger.name:"session"`
 	Whitelist            Whitelist `flagger.skip:"true"`
-	Addr                 string    `flagger.usage:"The address to listen on for HTTP requests"`
+	Addr                 string    `flagger.name:"pprof.addr" flagger.usage:"The address to listen on for HTTP requests"`
 	PProfAddr            string    `flagger.usage:"The address to listen on for Go pprof profiler (default: no pprof profiler)"`
 	Domain               Domain    `flagger.skip:"true"`
 	CSRF                 csrf.Configuration
