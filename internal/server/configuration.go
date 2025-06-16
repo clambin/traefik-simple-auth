@@ -14,26 +14,26 @@ import (
 )
 
 type Configuration struct {
+	Whitelist Whitelist `flagger.skip:"true"`
+	Auth
 	flagger.Log
 	flagger.Prom
-	SessionConfiguration `flagger.name:"session"`
-	Whitelist            Whitelist `flagger.skip:"true"`
-	Addr                 string    `flagger.name:"pprof.addr" flagger.usage:"The address to listen on for HTTP requests"`
-	PProfAddr            string    `flagger.usage:"The address to listen on for Go pprof profiler (default: no pprof profiler)"`
-	Domain               Domain    `flagger.skip:"true"`
-	CSRF                 csrf.Configuration
-	AuthConfiguration    `flagger.name:"auth"`
+	Session
+	Addr              string             `flagger.usage:"The address to listen on for HTTP requests"`
+	PProfAddr         string             `flagger.name:"pprof.addr" flagger.usage:"The address to listen on for Go pprof profiler (default: no pprof profiler)"`
+	Domain            Domain             `flagger.skip:"true"`
+	CSRFConfiguration csrf.Configuration `flagger.name:"csrf"`
 }
 
-type SessionConfiguration struct {
+type Session struct {
 	CookieName string        `flagger.name:"cookie-name" flagger.usage:"The cookie name to use for authentication"`
-	Expiration time.Duration `flagger.usage:"How long the session should remain valid"`
 	Secret     []byte        `flagger.skip:"true"`
+	Expiration time.Duration `flagger.usage:"How long the session should remain valid"`
 }
 
-type AuthConfiguration struct {
+type Auth struct {
 	Provider     string `flagger.usage:"OAuth2 provider"`
-	IssuerURL    string `flagger.name:"issuer-url" flagger.usage:"The AuthConfiguration Issuer URL to use (only used when provider is oidc)"`
+	IssuerURL    string `flagger.name:"issuer-url" flagger.usage:"The Auth Issuer URL to use (only used when provider is oidc)"`
 	ClientID     string `flagger.name:"client-id" flagger.usage:"OAuth2 Client ID"`
 	ClientSecret string `flagger.name:"client-secret" flagger.usage:"OAuth2 Client Secret"`
 	AuthPrefix   string `flagger.name:"auth-prefix" flagger.usage:"Prefix to construct the authRedirect URL from the domain"`
@@ -41,16 +41,16 @@ type AuthConfiguration struct {
 
 var DefaultConfiguration = Configuration{
 	Addr: ":8080",
-	SessionConfiguration: SessionConfiguration{
+	Session: Session{
 		CookieName: "_traefik_simple_auth",
 		Expiration: 30 * 24 * time.Hour,
 	},
-	AuthConfiguration: AuthConfiguration{
+	Auth: Auth{
 		Provider:   "google",
 		IssuerURL:  "https://accounts.google.com",
 		AuthPrefix: "auth",
 	},
-	CSRF: csrf.Configuration{
+	CSRFConfiguration: csrf.Configuration{
 		TTL:   10 * time.Minute,
 		Redis: csrf.RedisConfiguration{Namespace: "github.com/clambin/traefik-simple-auth/state"},
 	},
@@ -82,7 +82,7 @@ func GetConfiguration(f *flag.FlagSet, args ...string) (Configuration, error) {
 	if cfg.Domain, err = NewDomain(*domainString); err != nil {
 		return Configuration{}, fmt.Errorf("invalid domain: %w", err)
 	}
-	if cfg.AuthConfiguration.ClientID == "" || cfg.AuthConfiguration.ClientSecret == "" {
+	if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		return Configuration{}, errors.New("must specify both client-id and client-secret")
 	}
 	return cfg, nil

@@ -22,22 +22,22 @@ type Server struct {
 // New returns a new Server that handles traefik's forward-auth requests, and the associated authn flow.
 // It panics if config.Provider is invalid.
 func New(ctx context.Context, config Configuration, metrics metrics.RequestMetrics, logger *slog.Logger) Server {
-	logger = logger.With("provider", config.AuthConfiguration.Provider)
+	logger = logger.With("provider", config.Provider)
 	oauthHandler, err := authn.NewHandler(
 		ctx,
-		config.AuthConfiguration.Provider,
-		config.AuthConfiguration.IssuerURL,
-		config.AuthConfiguration.ClientID,
-		config.AuthConfiguration.ClientSecret,
-		"https://"+config.AuthConfiguration.AuthPrefix+string(config.Domain)+OAUTHPath,
+		config.Provider,
+		config.IssuerURL,
+		config.ClientID,
+		config.ClientSecret,
+		"https://"+config.AuthPrefix+string(config.Domain)+OAUTHPath,
 		logger.With("domain", string(config.Domain)),
 	)
 	if err != nil {
-		panic("invalid provider: " + config.AuthConfiguration.Provider + ", err: " + err.Error())
+		panic("invalid provider: " + config.Provider + ", err: " + err.Error())
 	}
 
-	auth := newAuthenticator(config.SessionConfiguration.CookieName, string(config.Domain), config.Secret, config.SessionConfiguration.Expiration)
-	states := csrf.New(config.CSRF)
+	auth := newAuthenticator(config.CookieName, string(config.Domain), config.Secret, config.Expiration)
+	states := csrf.New(config.CSRFConfiguration)
 
 	// create the server router
 	r := http.NewServeMux()

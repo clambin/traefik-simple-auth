@@ -40,7 +40,7 @@ func run(ctx context.Context, cfg server.Configuration, r prometheus.Registerer,
 	defer logger.Info("traefik-simple-auth stopped")
 
 	// create the server
-	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.AuthConfiguration.Provider})
+	metrics := server.NewMetrics("traefik_simple_auth", "", prometheus.Labels{"provider": cfg.Provider})
 	r.MustRegister(metrics)
 	s := server.New(ctx, cfg, metrics, logger)
 

@@ -22,7 +22,7 @@ func NewOIDCHandler(ctx context.Context, oidcIssuerURL, clientID, clientSecret, 
 	}
 	oidcProvider, err := oidc.NewProvider(ctx, oidcIssuerURL)
 	if err != nil {
-		return nil, fmt.Errorf("could not create AuthConfiguration provider: %w", err)
+		return nil, fmt.Errorf("could not create Auth provider: %w", err)
 	}
 	return &OIDCHandler{
 		Config: oauth2.Config{

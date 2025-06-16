@@ -19,24 +19,24 @@ func TestGetConfiguration(t *testing.T) {
 	}{
 		{
 			name: "valid",
-			args: []string{"-users=foo@example.com", "-session.secret=12345678", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
+			args: []string{"-users=foo@example.com", "-session.secret=c2VjcmV0", "-domain=example.com", "-auth.client-id=12345678", "-auth.client-secret=12345678"},
 			want: Configuration{
 				Log:  flagger.DefaultLog,
 				Prom: flagger.DefaultProm,
-				SessionConfiguration: SessionConfiguration{
+				Session: Session{
 					CookieName: "_traefik_simple_auth",
-					Secret:     []uint8{0xd7, 0x6d, 0xf8, 0xe7, 0xae, 0xfc},
+					Secret:     []byte("secret"),
 					Expiration: 30 * 24 * time.Hour,
 				},
 				Whitelist: Whitelist{"foo@example.com": struct{}{}},
 				Addr:      ":8080",
 				PProfAddr: "",
 				Domain:    ".example.com",
-				CSRF: csrf.Configuration{
+				CSRFConfiguration: csrf.Configuration{
 					TTL:   10 * time.Minute,
 					Redis: csrf.RedisConfiguration{Addr: "", Username: "", Password: "", Namespace: "github.com/clambin/traefik-simple-auth/state"},
 				},
-				AuthConfiguration: AuthConfiguration{Provider: "google", IssuerURL: "https://accounts.google.com", ClientID: "12345678", ClientSecret: "12345678", AuthPrefix: "auth"},
+				Auth: Auth{Provider: "google", IssuerURL: "https://accounts.google.com", ClientID: "12345678", ClientSecret: "12345678", AuthPrefix: "auth"},
 			},
 			err: assert.NoError,
 		},
