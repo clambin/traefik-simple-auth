@@ -10,9 +10,8 @@
 
 A simple, up-to-date, re-implementation of traefik-forward-auth.
 
-## ⚠️ Breaking change in v0.11.0
-V0.11.0 only supports one domain. The command line argument `-domains` is replaced by `-domain`. 
-To support multiple domains, run one instance of traefik-simple-auth per domain.
+## ⚠️ Breaking change in v0.12.0
+V0.12.0 changes the command line parameters.  See [Command line parameters](#command-line-parameters) for details.
 
 ## Contents
 
@@ -23,7 +22,7 @@ To support multiple domains, run one instance of traefik-simple-auth per domain.
   - [Using Google as auth provider](#using-google-as-auth-provider)
   - [traefik](#traefik)
   - [traefik-simple-auth](#traefik-simple-auth)
-- [Command line arguments](#command-line-parameters)
+- [Command line parameters](#command-line-parameters)
 - [Metrics](#metrics)
 - [Limitations](#limitations)
 - [Authors](#authors)
@@ -187,13 +186,13 @@ With the configuration above, run traefik-forward-auth:
 
 ```
 traefik-simple-auth \
-  -addr :8080 \                     # service directs to port 8080
-  -provider google \                # google is the auth provider
-  -auth-prefix auth \               # prefix of the redirect URL configured in the auth provider
-  -domain .example.com \            # only access requests for this domain 
-  -client-id <client-id> \          # auth provider Client ID
-  -client-secret <client-secret> \  # auth provider Client Secret
-  -secret c2VjcmV0Cg==              # secret used to protect the session cookie
+  -addr :8080 \                          # service listens on port 8080
+  -domain .example.com \                 # only access requests for this domain 
+  -session.secret c2VjcmV0Cg==           # secret used to protect the session cookie
+  -auth.provider google \                # google is the auth provider
+  -auth.client-id <client-id> \          # auth provider Client ID
+  -auth.client-secret <client-secret> \  # auth provider Client Secret
+  -auth.auth-prefix auth \               # redirect URL is https://auth.example.com/_oauth
 ```
 
 With this configuration, traefik-simple-auth authenticates any request for example.com, or any subdomain. Since no 
