@@ -1,12 +1,13 @@
-package oauth2
+package authn
 
 import (
 	"context"
+	"testing"
+
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {
@@ -41,7 +42,7 @@ func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {
 		assert.Equal(t, "foo@example.com", email)
 	})
 
-	t.Run("failed to access OIDC server", func(t *testing.T) {
+	t.Run("failed to access Auth server", func(t *testing.T) {
 		assert.NoError(t, s.Shutdown())
 
 		_, err = NewOIDCHandler(ctx, s.Issuer(), cfg.ClientID, cfg.ClientSecret, "https://auth.example.com", l)

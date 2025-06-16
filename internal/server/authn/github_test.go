@@ -1,14 +1,15 @@
-package oauth2
+package authn
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/clambin/traefik-simple-auth/internal/testutils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGitHubHandler_GetUserEmailAddress(t *testing.T) {

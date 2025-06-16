@@ -1,21 +1,20 @@
-package oauth2
+package csrf
 
 import (
 	"context"
 	"encoding/hex"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"testing"
-	"time"
 )
 
-func TestCSFRStateStore(t *testing.T) {
-	c := NewCSFRStateStore(Configuration{
-		CacheType: "memory",
-		Namespace: "github.com/clambin/traefik-simple-auth/states",
-		TTL:       500 * time.Millisecond,
+func TestStateStore(t *testing.T) {
+	c := New(Configuration{
+		TTL: 500 * time.Millisecond,
 	})
 
 	ctx := context.Background()
@@ -41,17 +40,8 @@ func Test_cache(t *testing.T) {
 		panics    bool
 	}{
 		{
-			name:      "invalid",
-			cacheType: "invalid",
-			panics:    true,
-		},
-		{
-			name:      "local cache",
+			name:      "memory",
 			cacheType: "memory",
-		},
-		{
-			name:      "memcached",
-			cacheType: "memcached",
 		},
 		{
 			name:      "redis",
@@ -60,25 +50,15 @@ func Test_cache(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		cfg := Configuration{TTL: time.Minute, Redis: RedisConfiguration{Namespace: "foo"}}
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := Configuration{CacheType: tt.cacheType}
-			if tt.panics {
-				assert.Panics(t, func() { newCache[string](cfg) })
-				return
-			}
-
-			ctx := context.Background()
+			ctx := t.Context()
 			switch tt.cacheType {
-			case "memcached":
-				c, ep, err := startContainer(ctx, memcachedReq)
-				require.NoError(t, err)
-				cfg.MemcachedConfiguration.Addr = ep
-				t.Cleanup(func() { _ = c.Terminate(ctx) })
 			case "redis":
 				c, ep, err := startContainer(ctx, redisReq)
 				require.NoError(t, err)
-				cfg.RedisConfiguration.Addr = ep
-				t.Cleanup(func() { _ = c.Terminate(ctx) })
+				cfg.Redis.Addr = ep
+				t.Cleanup(func() { _ = c.Terminate(context.Background()) })
 			}
 
 			c := newCache[string](cfg)
@@ -95,36 +75,11 @@ func Test_cache(t *testing.T) {
 	}
 }
 
-func BenchmarkCache(b *testing.B) {
-	ctx := context.Background()
-	b.Run("string", func(b *testing.B) {
-		c := newCache[string](Configuration{CacheType: "memory"})
-		for range b.N {
-			_ = c.Add(ctx, "key", "value", time.Hour)
-			_, _ = c.GetDel(ctx, "key")
-		}
-	})
-	b.Run("int", func(b *testing.B) {
-		c := newCache[int](Configuration{CacheType: "memory"})
-		for range b.N {
-			_ = c.Add(ctx, "key", 1, time.Hour)
-			_, _ = c.GetDel(ctx, "key")
-		}
-	})
+var redisReq = testcontainers.ContainerRequest{
+	Image:        "redis:latest",
+	ExposedPorts: []string{"6379/tcp"},
+	WaitingFor:   wait.ForLog("Ready to accept connections"),
 }
-
-var (
-	redisReq = testcontainers.ContainerRequest{
-		Image:        "redis:latest",
-		ExposedPorts: []string{"6379/tcp"},
-		WaitingFor:   wait.ForLog("Ready to accept connections"),
-	}
-	memcachedReq = testcontainers.ContainerRequest{
-		Image:        "memcached:latest",
-		ExposedPorts: []string{"11211/tcp"},
-		WaitingFor:   wait.ForExposedPort(),
-	}
-)
 
 func startContainer(ctx context.Context, req testcontainers.ContainerRequest) (testcontainers.Container, string, error) {
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{

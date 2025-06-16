@@ -1,11 +1,12 @@
-package oauth2
+package authn
 
 import (
 	"context"
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
+
+	"github.com/clambin/traefik-simple-auth/internal/testutils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewHandler(t *testing.T) {

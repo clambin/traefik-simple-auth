@@ -5,80 +5,92 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
-	"io"
-	"log/slog"
+	"os"
 	"strings"
 	"time"
+
+	"codeberg.org/clambin/go-common/flagger"
+	"github.com/clambin/traefik-simple-auth/internal/server/csrf"
 )
 
 type Configuration struct {
-	Whitelist          Whitelist
-	Addr               string
-	PromAddr           string
-	PProfAddr          string
-	SessionCookieName  string
-	Provider           string
-	OIDCIssuerURL      string
-	ClientID           string
-	ClientSecret       string
-	AuthPrefix         string
-	Secret             []byte
-	Domain             Domain
-	StateConfiguration oauth2.Configuration
-	SessionExpiration  time.Duration
-	Debug              bool
+	Whitelist Whitelist `flagger.skip:"true"`
+	Auth
+	flagger.Log
+	flagger.Prom
+	Session
+	Addr              string             `flagger.usage:"The address to listen on for HTTP requests"`
+	PProfAddr         string             `flagger.name:"pprof.addr" flagger.usage:"The address to listen on for Go pprof profiler (default: no pprof profiler)"`
+	Domain            Domain             `flagger.skip:"true"`
+	CSRFConfiguration csrf.Configuration `flagger.name:"csrf"`
 }
 
-func GetConfiguration() (Configuration, error) {
-	cfg := Configuration{
-		StateConfiguration: oauth2.Configuration{
-			Namespace: "github.com/clambin/traefik-simple-auth/state",
-			TTL:       10 * time.Minute,
-		},
-	}
-	users := flag.String("users", "", "Comma-separated list of usernames to allow access")
-	flag.StringVar(&cfg.Addr, "addr", ":8080", "The address to listen on for HTTP requests")
-	flag.StringVar(&cfg.PromAddr, "prom", ":9090", "The address to listen on for Prometheus scrape requests")
-	flag.StringVar(&cfg.PProfAddr, "pprof", "", "The address to listen on for Go pprof profiler (default: no pprof profiler)")
-	flag.StringVar(&cfg.SessionCookieName, "session-cookie-name", "_traefik_simple_auth", "The cookie name to use for authentication")
-	flag.StringVar(&cfg.Provider, "provider", "google", "OAuth2 provider")
-	flag.StringVar(&cfg.OIDCIssuerURL, "provider-oidc-issuer", "https://accounts.google.com", "The OIDC Issuer URL to use (only used when provider is oidc")
-	flag.StringVar(&cfg.ClientID, "client-id", "", "OAuth2 Client ID")
-	flag.StringVar(&cfg.ClientSecret, "client-secret", "", "OAuth2 Client Secret")
-	flag.StringVar(&cfg.AuthPrefix, "auth-prefix", "auth", "Prefix to construct the authRedirect URL from the domain")
-	secret := flag.String("secret", "", "Secret to use for authentication (base64 encoded)")
-	domainString := flag.String("domain", "", "Domain to allow access")
-	flag.StringVar(&cfg.StateConfiguration.CacheType, "cache", "memory", "The backend to use for caching CSFR states. memory, memcached and redis are supported")
-	flag.StringVar(&cfg.StateConfiguration.MemcachedConfiguration.Addr, "cache-memcached-addr", "", "memcached address to use (only used when cache backend is memcached)")
-	flag.StringVar(&cfg.StateConfiguration.RedisConfiguration.Addr, "cache-redis-addr", "", "redis address to use (only used when cache backend is redis)")
-	flag.IntVar(&cfg.StateConfiguration.RedisConfiguration.Database, "cache-redis-database", 0, "redis database to use (only used when cache backend is redis)")
-	flag.StringVar(&cfg.StateConfiguration.RedisConfiguration.Username, "cache-redis-username", "", "Redis username (only used when cache backend is redis)")
-	flag.StringVar(&cfg.StateConfiguration.RedisConfiguration.Password, "cache-redis-password", "", "Redis password (only used when cache backend is redis)")
-	flag.DurationVar(&cfg.SessionExpiration, "expiry", 30*24*time.Hour, "How long a session remains valid")
-	flag.BoolVar(&cfg.Debug, "debug", false, "Log debug messages")
-	flag.Parse()
+type Session struct {
+	CookieName string        `flagger.name:"cookie-name" flagger.usage:"The cookie name to use for authentication"`
+	Secret     []byte        `flagger.skip:"true"`
+	Expiration time.Duration `flagger.usage:"How long the session should remain valid"`
+}
 
-	var err error
-	if cfg.Whitelist, err = NewWhitelist(strings.Split(*users, ",")); err != nil {
-		return Configuration{}, fmt.Errorf("invalid whitelist: %w", err)
+type Auth struct {
+	Provider     string `flagger.usage:"OAuth2 provider"`
+	IssuerURL    string `flagger.name:"issuer-url" flagger.usage:"The Auth Issuer URL to use (only used when provider is oidc)"`
+	ClientID     string `flagger.name:"client-id" flagger.usage:"OAuth2 Client ID"`
+	ClientSecret string `flagger.name:"client-secret" flagger.usage:"OAuth2 Client Secret"`
+	AuthPrefix   string `flagger.name:"auth-prefix" flagger.usage:"Prefix to construct the authRedirect URL from the domain"`
+}
+
+var DefaultConfiguration = Configuration{
+	Addr: ":8080",
+	Session: Session{
+		CookieName: "_traefik_simple_auth",
+		Expiration: 30 * 24 * time.Hour,
+	},
+	Auth: Auth{
+		Provider:   "google",
+		IssuerURL:  "https://accounts.google.com",
+		AuthPrefix: "auth",
+	},
+	CSRFConfiguration: csrf.Configuration{
+		TTL:   10 * time.Minute,
+		Redis: csrf.RedisConfiguration{Namespace: "github.com/clambin/traefik-simple-auth/state"},
+	},
+	Log:  flagger.DefaultLog,
+	Prom: flagger.DefaultProm,
+}
+
+func GetConfiguration(f *flag.FlagSet, args ...string) (Configuration, error) {
+	cfg := DefaultConfiguration
+	flagger.SetFlags(f, &cfg)
+	// these flags require special processing that flagger doesn't support
+	f.Func("users", "Comma-separated list of usernames to allow access", func(s string) error {
+		return cfg.Whitelist.Add(strings.Split(s, ",")...)
+	})
+	f.Func("session.secret", "Secret to use for authentication (base64 encoded)", func(s string) (err error) {
+		if cfg.Secret, err = base64.StdEncoding.DecodeString(s); err != nil {
+			return fmt.Errorf("failed to decode secret: %w", err)
+		}
+		return nil
+	})
+	f.Func("domain", "Domain to allow access", func(s string) (err error) {
+		if cfg.Domain, err = NewDomain(s); err != nil {
+			return fmt.Errorf("invalid domain: %w", err)
+		}
+		return err
+	})
+
+	if args == nil {
+		args = os.Args[1:]
 	}
-	if cfg.Secret, err = base64.StdEncoding.DecodeString(*secret); err != nil {
-		return Configuration{}, fmt.Errorf("failed to decode secret: %w", err)
+	err := f.Parse(args)
+	if err != nil {
+		return Configuration{}, err
 	}
-	if cfg.Domain, err = NewDomain(*domainString); err != nil {
-		return Configuration{}, fmt.Errorf("invalid domain: %w", err)
+
+	if cfg.Domain == "" {
+		return Configuration{}, errors.New("missing domain")
 	}
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		return Configuration{}, errors.New("must specify both client-id and client-secret")
 	}
 	return cfg, nil
-}
-
-func (c Configuration) Logger(w io.Writer) *slog.Logger {
-	var opts slog.HandlerOptions
-	if c.Debug {
-		opts = slog.HandlerOptions{Level: slog.LevelDebug}
-	}
-	return slog.New(slog.NewJSONHandler(w, &opts))
 }

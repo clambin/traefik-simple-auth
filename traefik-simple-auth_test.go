@@ -1,22 +1,22 @@
-package cmd
+package main
 
 import (
 	"context"
 	"fmt"
-	"github.com/clambin/traefik-simple-auth/internal/server"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/oauth2-proxy/mockoidc"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/clambin/traefik-simple-auth/internal/server"
+	"github.com/clambin/traefik-simple-auth/internal/testutils"
+	"github.com/oauth2-proxy/mockoidc"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestRun(t *testing.T) {
@@ -30,35 +30,24 @@ func TestRun(t *testing.T) {
 		return oidcServer.Shutdown()
 	})
 
-	cfg := server.Configuration{
-		Debug:             true,
-		Addr:              ":8081",
-		PromAddr:          ":9091",
-		PProfAddr:         ":6000",
-		SessionCookieName: "_traefik_auth_session",
-		SessionExpiration: time.Hour,
-		Secret:            []byte("secret"),
-		Provider:          "oidc",
-		OIDCIssuerURL:     oidcServer.Issuer(),
-		Domain:            server.Domain(".example.com"),
-		Whitelist:         server.Whitelist{"jane.doe@example.com": struct{}{}},
-		ClientID:          oidcServer.ClientID,
-		ClientSecret:      oidcServer.ClientSecret,
-		AuthPrefix:        "auth",
-		StateConfiguration: oauth2.Configuration{
-			TTL:       time.Hour,
-			CacheType: "memory",
-		},
-	}
+	cfg := server.DefaultConfiguration
+	cfg.Secret = []byte("secret")
+	cfg.Provider = "oidc"
+	cfg.IssuerURL = oidcServer.Issuer()
+	cfg.ClientID = oidcServer.ClientID
+	cfg.ClientSecret = oidcServer.ClientSecret
+	cfg.Domain = ".example.com"
+	cfg.Whitelist = server.Whitelist{"jane.doe@example.com": struct{}{}}
+
 	//l := testutils.DiscardLogger
 	l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	g.Go(func() error {
-		return run(ctx, cfg, prometheus.NewRegistry(), "dev", l)
+		return run(ctx, cfg, prometheus.NewRegistry(), l)
 	})
 
 	assert.Eventually(t, func() bool {
-		resp, err := http.Get("http://localhost:8081/health")
+		resp, err := http.Get("http://localhost:8080/health")
 		if err == nil {
 			_ = resp.Body.Close()
 		}
@@ -71,13 +60,13 @@ func TestRun(t *testing.T) {
 	}
 
 	// no cookie provided. server responds with a redirect, pointing to the oauth provider
-	code, location, err := doForwardAuth(&c, "http://localhost:8081/", nil)
+	code, location, err := doForwardAuth(&c, "http://localhost:8080/", nil)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusTemporaryRedirect, code)
 	assert.NotEmpty(t, location)
 
 	// call the oauth provider. this will redirect us to the authCallback flow
-	code, location, _, err = doDirect(&c, location, cfg.SessionCookieName)
+	code, location, _, err = doDirect(&c, location, cfg.CookieName)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusFound, code)
 	assert.NotEmpty(t, location)
@@ -87,57 +76,19 @@ func TestRun(t *testing.T) {
 	// call the authCallback flow. RawQuery contains the code & state. this will redirect us back to the forwardAuth
 	// flow and gives us a session cookie.
 	var cookie *http.Cookie
-	code, _, cookie, err = doDirect(&c, "http://localhost:8081"+oauthURL.Path+"?"+oauthURL.RawQuery, cfg.SessionCookieName)
+	code, _, cookie, err = doDirect(&c, "http://localhost:8080"+oauthURL.Path+"?"+oauthURL.RawQuery, cfg.CookieName)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusTemporaryRedirect, code)
 	require.NotNil(t, cookie)
-	assert.Equal(t, cfg.SessionCookieName, cookie.Name)
+	assert.Equal(t, cfg.CookieName, cookie.Name)
 
 	// try again, now with the session cookie. this time, we are authenticated.
-	code, _, err = doForwardAuth(&c, "http://localhost:8081/", cookie)
+	code, _, err = doForwardAuth(&c, "http://localhost:8080/", cookie)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, code)
 
-	// validate the Prometheus server is running
-	resp, err := http.Get("http://localhost:9091/metrics")
-	require.NoError(t, err)
-	_ = resp.Body.Close()
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-	// validate the pprof server is running
-	resp, err = http.Get("http://localhost:6000/debug/pprof/heap")
-	require.NoError(t, err)
-	_ = resp.Body.Close()
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-
 	cancel()
 	assert.NoError(t, g.Wait())
-}
-
-func TestRun_Fail(t *testing.T) {
-	oidcServer, err := mockoidc.Run()
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = oidcServer.Shutdown() })
-
-	cfg := server.Configuration{
-		Debug:             true,
-		Addr:              ":-1",
-		PromAddr:          ":-1",
-		SessionCookieName: "_auth",
-		Secret:            []byte("secret"),
-		Provider:          "oidc",
-		OIDCIssuerURL:     oidcServer.Issuer(),
-		Domain:            server.Domain(".example.com"),
-		Whitelist:         server.Whitelist{"jane.doe@example.com": struct{}{}},
-		ClientID:          oidcServer.ClientID,
-		ClientSecret:      oidcServer.ClientSecret,
-		AuthPrefix:        "auth",
-		StateConfiguration: oauth2.Configuration{
-			TTL:       time.Hour,
-			CacheType: "memory",
-		},
-	}
-	assert.Error(t, run(t.Context(), cfg, prometheus.NewRegistry(), "dev", testutils.DiscardLogger))
 }
 
 func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, string, error) {

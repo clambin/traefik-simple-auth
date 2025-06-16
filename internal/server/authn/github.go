@@ -1,13 +1,14 @@
-package oauth2
+package authn
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
 	"log/slog"
 	"net/http"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 )
 
 var _ Handler = &GitHubHandler{}

@@ -2,12 +2,14 @@ package server
 
 import (
 	"errors"
-	oidc "github.com/clambin/traefik-simple-auth/internal/server/oauth2"
-	"golang.org/x/oauth2"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/clambin/traefik-simple-auth/internal/server/authn"
+	"github.com/clambin/traefik-simple-auth/internal/server/csrf"
+	"golang.org/x/oauth2"
 )
 
 // forwardAuthHandler implements the authentication flow for traefik's forwardAuth middleware.
@@ -16,8 +18,8 @@ import (
 // forwards the request to the originally requested destination.
 func forwardAuthHandler(
 	authorizer authorizer,
-	oauthHandler oidc.Handler,
-	states oidc.CSRFStateStore,
+	oauthHandler authn.Handler,
+	states csrf.StateStore,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +56,7 @@ func forwardAuthHandler(
 			return
 		}
 
-		// Redirect the user to the oauth2 provider to select the account to authenticate the request.
+		// Redirect the user to the authn provider to select the account to authenticate the request.
 		authCodeURL := oauthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 		logger.Debug("redirecting", "authCodeURL", authCodeURL)
 		// TODO: possible clear the cookie, so it's removed from the user's browser?
@@ -100,8 +102,8 @@ func logoutHandler(
 func oAuth2CallbackHandler(
 	authenticator *authenticator,
 	authorizer authorizer,
-	oauthHandler oidc.Handler,
-	states oidc.CSRFStateStore,
+	oauthHandler authn.Handler,
+	states csrf.StateStore,
 	logger *slog.Logger,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -132,7 +134,7 @@ func oAuth2CallbackHandler(
 				return
 			}
 			logger.Error("rejecting login request: failed to log in", "err", err)
-			http.Error(w, "oauth2 failed", http.StatusBadGateway)
+			http.Error(w, "authn failed", http.StatusBadGateway)
 			return
 		}
 		logger.Debug("user authenticated", "user", user)
@@ -159,7 +161,7 @@ func oAuth2CallbackHandler(
 //
 // There's only one dependency: the external cache. If that is not available, we return http.StatusServiceUnavailable.
 // Otherwise, we return http.StatusOK.
-func healthHandler(states oidc.CSRFStateStore, logger *slog.Logger) http.Handler {
+func healthHandler(states csrf.StateStore, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := states.Ping(r.Context()); err != nil {
 			logger.Warn("cache ping failed", "err", err)

@@ -2,12 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/clambin/go-common/httputils/metrics"
-	"github.com/clambin/traefik-simple-auth/internal/server/oauth2"
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/oauth2-proxy/mockoidc"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,12 +10,19 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/clambin/go-common/httputils/metrics"
+	"github.com/clambin/traefik-simple-auth/internal/server/csrf"
+	"github.com/clambin/traefik-simple-auth/internal/testutils"
+	"github.com/oauth2-proxy/mockoidc"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServer_Panics(t *testing.T) {
 	cfg := Configuration{
-		Provider: "foobar",
-		Domain:   Domain("example.com"),
+		Auth:   Auth{Provider: "foobar"},
+		Domain: Domain("example.com"),
 	}
 	assert.Panics(t, func() {
 		_ = New(context.Background(), cfg, nil, testutils.DiscardLogger)
@@ -193,7 +194,7 @@ func TestHealthHandler(t *testing.T) {
 	l := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// up
-	states := oauth2.NewCSFRStateStore(oauth2.Configuration{CacheType: "memory"})
+	states := csrf.New(csrf.Configuration{})
 	s := healthHandler(states, l)
 	r, _ := http.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
@@ -201,7 +202,7 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	// down
-	states = oauth2.NewCSFRStateStore(oauth2.Configuration{CacheType: "redis"})
+	states = csrf.New(csrf.Configuration{Redis: csrf.RedisConfiguration{Addr: "localhost:8888"}})
 	s = healthHandler(states, l)
 	r, _ = http.NewRequest(http.MethodGet, "/health", nil)
 	w = httptest.NewRecorder()
@@ -209,7 +210,7 @@ func TestHealthHandler(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
-func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetrics) (*authenticator, oauth2.CSRFStateStore, *mockoidc.MockOIDC, http.Handler) {
+func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetrics) (*authenticator, csrf.StateStore, *mockoidc.MockOIDC, http.Handler) {
 	t.Helper()
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
@@ -221,19 +222,22 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 
 	list, _ := NewWhitelist([]string{"foo@example.com"})
 	cfg := Configuration{
-		SessionCookieName: "_auth",
-		Secret:            []byte("secret"),
-		SessionExpiration: time.Hour,
-		Provider:          "oidc",
-		AuthPrefix:        "auth",
-		ClientID:          oidcServer.ClientID,
-		ClientSecret:      oidcServer.ClientSecret,
-		OIDCIssuerURL:     oidcServer.Issuer(),
-		Domain:            Domain("example.com"),
-		Whitelist:         list,
-		StateConfiguration: oauth2.Configuration{
-			CacheType: "memory",
-			TTL:       time.Minute,
+		Auth: Auth{
+			Provider:     "oidc",
+			IssuerURL:    oidcServer.Issuer(),
+			ClientID:     oidcServer.ClientID,
+			ClientSecret: oidcServer.ClientSecret,
+			AuthPrefix:   "auth",
+		},
+		Session: Session{
+			CookieName: "_auth",
+			Secret:     []byte("secret"),
+			Expiration: time.Hour,
+		},
+		Domain:    Domain("example.com"),
+		Whitelist: list,
+		CSRFConfiguration: csrf.Configuration{
+			TTL: time.Minute,
 		},
 	}
 	s := New(ctx, cfg, metrics, testutils.DiscardLogger)
@@ -280,18 +284,12 @@ func Benchmark_header_get(b *testing.B) {
 // BenchmarkForwardAuthHandler-16    	  194578	      5888 ns/op	    3184 B/op	      63 allocs/op
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := NewWhitelist([]string{"foo@example.com"})
-	config := Configuration{
-		SessionCookieName: "_auth",
-		Secret:            []byte("secret"),
-		SessionExpiration: time.Hour,
-		Domain:            Domain("example.com"),
-		Whitelist:         whiteList,
-		Provider:          "google",
-		StateConfiguration: oauth2.Configuration{
-			CacheType: "memory",
-			TTL:       time.Minute,
-		},
-	}
+	config := DefaultConfiguration
+	config.Secret = []byte("secret")
+	config.Whitelist = whiteList
+	config.Domain = ".example.com"
+	config.Provider = "google"
+
 	s := New(context.Background(), config, nil, testutils.DiscardLogger)
 
 	c, _ := s.authenticator.CookieWithSignedToken("foo@example.com")
