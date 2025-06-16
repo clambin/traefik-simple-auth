@@ -23,7 +23,7 @@ To support multiple domains, run one instance of traefik-simple-auth per domain.
   - [Using Google as auth provider](#using-google-as-auth-provider)
   - [traefik](#traefik)
   - [traefik-simple-auth](#traefik-simple-auth)
-- [Command line arguments](#command-line-arguments)
+- [Command line arguments](#command-line-parameters)
 - [Metrics](#metrics)
 - [Limitations](#limitations)
 - [Authors](#authors)
@@ -200,9 +200,9 @@ With this configuration, traefik-simple-auth authenticates any request for examp
 whitelist is provided, any authenticated user is allowed. The application handling the authenticated traffic can find 
 the user in the `X-Forwarded-User` header of the request.
 
-## Command line arguments
+## Command line parameters
 
-traefik-simple-auth supports the following command-line arguments:
+traefik-simple-auth supports the following command line parameters:
 
 ```
 Usage:
@@ -250,7 +250,7 @@ Usage:
         Comma-separated list of usernames to allow access
 ```
 
-##### Maim parameters
+##### Main parameters
 
 - `domain`
 
@@ -271,7 +271,7 @@ Usage:
 
   The name of the browser cookie holding the session. Overriding this may be useful when you to segregate multiple instances of traefik-simple-auth, running for different domains / providers.
 
-##### auth
+##### Authentication
 
 - `auth.provider`
 
@@ -292,7 +292,9 @@ Usage:
  Example: if the auth-prefix is `auth` and the domain is `example.com`, the Auth Redirect URL will be `https://auth.example.com/_oauth'.
 
 
-##### csrf 
+##### Cross-Site Request Forgery (CSRF) 
+
+traefik-simple-auth protects against CSRF by adding a token to the authentication flow, which is then verified when the user logs in.
 
 - `-csrf.ttl`
 
