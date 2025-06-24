@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/clambin/go-common/httputils/metrics"
+	"codeberg.org/clambin/go-common/httputils/metrics"
 	"github.com/clambin/traefik-simple-auth/internal/server/csrf"
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/oauth2-proxy/mockoidc"

@@ -4,6 +4,8 @@ codeberg.org/clambin/go-common/flagger v0.2.3 h1:5Owf5IIpCmUlDSL1XGHtCTM4WblIimT
 codeberg.org/clambin/go-common/flagger v0.2.3/go.mod h1:BbmB5YvTEq4l/xrwNdkWDIFBpDEA2KHEdCbMd2q81Oc=
 codeberg.org/clambin/go-common/httputils v0.3.2 h1:56HHoxh16Pvc5o5BGMYSP38fXQ9Pch7YUlc7JW635Lg=
 codeberg.org/clambin/go-common/httputils v0.3.2/go.mod h1:j+My70qma8F90g6IwgdH0IaYGUKo5KP2RaDCei5I25c=
+codeberg.org/clambin/go-common/testutils v0.7.0 h1:zF7CNrm6anw+Imc4cAEa0mhQuZT/hcnjcoKLjNpQr5M=
+codeberg.org/clambin/go-common/testutils v0.7.0/go.mod h1:9tB1/HAyA9ypRrY/nCB1uCs/xXbArm/XOtLbUhD0W6g=
 dario.cat/mergo v1.0.1 h1:Ra4+bf83h2ztPIQYNP99R6m+Y7KfnARDfID+a+vLl4s=
 dario.cat/mergo v1.0.1/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 h1:bvDV9vkmnHYOMsOr4WLk+Vo07yKIzd94sVoIqshQ4bU=
@@ -22,10 +24,6 @@ github.com/cenkalti/backoff/v4 v4.2.1 h1:y4OZtCnogmCPw98Zjyt5a6+QwPLGkiQsYW5oUqy
 github.com/cenkalti/backoff/v4 v4.2.1/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/clambin/go-common/httputils v0.3.0 h1:xb3e6//Y7EhQsmcfwcv/bwgsdXY2n/ztkivP0ePkbkg=
-github.com/clambin/go-common/httputils v0.3.0/go.mod h1:iYADavBTV6JOoDpUXNOLooRxdUM5TcA7UjNJ/uBEqXw=
-github.com/clambin/go-common/testutils v0.5.0 h1:kh/0kuBiFL2oeZJ3EgkRyQphqXQmQYqsS3z07a2R2AM=
-github.com/clambin/go-common/testutils v0.5.0/go.mod h1:bV0j8D4zhNkleCeluFKLBeLQ0L/dqkxbaR/joLn8kzg=
 github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
 github.com/containerd/log v0.1.0/go.mod h1:VRRf09a7mHDIRezVKTRCrOq78v577GXq3bSa3EhrzVo=
 github.com/containerd/platforms v0.2.1 h1:zvwtM3rz2YHPQsF2CHYM8+KtB5dvhISiXh5ZpSBQv6A=

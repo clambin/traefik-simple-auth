@@ -1,13 +1,14 @@
 package server
 
 import (
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/prometheus/client_golang/prometheus/testutil"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/clambin/traefik-simple-auth/internal/testutils"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestServer_withMetrics(t *testing.T) {

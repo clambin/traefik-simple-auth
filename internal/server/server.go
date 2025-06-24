@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/clambin/go-common/httputils/metrics"
-	"github.com/clambin/go-common/httputils/middleware"
+	"codeberg.org/clambin/go-common/httputils/metrics"
+	"codeberg.org/clambin/go-common/httputils/middleware"
 	"github.com/clambin/traefik-simple-auth/internal/server/authn"
 	"github.com/clambin/traefik-simple-auth/internal/server/csrf"
 )
