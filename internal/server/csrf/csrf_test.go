@@ -85,7 +85,6 @@ func startContainer(ctx context.Context, req testcontainers.ContainerRequest) (t
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
-		//Logger:           log.Default(),
 	})
 	if err != nil {
 		return nil, "", err
