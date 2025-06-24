@@ -17,7 +17,7 @@ func TestStateStore(t *testing.T) {
 		TTL: 500 * time.Millisecond,
 	})
 
-	ctx := context.Background()
+	ctx := t.Context()
 	state, err := c.Add(ctx, "foo")
 	require.NoError(t, err)
 	_, err = hex.DecodeString(state)

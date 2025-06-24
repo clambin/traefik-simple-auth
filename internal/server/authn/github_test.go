@@ -1,7 +1,6 @@
 package authn
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -58,7 +57,7 @@ func TestGitHubHandler_GetUserEmailAddress(t *testing.T) {
 				},
 			}
 
-			ctx := context.Background()
+			ctx := t.Context()
 			h, _ := NewHandler(ctx, "github", "", "1234", "1234567", "https://auth.example.com/_oauth", testutils.DiscardLogger)
 			h.(*GitHubHandler).httpClient = &http.Client{Transport: s}
 

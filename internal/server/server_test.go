@@ -25,7 +25,7 @@ func TestServer_Panics(t *testing.T) {
 		Domain: Domain("example.com"),
 	}
 	assert.Panics(t, func() {
-		_ = New(context.Background(), cfg, nil, testutils.DiscardLogger)
+		_ = New(t.Context(), cfg, nil, testutils.DiscardLogger)
 	})
 }
 
@@ -290,7 +290,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 	config.Domain = ".example.com"
 	config.Provider = "google"
 
-	s := New(context.Background(), config, nil, testutils.DiscardLogger)
+	s := New(b.Context(), config, nil, testutils.DiscardLogger)
 
 	c, _ := s.authenticator.CookieWithSignedToken("foo@example.com")
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")

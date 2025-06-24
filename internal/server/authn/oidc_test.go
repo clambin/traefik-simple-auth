@@ -1,7 +1,6 @@
 package authn
 
 import (
-	"context"
 	"testing"
 
 	"github.com/clambin/traefik-simple-auth/internal/testutils"
@@ -15,7 +14,7 @@ func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := s.Config()
-	ctx := context.Background()
+	ctx := t.Context()
 	l := testutils.DiscardLogger
 
 	t.Run("invalid issuer url", func(t *testing.T) {

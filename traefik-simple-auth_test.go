@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"testing"
 	"time"
 
@@ -19,8 +17,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func TestRun(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+func Test_run(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
 	oidcServer, err := mockoidc.Run()
 	require.NoError(t, err)
 
@@ -39,8 +37,8 @@ func TestRun(t *testing.T) {
 	cfg.Domain = ".example.com"
 	cfg.Whitelist = server.Whitelist{"jane.doe@example.com": struct{}{}}
 
-	//l := testutils.DiscardLogger
-	l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	l := testutils.DiscardLogger
+	//l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	g.Go(func() error {
 		return run(ctx, cfg, prometheus.NewRegistry(), l)
