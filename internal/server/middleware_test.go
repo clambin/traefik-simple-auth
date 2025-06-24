@@ -1,12 +1,13 @@
 package server
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSessionExtractor(t *testing.T) {
@@ -133,9 +134,7 @@ func Test_getOriginalTarget(t *testing.T) {
 }
 
 // current:
-// Benchmark_restoreOriginalRequest-16      8409932               141.6 ns/op             0 B/op          0 allocs/op
-// Go 1.24:
-// Benchmark_restoreOriginalRequest-16    	 7314637	       160.5 ns/op	       0 B/op	       0 allocs/op
+// Benchmark_restoreOriginalRequest-10    	12644494	        85.78 ns/op	       0 B/op	       0 allocs/op
 func Benchmark_restoreOriginalRequest(b *testing.B) {
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.Header = http.Header{

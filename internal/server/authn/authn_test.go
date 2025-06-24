@@ -2,10 +2,10 @@ package authn
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"testing"
 
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,7 +43,7 @@ func TestNewHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := NewHandler(ctx, tt.provider, tt.serviceURL, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", testutils.DiscardLogger)
+			_, err := NewHandler(ctx, tt.provider, tt.serviceURL, "CLIENT_ID", "CLIENT_SECRET", "https://auth.example.com/_oauth", slog.New(slog.DiscardHandler))
 			tt.wantErr(t, err)
 		})
 	}

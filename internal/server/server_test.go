@@ -25,7 +25,7 @@ func TestServer_Panics(t *testing.T) {
 		Domain: Domain("example.com"),
 	}
 	assert.Panics(t, func() {
-		_ = New(t.Context(), cfg, nil, testutils.DiscardLogger)
+		_ = New(t.Context(), cfg, nil, slog.New(slog.DiscardHandler))
 	})
 }
 
@@ -240,17 +240,13 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 			TTL: time.Minute,
 		},
 	}
-	s := New(ctx, cfg, metrics, testutils.DiscardLogger)
+	s := New(ctx, cfg, metrics, slog.New(slog.DiscardHandler))
 	return s.authenticator, s.csrfStateStore, oidcServer, s
 }
 
 // Before:
-// Benchmark_header_get/header.Get-16              86203075                13.77 ns/op            0 B/op          0 allocs/op
-// Benchmark_header_get/direct-16                  315107350                3.767 ns/op           0 B/op          0 allocs/op
-// Go 1.24:
-// Benchmark_header_get/header.Get-16         	62699799	        18.95 ns/op	       0 B/op	       0 allocs/op
-// Benchmark_header_get/direct-16             	147151948	         8.114 ns/op	       0 B/op	       0 allocs/op
-// PASS
+// Benchmark_header_get/header.Get-10         	118507999	        10.14 ns/op	       0 B/op	       0 allocs/op
+// Benchmark_header_get/direct-10             	271895365	         4.396 ns/op	   0 B/op	       0 allocs/op
 func Benchmark_header_get(b *testing.B) {
 	const headerName = "X-Foo"
 	const headerValue = "bar"
@@ -278,10 +274,8 @@ func Benchmark_header_get(b *testing.B) {
 	})
 }
 
-// Before:
-// BenchmarkForwardAuthHandler-16    	  182762	      6250 ns/op	    3184 B/op	      63 allocs/op
-// Go 1.24:
-// BenchmarkForwardAuthHandler-16    	  194578	      5888 ns/op	    3184 B/op	      63 allocs/op
+// Current:
+// BenchmarkForwardAuthHandler-10    	  468288	      2252 ns/op	    3184 B/op	      63 allocs/op
 func BenchmarkForwardAuthHandler(b *testing.B) {
 	whiteList, _ := NewWhitelist([]string{"foo@example.com"})
 	config := DefaultConfiguration
@@ -290,7 +284,7 @@ func BenchmarkForwardAuthHandler(b *testing.B) {
 	config.Domain = ".example.com"
 	config.Provider = "google"
 
-	s := New(b.Context(), config, nil, testutils.DiscardLogger)
+	s := New(b.Context(), config, nil, slog.New(slog.DiscardHandler))
 
 	c, _ := s.authenticator.CookieWithSignedToken("foo@example.com")
 	req := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")

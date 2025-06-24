@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"testing"
@@ -37,7 +38,7 @@ func Test_run(t *testing.T) {
 	cfg.Domain = ".example.com"
 	cfg.Whitelist = server.Whitelist{"jane.doe@example.com": struct{}{}}
 
-	l := testutils.DiscardLogger
+	l := slog.New(slog.DiscardHandler)
 	//l := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	g.Go(func() error {

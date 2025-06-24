@@ -1,9 +1,9 @@
 package authn
 
 import (
+	"log/slog"
 	"testing"
 
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/oauth2-proxy/mockoidc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,7 +15,7 @@ func TestOIDCHandler_GetUserEmailAddress(t *testing.T) {
 
 	cfg := s.Config()
 	ctx := t.Context()
-	l := testutils.DiscardLogger
+	l := slog.New(slog.DiscardHandler)
 
 	t.Run("invalid issuer url", func(t *testing.T) {
 		_, err = NewOIDCHandler(ctx, "", cfg.ClientID, cfg.ClientSecret, "https://auth.example.com", l)

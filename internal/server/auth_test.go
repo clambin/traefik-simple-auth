@@ -2,9 +2,6 @@ package server
 
 import (
 	"errors"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"net/mail"
@@ -12,6 +9,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAuthenticator_Authenticate(t *testing.T) {
@@ -381,7 +382,7 @@ func TestDomain_Match(t *testing.T) {
 }
 
 // Current:
-// BenchmarkDomains_Domain-16    	46558543	        26.06 ns/op	       0 B/op	       0 allocs/op
+// BenchmarkDomains_Domain-10    	82262750	        14.60 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkDomains_Domain(b *testing.B) {
 	domain, _ := NewDomain(".example.com")
 	b.ResetTimer()

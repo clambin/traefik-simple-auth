@@ -2,11 +2,11 @@ package authn
 
 import (
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +58,7 @@ func TestGitHubHandler_GetUserEmailAddress(t *testing.T) {
 			}
 
 			ctx := t.Context()
-			h, _ := NewHandler(ctx, "github", "", "1234", "1234567", "https://auth.example.com/_oauth", testutils.DiscardLogger)
+			h, _ := NewHandler(ctx, "github", "", "1234", "1234567", "https://auth.example.com/_oauth", slog.New(slog.DiscardHandler))
 			h.(*GitHubHandler).httpClient = &http.Client{Transport: s}
 
 			user, err := h.GetUserEmailAddress(ctx, "abcd1234")
