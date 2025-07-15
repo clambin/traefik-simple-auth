@@ -7,7 +7,7 @@ require (
 	codeberg.org/clambin/go-common/flagger v0.2.3
 	codeberg.org/clambin/go-common/httputils v0.3.2
 	github.com/coreos/go-oidc/v3 v3.14.1
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.10.0
