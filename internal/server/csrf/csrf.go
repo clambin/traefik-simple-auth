@@ -30,13 +30,13 @@ type RedisConfiguration struct {
 
 const stateSize = 32 // 256 bits
 
-// StateStore provides a repository for temporary (random) states, associated with a value. It is used by traefik-simple-auth
-// to protect against CSRF attacks: before redirecting to the oauth provider, we generate a random state. During callback,
-// we then check if the oauth provider sent us back the same state. The state is maintained for a limited amount of time
+// StateStore provides a repository for temporary (random) states, associated with a value.
+// traefik-simple-auth uses this to protect against CSRF attacks: before redirecting to the oauth provider, we generate a random state.
+// During callback, we then check if the oauth provider sent us back the same state. The state is maintained for a limited amount of time
 // to prevent (very unlikely) replay attacks.
 //
-// StateStore supports three types of cache: a local in-memory cache, memcached and redis. The latter two allow multiple instances
-// of traefik-simple-auth to run, while still sharing one set of StateStore.
+// StateStore supports two types of cache: a local in-memory cache and redis. The latter allows multiple instances
+// of traefik-simple-auth to run, while still sharing a common StateStore.
 type StateStore struct {
 	cache cache[string]
 	ttl   time.Duration
@@ -167,7 +167,6 @@ func (r redisCache[T]) Ping(ctx context.Context) error {
 }
 
 // redis only takes string, so encoded the generic value.
-// optimisation: if T is a string, we can just copy it.
 func encode[T any](value T) ([]byte, error) {
 	return json.Marshal(value)
 }
