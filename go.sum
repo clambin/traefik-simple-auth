@@ -2,10 +2,10 @@ codeberg.org/clambin/go-common/cache v0.9.0 h1:hyhVIR2hHqnjR4rH2KfzgixSyKwMIum7O
 codeberg.org/clambin/go-common/cache v0.9.0/go.mod h1:/YVsYU5cQsyLqiNT4J/XNJllqM6ll975M/YsznARLIw=
 codeberg.org/clambin/go-common/flagger v0.2.3 h1:5Owf5IIpCmUlDSL1XGHtCTM4WblIimTScTgX8cEOKjE=
 codeberg.org/clambin/go-common/flagger v0.2.3/go.mod h1:BbmB5YvTEq4l/xrwNdkWDIFBpDEA2KHEdCbMd2q81Oc=
-codeberg.org/clambin/go-common/httputils v0.3.2 h1:56HHoxh16Pvc5o5BGMYSP38fXQ9Pch7YUlc7JW635Lg=
-codeberg.org/clambin/go-common/httputils v0.3.2/go.mod h1:j+My70qma8F90g6IwgdH0IaYGUKo5KP2RaDCei5I25c=
-codeberg.org/clambin/go-common/testutils v0.7.0 h1:zF7CNrm6anw+Imc4cAEa0mhQuZT/hcnjcoKLjNpQr5M=
-codeberg.org/clambin/go-common/testutils v0.7.0/go.mod h1:9tB1/HAyA9ypRrY/nCB1uCs/xXbArm/XOtLbUhD0W6g=
+codeberg.org/clambin/go-common/httputils v0.4.0 h1:od0VQh2u9p3t68HOcvBluSJPv8Iwhxvtyrqf41IOazA=
+codeberg.org/clambin/go-common/httputils v0.4.0/go.mod h1:NTKxWabvQ98JnG/U8NFW1L99b9x3H0JvFXamAyA3ZbA=
+codeberg.org/clambin/go-common/testutils v0.7.2 h1:6dwCCfhCRbUXPxwBtVMg3/Pi7wV2mS9ZN2ExUCtI11A=
+codeberg.org/clambin/go-common/testutils v0.7.2/go.mod h1:9tB1/HAyA9ypRrY/nCB1uCs/xXbArm/XOtLbUhD0W6g=
 dario.cat/mergo v1.0.1 h1:Ra4+bf83h2ztPIQYNP99R6m+Y7KfnARDfID+a+vLl4s=
 dario.cat/mergo v1.0.1/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 h1:He8afgbRMd7mFxO99hRNu+6tazq8nFF9lIwo9JFroBk=
