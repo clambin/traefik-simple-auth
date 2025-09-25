@@ -1,6 +1,6 @@
 module github.com/clambin/traefik-simple-auth
 
-go 1.24
+go 1.24.0
 
 require (
 	codeberg.org/clambin/go-common/cache v0.9.0
@@ -13,7 +13,7 @@ require (
 	github.com/redis/go-redis/v9 v9.14.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.38.0
-	golang.org/x/oauth2 v0.30.0
+	golang.org/x/oauth2 v0.31.0
 	golang.org/x/sync v0.16.0
 )
 
