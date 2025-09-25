@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	codeberg.org/clambin/go-common/cache v0.9.0
-	codeberg.org/clambin/go-common/flagger v0.2.3
+	codeberg.org/clambin/go-common/flagger v0.3.0
 	codeberg.org/clambin/go-common/httputils v0.4.0
 	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
