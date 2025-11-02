@@ -17,7 +17,8 @@ jobs:
     uses: clambin/workflows/.github/workflows/build.yaml@main
     with:
       image: ghcr.io/clambin/traefik-simple-auth
-      dockerfile: Dockerfile
+      tags: |
+        type=semver,pattern={{version}}
   release:
     needs:
       - build
