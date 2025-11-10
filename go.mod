@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	codeberg.org/clambin/go-common/cache v0.9.0
 	codeberg.org/clambin/go-common/flagger v0.3.0
-	codeberg.org/clambin/go-common/httputils v0.4.0
+	codeberg.org/clambin/go-common/httputils v0.4.1
 	github.com/coreos/go-oidc/v3 v3.16.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25
@@ -14,7 +14,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.39.0
 	golang.org/x/oauth2 v0.32.0
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.18.0
 )
 
 require (

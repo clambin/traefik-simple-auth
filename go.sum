@@ -2,8 +2,8 @@ codeberg.org/clambin/go-common/cache v0.9.0 h1:hyhVIR2hHqnjR4rH2KfzgixSyKwMIum7O
 codeberg.org/clambin/go-common/cache v0.9.0/go.mod h1:/YVsYU5cQsyLqiNT4J/XNJllqM6ll975M/YsznARLIw=
 codeberg.org/clambin/go-common/flagger v0.3.0 h1:ffSFk4lK/ZiP4A+wrU1aw7HTCvMavwS6DFmXwY5ddh0=
 codeberg.org/clambin/go-common/flagger v0.3.0/go.mod h1:YKqJzGwddBMAf+FarywFRRddbdpGLjDEBhm42/qT/g4=
-codeberg.org/clambin/go-common/httputils v0.4.0 h1:od0VQh2u9p3t68HOcvBluSJPv8Iwhxvtyrqf41IOazA=
-codeberg.org/clambin/go-common/httputils v0.4.0/go.mod h1:NTKxWabvQ98JnG/U8NFW1L99b9x3H0JvFXamAyA3ZbA=
+codeberg.org/clambin/go-common/httputils v0.4.1 h1:bO75BivlknnjHVBTMSgaX2N8Wg1eUYvAuXqK4hIL7YE=
+codeberg.org/clambin/go-common/httputils v0.4.1/go.mod h1:Vy6yfq9HLMTHkjzh3aLnxkm+gFUZf/DpsT3ZnX9vxY8=
 codeberg.org/clambin/go-common/testutils v0.7.2 h1:6dwCCfhCRbUXPxwBtVMg3/Pi7wV2mS9ZN2ExUCtI11A=
 codeberg.org/clambin/go-common/testutils v0.7.2/go.mod h1:9tB1/HAyA9ypRrY/nCB1uCs/xXbArm/XOtLbUhD0W6g=
 dario.cat/mergo v1.0.2 h1:85+piFYR1tMbRrLcDwR18y4UKJ3aH1Tbzi24VRW1TK8=
@@ -207,8 +207,8 @@ golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e/go.mod h1:RxMgew5VJxzue5/jJ
 golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
-golang.org/x/sync v0.17.0 h1:l60nONMj9l5drqw6jlhIELNv9I0A4OFgRsG9k2oT9Ug=
-golang.org/x/sync v0.17.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=
+golang.org/x/sync v0.18.0 h1:kr88TuHDroi+UVf+0hZnirlk8o8T+4MrK6mr60WkH/I=
+golang.org/x/sync v0.18.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=
 golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
