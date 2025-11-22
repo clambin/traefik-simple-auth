@@ -3,7 +3,7 @@ on:
   push:
     branches-ignore:
       - main
-      - flagger
+      - fix
 permissions:
   contents: read
 jobs:
