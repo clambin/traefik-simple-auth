@@ -19,7 +19,7 @@ type Server struct {
 	csrfStateStore csrf.StateStore
 }
 
-// New returns a new Server that handles traefik's forward-auth requests, and the associated authn flow.
+// New returns a new Server that handles traefik's forward-auth requests and the associated authn flow.
 // It panics if config.Provider is invalid.
 func New(ctx context.Context, config Configuration, metrics metrics.RequestMetrics, logger *slog.Logger) Server {
 	logger = logger.With("provider", config.Provider)
@@ -75,7 +75,7 @@ func addServerRoutes(
 		),
 	))
 	mux.Handle(OAUTHPath,
-		// oAuth2CallbackHandler is called by the OAuth2 provider, so will not have a JWT cookie
+		// no JWT cookie, as this handler is called by the oauth2 provider
 		withMetrics(metrics)( // record request metrics
 			oAuth2CallbackHandler(authenticator, authorizer, oauthHandler, states, logger.With("handler", "authCallback")),
 		),

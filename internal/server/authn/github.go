@@ -37,7 +37,7 @@ func NewGitHubHandler(_ context.Context, clientID, clientSecret, authURL string,
 
 // GetUserEmailAddress returns the email address of the authenticated user.
 //
-// For GitHub, we first check the user's profile.  If the user's email address if marked as public, that email address is returned.
+// For GitHub, we first check the user's profile.  If the user's email address is marked as public, that email address is returned.
 // Otherwise, we check the different email addresses for that user. If one is marked as primary, that email address is returned.
 // Otherwise, we return the first email address in the list.
 func (h GitHubHandler) GetUserEmailAddress(ctx context.Context, code string) (string, error) {

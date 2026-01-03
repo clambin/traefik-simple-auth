@@ -1,10 +1,11 @@
 package testutils_test
 
 import (
-	"github.com/clambin/traefik-simple-auth/internal/testutils"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
+
+	"github.com/clambin/traefik-simple-auth/internal/testutils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestForwardAuthRequest(t *testing.T) {

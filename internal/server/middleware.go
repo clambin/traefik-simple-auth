@@ -16,7 +16,8 @@ type userInfo struct {
 	email string
 }
 
-// The authenticate middleware validates the JWT cookie from the request and adds the user's email & validation result to the request's context.
+// authenticate returns middleware that validates the JWT cookie from the request and
+// adds the user's email and validation result to the request's context.
 //
 // Note: even if the JWT token is invalid, we pass the request to the next layer.  This allows us to record HTTP metrics using the user
 // (from the JWT token). It's the responsibility of the application layer to check that the token is valid.

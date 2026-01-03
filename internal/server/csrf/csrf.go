@@ -8,15 +8,15 @@ import (
 	"errors"
 	"time"
 
-	gcc "codeberg.org/clambin/go-common/cache"
+	memcache "codeberg.org/clambin/go-common/cache"
 	"github.com/redis/go-redis/v9"
 )
 
 // Configuration options for a StateStore
 type Configuration struct {
-	// Redis contains the connectivity parameters for a redis service. If Addr is blank, a local, in-memory cache is used.
+	// Redis contains the connectivity parameters for a redis service. If Addr is blank, a local (in-memory) cache is used.
 	Redis RedisConfiguration
-	// TTL is the type to maintain a created state in the StateStore, i.e., the time we give the used to login in to their OAuth2 provider.
+	// TTL is the time to maintain a created state in the StateStore, i.e., the time we give the user to log in with their OAuth2 provider.
 	TTL time.Duration `flagger.usage:"Lifetime of a CSRF token"`
 }
 
@@ -84,7 +84,7 @@ type cache[T any] interface {
 func newCache[T any](configuration Configuration) cache[T] {
 	if configuration.Redis.Addr == "" {
 		return localCache[T]{
-			values: gcc.New[string, T](0, 0),
+			values: memcache.New[string, T](0, 0),
 		}
 	}
 	return redisCache[T]{
@@ -102,7 +102,7 @@ func newCache[T any](configuration Configuration) cache[T] {
 var _ cache[string] = &localCache[string]{}
 
 type localCache[T any] struct {
-	values *gcc.Cache[string, T]
+	values *memcache.Cache[string, T]
 }
 
 func (l localCache[T]) Add(_ context.Context, state string, value T, duration time.Duration) error {

@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// A Handler performs the OAuth2 handshake and get the email address for the authenticated user.
+// A Handler performs the OAuth2 handshake and gets the email address for the authenticated user.
 type Handler interface {
 	// AuthCodeURL generates the URL to use in the authn handshake.
 	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
@@ -17,7 +17,7 @@ type Handler interface {
 	GetUserEmailAddress(ctx context.Context, code string) (string, error)
 }
 
-// NewHandler returns a new Handler for the selected provider. Currently, GitHub, Google and generic OIDC are supported.
+// NewHandler returns a new Handler for the selected provider. Currently, GitHub, Google, and generic OIDC are supported.
 func NewHandler(ctx context.Context, provider, oidcServiceURL, clientID, clientSecret, authURL string, logger *slog.Logger) (Handler, error) {
 	switch provider {
 	case "github":

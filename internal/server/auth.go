@@ -13,7 +13,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// authenticator creates and validate JWT tokens inside a http.Cookie.
+// authenticator creates and validates JWT tokens inside an http.Cookie.
 type authenticator struct {
 	parser     *jwt.Parser
 	CookieName string
@@ -32,7 +32,7 @@ func newAuthenticator(cookieName string, domain string, secret []byte, expiratio
 	}
 }
 
-// Authenticate extracts the JWT from an http.Request, validates it and returns the User ID.
+// Authenticate extracts the JWT from an http.Request, validates it, and returns the User ID.
 // It returns an error if the JWT is missing or invalid.
 func (a *authenticator) Authenticate(r *http.Request) (string, error) {
 	// retrieve the cookie
@@ -63,7 +63,7 @@ func (a *authenticator) Authenticate(r *http.Request) (string, error) {
 	return userId, nil
 }
 
-// CookieWithSignedToken returns a http.Cookie with a signed token.
+// CookieWithSignedToken returns an http.Cookie with a signed token.
 func (a *authenticator) CookieWithSignedToken(userID string) (*http.Cookie, error) {
 	// Define claims
 	claims := jwt.MapClaims{
@@ -83,7 +83,7 @@ func (a *authenticator) CookieWithSignedToken(userID string) (*http.Cookie, erro
 	return a.Cookie(signedToken, a.Expiration), nil
 }
 
-// Cookie returns a new http.Cookie for the provided token, expiration time and domain.
+// Cookie returns a new http.Cookie for the provided token, expiration time, and domain.
 func (a *authenticator) Cookie(token string, expiration time.Duration) *http.Cookie {
 	return &http.Cookie{
 		Name:     a.CookieName,
@@ -104,7 +104,7 @@ var (
 )
 
 // The authorizer authorizes an HTTP request if the request comes from an authenticated user in the whitelist
-// and the URL is part of the configured Domain.
+// and if the URL is part of the configured Domain.
 type authorizer struct {
 	whitelist Whitelist
 	domain    Domain
@@ -119,7 +119,7 @@ func (a authorizer) AuthorizeRequest(r *http.Request) (string, error) {
 	return user, a.Authorize(user, r.URL)
 }
 
-// Authorize authorizes the user & target URL.
+// Authorize authorizes the user and target URL.
 func (a authorizer) Authorize(user string, u *url.URL) error {
 	if !a.whitelist.Match(user) {
 		return errInvalidUser
@@ -149,7 +149,7 @@ func NewWhitelist(emails []string) (Whitelist, error) {
 	return list, nil
 }
 
-// Match returns true if the email address is on the whitelist, or if the whitelist is empty.
+// Match returns true if the email address is on the whitelist or if the whitelist is empty.
 func (w *Whitelist) Match(email string) bool {
 	if len(*w) == 0 {
 		return true
@@ -184,11 +184,11 @@ func (w *Whitelist) Add(s ...string) error {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// A Domain groups a set of hostnames (e.g. .example.com covers www.example.com, www2.example.com, etc),
+// A Domain groups a set of hostnames (e.g. ".example.com" covers "www.example.com", "www2.example.com", etc),
 // that the authorizer should accept.
 type Domain string
 
-// NewDomain returns a new Domain.  If domain is not valid, an error is returned.
+// NewDomain returns a new Domain.  If the domain is not valid, an error is returned.
 func NewDomain(domain string) (Domain, error) {
 	domain = strings.TrimSpace(domain)
 	if domain == "" {

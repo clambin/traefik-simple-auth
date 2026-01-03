@@ -95,10 +95,12 @@ func logoutHandler(
 	})
 }
 
-// The oAuth2CallbackHandler implements the OAuth2 callback, initiated by forwardAuthHandler's redirectToAuth method.
-// It validates that the request came from us (by checking the state parameter), determines the user's email address,
-// checks that that user is on the whitelist, creates a JWT Cookie for the user and redirects the user to the
-// target that originally initiated the oauth flow.
+// The oAuth2CallbackHandler implements the OAuth2 callback, initiated by forwardAuthHandler's redirectToAuth method:
+// - Validate that the request came from us (by checking the state parameter)
+// - Determine the user's email address (using the code in the request)
+// - Check that that user is on the whitelist
+// - Create a signed JWT and store it in a cookie for the user
+// - Redirect the user to the target of the request that originally initiated the oauth flow
 func oAuth2CallbackHandler(
 	authenticator *authenticator,
 	authorizer authorizer,

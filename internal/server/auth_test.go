@@ -385,10 +385,10 @@ func TestDomain_Match(t *testing.T) {
 // BenchmarkDomains_Domain-10    	82262750	        14.60 ns/op	       0 B/op	       0 allocs/op
 func BenchmarkDomains_Domain(b *testing.B) {
 	domain, _ := NewDomain(".example.com")
-	b.ResetTimer()
+	u := url.URL{Host: "www.example.com"}
 	b.ReportAllocs()
 	for b.Loop() {
-		if ok := domain.Matches(&url.URL{Host: "www.example.com"}); !ok {
+		if ok := domain.Matches(&u); !ok {
 			b.Fatal("should match")
 		}
 	}
