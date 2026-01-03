@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -13,24 +14,40 @@ import (
 )
 
 func TestStateStore(t *testing.T) {
-	c := New(Configuration{
-		TTL: 500 * time.Millisecond,
+	synctest.Test(t, func(t *testing.T) {
+		cfg := Configuration{
+			TTL: 5 * time.Minute,
+		}
+		c := New(cfg)
+		ctx := t.Context()
+
+		// Ping the cache
+		assert.NoError(t, c.Ping(ctx))
+
+		// Add a new state
+		const value = "foo"
+		state, err := c.Add(ctx, value)
+		require.NoError(t, err)
+		// state is a hex-encoded string
+		_, err = hex.DecodeString(state)
+		assert.NoError(t, err)
+
+		// Validate the state
+		got, err := c.Validate(ctx, state)
+		require.NoError(t, err)
+		assert.Equal(t, value, got)
+
+		// A state can only be validated once
+		_, err = c.Validate(ctx, state)
+		require.ErrorIs(t, err, ErrNotFound)
+
+		// A state times out after the TTL duration
+		_, err = c.Add(ctx, value)
+		require.NoError(t, err)
+		time.Sleep(2 * cfg.TTL)
+		_, err = c.Validate(ctx, state)
+		require.ErrorIs(t, err, ErrNotFound)
 	})
-
-	ctx := t.Context()
-	state, err := c.Add(ctx, "foo")
-	require.NoError(t, err)
-	_, err = hex.DecodeString(state)
-	assert.NoError(t, err)
-
-	value, err := c.Validate(ctx, state)
-	require.NoError(t, err)
-	assert.Equal(t, "foo", value)
-
-	_, err = c.Validate(ctx, state)
-	require.ErrorIs(t, err, ErrNotFound)
-
-	assert.NoError(t, c.Ping(ctx))
 }
 
 func Test_cache(t *testing.T) {
@@ -61,8 +78,7 @@ func Test_cache(t *testing.T) {
 				t.Cleanup(func() { _ = c.Terminate(context.Background()) })
 			}
 
-			c := newCache[string](cfg)
-
+			c := New(cfg).cache
 			assert.NoError(t, c.Add(ctx, "key", "value", time.Hour))
 			value, err := c.GetDel(ctx, "key")
 			assert.NoError(t, err)

@@ -14,7 +14,8 @@ import (
 
 // Configuration options for a StateStore
 type Configuration struct {
-	// Redis contains the connectivity parameters for a redis service. If Addr is blank, a local (in-memory) cache is used.
+	// Redis contains the connectivity parameters for a redis service.
+	// If Addr is blank, a local (in-memory) cache is used.
 	Redis RedisConfiguration
 	// TTL is the time to maintain a created state in the StateStore, i.e., the time we give the user to log in with their OAuth2 provider.
 	TTL time.Duration `flagger.usage:"Lifetime of a CSRF token"`
@@ -44,9 +45,23 @@ type StateStore struct {
 
 // New returns a new StateStore.
 func New(configuration Configuration) StateStore {
+	var c cache[string]
+	if configuration.Redis.Addr == "" {
+		c = &localCache[string]{values: memcache.New[string, string](0, 0)}
+	} else {
+		c = &redisCache[string]{
+			Client: redis.NewClient(&redis.Options{
+				Addr:     configuration.Redis.Addr,
+				Username: configuration.Redis.Username,
+				Password: configuration.Redis.Password,
+				DB:       configuration.Redis.Database,
+			}),
+			Namespace: configuration.Redis.Namespace,
+		}
+	}
 	return StateStore{
 		ttl:   configuration.TTL,
-		cache: newCache[string](configuration),
+		cache: c,
 	}
 }
 
@@ -79,24 +94,6 @@ type cache[T any] interface {
 	Add(context.Context, string, T, time.Duration) error
 	GetDel(context.Context, string) (T, error)
 	Ping(context.Context) error
-}
-
-func newCache[T any](configuration Configuration) cache[T] {
-	if configuration.Redis.Addr == "" {
-		return localCache[T]{
-			values: memcache.New[string, T](0, 0),
-		}
-	}
-	return redisCache[T]{
-		Client: redis.NewClient(&redis.Options{
-			Addr:     configuration.Redis.Addr,
-			Username: configuration.Redis.Username,
-			Password: configuration.Redis.Password,
-			DB:       configuration.Redis.Database,
-		}),
-		Namespace: configuration.Redis.Namespace,
-	}
-
 }
 
 var _ cache[string] = &localCache[string]{}

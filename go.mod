@@ -1,6 +1,6 @@
 module github.com/clambin/traefik-simple-auth
 
-go 1.24.0
+go 1.25
 
 require (
 	codeberg.org/clambin/go-common/cache v0.9.0
