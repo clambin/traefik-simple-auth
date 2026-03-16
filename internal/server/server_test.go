@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
@@ -48,7 +47,7 @@ func TestForwardAuthHandler(t *testing.T) {
 			args: args{
 				target: "https://example.com",
 			},
-			want: http.StatusTemporaryRedirect,
+			want: http.StatusSeeOther,
 		},
 		{
 			name: "invalid domain",
@@ -132,7 +131,7 @@ func TestAuthCallbackHandler(t *testing.T) {
 		{
 			name:     "valid",
 			email:    "foo@example.com",
-			wantCode: http.StatusTemporaryRedirect,
+			wantCode: http.StatusSeeOther,
 		},
 		{
 			name:     "invalid email address",
@@ -242,36 +241,6 @@ func setupServer(ctx context.Context, t *testing.T, metrics metrics.RequestMetri
 	}
 	s := New(ctx, cfg, metrics, slog.New(slog.DiscardHandler))
 	return s.authenticator, s.csrfStateStore, oidcServer, s
-}
-
-// Before:
-// Benchmark_header_get/header.Get-10         	118507999	        10.14 ns/op	       0 B/op	       0 allocs/op
-// Benchmark_header_get/direct-10             	271895365	         4.396 ns/op	   0 B/op	       0 allocs/op
-func Benchmark_header_get(b *testing.B) {
-	const headerName = "X-Foo"
-	const headerValue = "bar"
-
-	r, _ := http.NewRequest(http.MethodGet, "/", nil)
-	r.Header.Set(headerName, headerValue)
-
-	b.Run("header.Get", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			if r.Header.Get(headerName) != headerValue {
-				b.Fatal("header not found")
-			}
-		}
-	})
-
-	b.Run("direct", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			vals := r.Header[headerName]
-			if len(vals) != 1 || vals[0] != headerValue {
-				b.Fatal("header not found:" + strings.Join(vals, ","))
-			}
-		}
-	})
 }
 
 // Current:

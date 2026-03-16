@@ -60,7 +60,7 @@ func forwardAuthHandler(
 		authCodeURL := oauthHandler.AuthCodeURL(encodedState, oauth2.SetAuthURLParam("prompt", "select_account"))
 		logger.Debug("redirecting", "authCodeURL", authCodeURL)
 		// TODO: possible clear the cookie, so it's removed from the user's browser?
-		http.Redirect(w, r, authCodeURL, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, authCodeURL, http.StatusSeeOther)
 	})
 }
 
@@ -154,7 +154,7 @@ func oAuth2CallbackHandler(
 		c, _ := authenticator.CookieWithSignedToken(user)
 		logger.Debug("sending cookie to user", "user", user, "cookie", c)
 		http.SetCookie(w, c)
-		http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, targetURL, http.StatusSeeOther)
 	})
 }
 

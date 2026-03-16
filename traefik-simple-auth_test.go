@@ -61,7 +61,7 @@ func Test_run(t *testing.T) {
 	// no cookie provided. server responds with a redirect, pointing to the oauth provider
 	code, location, err := doForwardAuth(&c, "http://localhost:8080/", nil)
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusTemporaryRedirect, code)
+	assert.Equal(t, http.StatusSeeOther, code)
 	assert.NotEmpty(t, location)
 
 	// call the oauth provider. this will redirect us to the authCallback flow
@@ -72,12 +72,12 @@ func Test_run(t *testing.T) {
 	oauthURL, err := url.Parse(location)
 	require.NoError(t, err)
 
-	// call the authCallback flow. RawQuery contains the code & state. this will redirect us back to the forwardAuth
-	// flow and gives us a session cookie.
+	// call the authCallback flow. RawQuery contains the code & state.
+	// this will give us a session cookie and redirect us back to the forwardAuth flow.
 	var cookie *http.Cookie
 	code, _, cookie, err = doDirect(&c, "http://localhost:8080"+oauthURL.Path+"?"+oauthURL.RawQuery, cfg.CookieName)
 	require.NoError(t, err)
-	assert.Equal(t, http.StatusTemporaryRedirect, code)
+	assert.Equal(t, http.StatusSeeOther, code)
 	require.NotNil(t, cookie)
 	assert.Equal(t, cfg.CookieName, cookie.Name)
 
@@ -105,7 +105,7 @@ func doForwardAuth(c *http.Client, target string, cookie *http.Cookie) (int, str
 	}
 	_ = resp.Body.Close()
 	var redirectURL string
-	if resp.StatusCode == http.StatusTemporaryRedirect {
+	if resp.StatusCode == http.StatusSeeOther {
 		redirectURL = resp.Header.Get("Location")
 	}
 
@@ -120,7 +120,7 @@ func doDirect(c *http.Client, target string, sessionCookieName string) (int, str
 	}
 	_ = resp.Body.Close()
 	var redirectURL string
-	if resp.StatusCode == http.StatusTemporaryRedirect || resp.StatusCode == http.StatusFound {
+	if resp.StatusCode == http.StatusSeeOther || resp.StatusCode == http.StatusFound {
 		redirectURL = resp.Header.Get("Location")
 	}
 	var cookie *http.Cookie

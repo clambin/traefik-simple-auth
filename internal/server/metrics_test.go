@@ -19,7 +19,7 @@ func TestServer_withMetrics(t *testing.T) {
 	r := testutils.ForwardAuthRequest(http.MethodGet, "https://example.com/foo")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
-	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
+	assert.Equal(t, http.StatusSeeOther, w.Code)
 
 	// no cookie: redirect (_oauth)
 	r, _ = http.NewRequest(http.MethodGet, "https://example.com/_oauth", nil)
@@ -55,7 +55,7 @@ func TestServer_withMetrics(t *testing.T) {
 # HELP http_requests_total total number of http requests
 # TYPE http_requests_total counter
 http_requests_total{code="200",host="example.com",path="/",provider="foo",user="foo@example.com"} 1
-http_requests_total{code="307",host="example.com",path="/",provider="foo",user=""} 1
+http_requests_total{code="303",host="example.com",path="/",provider="foo",user=""} 1
 http_requests_total{code="401",host="example.com",path="/_oauth",provider="foo",user=""} 1
 http_requests_total{code="403",host="example.com",path="/",provider="foo",user="bar@example.com"} 1
 http_requests_total{code="403",host="example.org",path="/",provider="foo",user="foo@example.com"} 1
