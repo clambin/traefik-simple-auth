@@ -11,6 +11,8 @@ import (
 )
 
 func TestHandler(t *testing.T) {
+	const authHeader = "X-Forwarded-User"
+
 	ln, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
 
@@ -18,7 +20,7 @@ func TestHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Forwarded-User") == "" {
+		if r.Header.Get(authHeader) == "" {
 			http.Error(w, "no user", http.StatusUnauthorized)
 		}
 	})
@@ -33,6 +35,6 @@ func TestHandler(t *testing.T) {
 
 	req, _ = http.NewRequest(http.MethodGet, "/", nil)
 	resp = httptest.NewRecorder()
-	forwardAuthHandler(target, "user").ServeHTTP(resp, req)
+	forwardAuthHandler(target, authHeader, "user").ServeHTTP(resp, req)
 	require.Equal(t, http.StatusOK, resp.Code)
 }

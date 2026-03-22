@@ -25,8 +25,15 @@ func forwardAuthHandler(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*request)(r))
 
-		// verify that the request is authorized
-		user, err := authorizer.AuthorizeRequest(r)
+		// authenticate the user
+		user, err := getUserInfo(r)
+
+		// if the user is authenticated, see if the user is authorized
+		if err == nil {
+			err = authorizer.Authorize(user, r.URL)
+		}
+
+		// if authorized, return with HTTP OK and set the user header
 		if err == nil {
 			logger.Debug("allowing valid request", "user", user)
 			w.Header().Set("X-Forwarded-User", user)
@@ -74,8 +81,15 @@ func logoutHandler(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Debug("request received", "request", (*request)(r))
 
-		// verify that the request is authorized
-		user, err := authorizer.AuthorizeRequest(r)
+		// authenticate the user
+		user, err := getUserInfo(r)
+
+		// if the user is authenticated, see if the user is authorized
+		if err == nil {
+			err = authorizer.Authorize(user, r.URL)
+		}
+
+		// if authorized, clear the cookie and return..
 		if err == nil {
 			// Write a blank cookie to override/clear the current valid one.
 			http.SetCookie(w, authenticator.Cookie("", 0))
@@ -84,12 +98,12 @@ func logoutHandler(
 			return
 		}
 
-		// if the request is not for an allowed user & domain, we return HTTP Forbidden
+		// if the request is not for an allowed user & domain, we return HTTP Forbidden.
+		// Otherwise, we return HTTP Unauthorized.
 		statusCode := http.StatusUnauthorized
 		if errors.Is(err, errInvalidUser) || errors.Is(err, errInvalidDomain) {
 			statusCode = http.StatusForbidden
 		}
-
 		logger.Warn("request rejected", "user", user, "host", r.URL.Host, "err", err)
 		http.Error(w, http.StatusText(statusCode), statusCode)
 	})
@@ -126,8 +140,7 @@ func oAuth2CallbackHandler(
 		// Use the "code" in the response to determine the user's email address.
 		user, err := oauthHandler.GetUserEmailAddress(r.Context(), r.FormValue("code"))
 		if err != nil {
-			var oauthErr *oauth2.RetrieveError
-			if errors.As(err, &oauthErr) {
+			if oauthErr, ok := errors.AsType[*oauth2.RetrieveError](err); ok {
 				logger.Warn("rejecting login request: failed to retrieve code",
 					"code", oauthErr.ErrorCode,
 					"desc", oauthErr.ErrorDescription,
