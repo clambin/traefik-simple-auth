@@ -3,7 +3,7 @@ module github.com/clambin/traefik-simple-auth
 go 1.26
 
 require (
-	codeberg.org/clambin/go-common/cache v0.9.0
+	codeberg.org/clambin/go-common/cache v0.10.0
 	codeberg.org/clambin/go-common/flagger v0.3.0
 	codeberg.org/clambin/go-common/httputils v0.4.1
 	github.com/coreos/go-oidc/v3 v3.17.0
