@@ -10,8 +10,8 @@
 
 A simple, up-to-date, re-implementation of traefik-forward-auth.
 
-## ⚠️ Breaking change in v0.12.0
-V0.12.0 changes the command line parameters.  See [Command line parameters](#command-line-parameters) for details.
+## ⚠️ Deprecated
+Replaced by [forward-auth](https://github.com/clambin/forward-auth).
 
 ## Contents
 
